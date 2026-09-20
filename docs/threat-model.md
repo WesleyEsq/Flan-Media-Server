@@ -40,7 +40,7 @@ Flan Media Server is designed to run on low-power Linux computers and single-boa
 
 + **Impact:** High. Unauthorized profile takeover.
 + **Mitigations:**
-  + **Progressive Rate Limiting:** Track failed PIN attempts per profile and per client IP address.
+  + **Progressive Rate Limiting:** Track failed PIN attempts per profile and per client IP address. Detailed rules are in [docs/rate-limiting.md](file:///home/wess/Documents/MechanicalSpeak/Flan-Media-Server/docs/rate-limiting.md).
   + **Lockout Schedule:** After 5 consecutive failed attempts, enforce a 5-minute lockout. Each subsequent failure doubles the delay.
   + **Bcrypt Storage:** PINs are never stored in plaintext. They are salted and hashed using bcrypt before being saved to SQLite.
 

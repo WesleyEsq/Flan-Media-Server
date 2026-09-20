@@ -9,6 +9,7 @@ This document details the architectural boundaries, dependency decoupling, and T
 A major flaw in legacy web systems is tight coupling to external dependencies: tests require spinning up real databases, creating temporary files on disk, or binding to real network sockets. Over time, these suites become painfully slow, flaky, and hard to maintain.
 
 Flan Media Server enforces three core testing rules:
+
 1. **Zero Disk I/O in Unit Tests:** Logic that interacts with media files runs against in-memory virtual filesystems, never touching physical disk storage.
 2. **Zero Database Coupling in Handlers:** HTTP handlers and business logic depend on narrow Go interfaces, not concrete SQLite connections (*sql.DB). Handlers are tested against lightweight in-memory mocks.
 3. **Sub-Second Execution:** The entire unit test suite must execute in under 100 milliseconds via `go test ./...`.
@@ -20,6 +21,7 @@ Flan Media Server enforces three core testing rules:
 Instead of writing tests that create real folders or copy dummy MP4 files on disk, the scanner and subtitle components depend on Go's standard `io/fs.FS` interface.
 
 ### The Production Interface
+
 ```go
 // internal/scraper/scanner.go
 func ScanDirectory(fileSystem fs.FS) ([]MediaCandidate, error) {
@@ -28,6 +30,7 @@ func ScanDirectory(fileSystem fs.FS) ([]MediaCandidate, error) {
 ```
 
 ### The In-Memory Unit Test
+
 In tests, use Go's standard `testing/fstest.MapFS` to construct a virtual directory in RAM:
 
 ```go
@@ -54,7 +57,8 @@ func TestScanDirectory_DetectsMediaAndSidecarSubtitles(t *testing.T) {
 }
 ```
 
-#### Why This Matters:
+#### Why This Matters
+
 + Runs in microseconds.
 + Cannot fail due to host file permissions or missing directories.
 + Requires no cleanup code (no os.RemoveAll, no temp directories).
@@ -66,6 +70,7 @@ func TestScanDirectory_DetectsMediaAndSidecarSubtitles(t *testing.T) {
 HTTP controllers (such as login, catalog viewing, and progress saving) do not accept `*sql.DB`. Instead, each package defines small, consumer-driven interfaces containing only the methods it actually uses.
 
 ### The Consumer Interface
+
 ```go
 // internal/handler/auth.go
 type UserStore interface {
@@ -77,6 +82,7 @@ type UserStore interface {
 ```
 
 ### The Unit Test Mock
+
 In unit tests, satisfy the interface with an inline mock struct:
 
 ```go
@@ -111,8 +117,9 @@ func TestLoginHandler_RejectsInvalidPIN(t *testing.T) {
 }
 ```
 
-#### Why This Matters:
-+ You test handler logic (cookie issuance, HTTP headers, error codes, rate limits) without needing a running database.
+#### Why
+
++ Testing handler logic (cookie issuance, HTTP headers, error codes, rate limits) without needing a running database.
 + Tests execute in sub-millisecond time with zero database lock contention.
 
 ---
@@ -135,6 +142,7 @@ func TestStreamHandler_HandlesMissingFile(t *testing.T) {
     }
 }
 ```
+
 + Tests the full HTTP pipeline: routing, context injection, query parameters, and middleware.
 + Completely memory-bound and network-free.
 
@@ -165,6 +173,7 @@ When implementing features in Flan Media Server, adhere to the red-green-refacto
 3. **Refactor:** Clean up code, remove duplication, and optimize while keeping tests green.
 
 ### Running Tests
+
 ```bash
 # Run all unit tests with execution timings
 go test -v ./...

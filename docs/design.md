@@ -51,6 +51,12 @@ Mixing movies, multi-season TV shows, and books on the same screen creates confu
    + Video cards show remaining duration (e.g. "35m left").
    + Book cards show page progress (e.g. "Page 120 of 340").
 
+### Profile Avatars & Customization
+Users can personalize their profile tiles:
++ **Curated Built-In Icons:** A collection of lightweight, embedded SVG icons included directly in the binary (Flan the hamster, popcorn bowl, retro TV, cat, dog, book, robot, and cassette tape).
++ **Custom Accent Colors:** Profiles pair their icon with a customizable background color (defaulting to soft lavender #bb9af7).
++ **Custom Uploads:** Users can also upload a personal photo or image to serve as their avatar.
+
 ---
 
 ## 4. Media Players: Video and Books
@@ -145,9 +151,11 @@ Flan Media Server supports scattered storage across multiple drives (SD, NVMe, U
 
 ---
 
-## 11. Memory and Concurrency Model (~15 to 20mb RAM)
+## 11. Memory, Concurrency & Stream Governor (~15 to 20mb RAM)
 
 + **Zero-Copy Streaming:** Video delivery uses Go's http.ServeContent, delegating byte transfers directly to Linux sendfile. Media data moves straight from kernel page cache to socket without touching the Go application heap.
++ **Stream Governor (Disk Thrashing Defense):** Limits active concurrent streams via semaphore (MAX_CONCURRENT_STREAMS=3). This protects mechanical USB hard drive read heads from seeking thrashing, guaranteeing stutter-free streaming.
++ **Traffic Rate Limiting:** Enforces five rate-limiting zones covering stream capacity, PIN brute-forcing, API token buckets, scan cooldowns, and scraper pacing. Complete details are in [docs/rate-limiting.md](file:///home/wess/Documents/MechanicalSpeak/Flan-Media-Server/docs/rate-limiting.md).
 + **Runtime Memory Ceilings:** GOMEMLIMIT=16MiB and GOGC=30 enforce disciplined garbage collection.
 + **Read-Only Binary Assets:** HTML templates, CSS, JS, and player libraries are embedded into the binary via embed.FS, residing in read-only memory rather than the application heap.
 + **Goroutines:** Each connection consumes ~2kb. 10 idle connections and 2 to 3 active streams consume less than 50kb of memory.
@@ -158,7 +166,7 @@ Flan Media Server supports scattered storage across multiple drives (SD, NVMe, U
 
 The database uses a clean, non-bloated three-table schema:
 
-+ **users:** User profiles with bcrypt-hashed PINs, avatar colors, roles (admin/user), and lockout tracking.
++ **users:** User profiles with bcrypt-hashed PINs, avatar icons and colors, roles (admin/user), and lockout tracking.
 + **media_items:** Central catalog table storing movies, TV episodes, and books with metadata, genres, and series hierarchy.
 + **playback_progress:** Per-user playback positions and completion status.
 

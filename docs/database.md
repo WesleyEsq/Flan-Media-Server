@@ -61,7 +61,8 @@ CREATE TABLE IF NOT EXISTS users (
     username         TEXT NOT NULL UNIQUE,
     pin_hash         TEXT NOT NULL,
     role             TEXT NOT NULL CHECK(role IN ('admin', 'user')),
-    avatar_color     TEXT DEFAULT '#bb9af7',
+    avatar_icon      TEXT DEFAULT 'flan',        -- Built-in icon name ('flan', 'popcorn', 'cat') or custom path
+    avatar_color     TEXT DEFAULT '#bb9af7',     -- Profile accent background color
     failed_attempts  INTEGER DEFAULT 0,
     locked_until     DATETIME,
     created_at       DATETIME DEFAULT CURRENT_TIMESTAMP

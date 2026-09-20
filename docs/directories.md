@@ -27,10 +27,16 @@ Flan-Media-Server/
 │   ├── storage.md          # Multi-drive architecture, mount defenses, and backup snapshots
 │   ├── scraper.md          # Web scraping pipeline, APIs, local cover storage, and tags
 │   ├── threat-model.md     # Security posture, attack vectors, and mitigations
+│   ├── rate-limiting.md    # Stream governor, API token buckets, and brute-force defenses
 │   ├── testing.md          # TDD guidelines, in-memory fs, and database decoupling
+│   ├── client/             # Web client UI design and component specs
+│   │   ├── design-system.md# Foundations, palette, navbar, and e-manual
+│   │   ├── pages.md        # Wireframes and interaction specs for all templates
+│   │   └── components.md   # Media cards, shelves, avatar tiles, and modals
 │   ├── directories.md      # Codebase organization and package guide
 │   └── diagrams/           # User flows and architectural diagrams
-│       └── user-flows.md   # Mermaid diagrams for setup, auth, streaming, intake
+│       ├── user-flows.md   # Mermaid diagrams for setup, auth, streaming, intake
+│       └── data-flow.md    # DFD and UML sequence diagrams for internal pipelines
 ├── tests/                  # Unit and integration tests
 ├── .env                    # Default environment configuration
 ├── LICENSE                 # Apache 2.0 License
@@ -97,13 +103,13 @@ Holds static client assets that are served directly to browsers under /static/:
 + **css:** Minimal, responsive stylesheet styled with a soft dark slate background and lavender accents.
 + **js:** Modular vanilla JavaScript modules. Includes api.js for backend communication, player.js for Plyr bindings and progress syncing, and reader.js for EPUB navigation.
 + **vendor:** Minimal embedded vendor libraries: Plyr for video and ePub.js for EPUB books.
-+ **assets:** Mascots, icons, and fallback cover images.
++ **assets:** Mascots, curated profile avatar icons (Flan hamster, popcorn, retro TV, cat, robot), and fallback covers.
 
 All templates and static assets are embedded into the Go binary using embed.FS, meaning the server can be deployed as a single standalone executable.
 
 ### docs
 
-Stores design specifications, complete database schemas and query procedures, multi-drive storage architecture, scraping engine designs, security threat models, TDD testing guidelines, architectural documentation, and user flow diagrams for the project.
+Stores design specifications, complete database schemas and query procedures, multi-drive storage architecture, scraping engine designs, security threat models, rate-limiting rules, TDD testing guidelines, web client design systems, architectural documentation, and user flow diagrams for the project.
 
 ### tests
 
