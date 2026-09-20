@@ -21,17 +21,17 @@ flowchart TD
     ValidatePath -- "No" --> Error["Show error message on setup page"]
     Error --> Form
 
-    ValidatePath -- "Yes" --> CreateAdmin["1. Hash PIN with bcrypt<br/>2. Create Admin user in SQLite<br/>3. Generate 16-char emergency recovery key<br/>4. Save primary library path"]
+    ValidatePath -- "Yes" --> CreateAdmin["1. Hash PIN with bcrypt<br/>2. Create Admin user in SQLite<br/>3. Save primary library path in .env"]
     CreateAdmin --> StartScan["Start background library scan"]
-    StartScan --> IssueSession["Issue HttpOnly session cookie"]
-    IssueSession --> Catalog["Redirect to Catalog / with recovery key prompt"]
+    StartScan --> IssueSession["Issue HMAC-signed session cookie"]
+    IssueSession --> Catalog["Redirect to Catalog /"]
 ```
 
 ---
 
 ## 2. Profile Selection and PIN Authentication
 
-Returning users see a friendly profile selection screen ("Who is watching?") and log in using their numeric PIN with brute-force protection.
+Returning users see a friendly profile selection screen ("Who is watching?") and log in using their numeric PIN with brute-force protection and signed session cookies.
 
 ```mermaid
 sequenceDiagram
@@ -59,13 +59,12 @@ sequenceDiagram
         Server->>Server: Verify bcrypt hash against entered PIN
 
         alt PIN is incorrect
-            Server->>Server: Increment failed attempts counter
+            Server->>Server: Increment failed attempts counter in DB
             Server-->>Browser: HTTP 401 Unauthorized (Invalid PIN)
         else PIN is correct
-            Server->>Server: Reset failed attempts counter
-            Server->>DB: Insert new session token (32 random bytes)
-            DB-->>Server: Session saved
-            Server-->>Browser: Set HttpOnly session cookie & redirect to /
+            Server->>Server: Reset failed attempts counter in DB
+            Server->>Server: Generate HMAC-signed cookie (user_id + timestamp)
+            Server-->>Browser: Set HttpOnly signed session cookie & redirect to /
         end
     end
 ```
@@ -80,7 +79,7 @@ Demonstrates zero-copy streaming using the Linux sendfile system call and how pl
 sequenceDiagram
     autonumber
     actor User
-    participant Browser as HTML5 Video Player
+    participant Browser as HTML5 Video Player (Plyr)
     participant Server as Flan Media Server
     participant DB as SQLite Database
     participant Kernel as Linux Kernel / VFS
@@ -89,7 +88,7 @@ sequenceDiagram
     Browser->>Server: GET /watch/{id}
     Server->>DB: Query media details and saved position
     DB-->>Server: Return title, duration, last position
-    Server-->>Browser: Render watch.html with video element
+    Server-->>Browser: Render watch.html with Plyr player
 
     Note over Browser,Server: Browser requests initial video chunk
     Browser->>Server: GET /stream/{id} with Range: bytes=0-
@@ -119,10 +118,11 @@ Flan Media Server supports both referencing existing media collections on the ho
 ```mermaid
 flowchart TD
     subgraph Local["Method A: Local Directory Scanning (Existing Collections)"]
-        A1["Admin adds folder path in Settings e.g. /mnt/storage/movies"] --> A2["Server validates directory existence and read permissions"]
+        A1["Admin adds folder path in .env e.g. /media"] --> A2["Server validates directory existence and read permissions"]
         A2 --> A3["Background worker walks directory tree recursively"]
-        A3 --> A4["Extract file size, format, and parse title/season/episode"]
-        A4 --> A5["Insert into media_items table (files stay in place on disk)"]
+        A3 --> A4["Check for local poster.jpg or cover.jpg first"]
+        A4 --> A5["Extract file size, format, duration, and title"]
+        A5 --> A6["Insert into media_items table (files stay in place on disk)"]
     end
 
     subgraph Remote["Method B: Admin Web Upload (Streaming Intake)"]
@@ -140,22 +140,13 @@ flowchart TD
 
 ## 5. Admin Account Recovery Flow
 
-Demonstrates the two paths for recovering the admin account if a PIN is forgotten.
+Demonstrates the straightforward host command-line failsafe for recovering the admin account if a PIN is forgotten.
 
 ```mermaid
 flowchart TD
-    Forgot["Admin forgot PIN"] --> Choice{"Recovery Method"}
-
-    Choice -- "Web Recovery" --> EnterKey["Click 'Forgot PIN' on login screen"]
-    EnterKey --> InputKey["Enter 16-character Emergency Recovery Key"]
-    InputKey --> VerifyKey{"Does key match recovery hash in DB?"}
-    VerifyKey -- "Yes" --> SetNewPin["Prompt to enter new PIN"]
-    SetNewPin --> UpdateDB["Update admin PIN in database and log in"]
-    VerifyKey -- "No" --> KeyDenied["Display Invalid Recovery Key"]
-
-    Choice -- "Terminal / SSH Access" --> Terminal["Access server shell via SSH or local terminal"]
+    Forgot["Admin forgot PIN"] --> Terminal["Access server shell via SSH or local terminal"]
     Terminal --> RunCLI["Run command: ./flan --reset-admin"]
     RunCLI --> Interactive["CLI prompts for new Admin PIN"]
-    Interactive --> DirectDB["Directly updates admin record in flan.db"]
-    DirectDB --> Done["Admin can now log in with the new PIN"]
+    Interactive --> DirectDB["Updates admin record directly in flan.db"]
+    DirectDB --> Done["Admin logs in with the new PIN"]
 ```

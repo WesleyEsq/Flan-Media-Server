@@ -25,12 +25,12 @@ Flan Media Server is designed to run on low-power Linux computers and single-boa
 * **Impact:** Critical. Complete exposure of the host operating system.
 * **Mitigations:**
   + **Opaque Numeric Identifiers:** The web client and streaming endpoints never accept file paths. All media requests use integer IDs (e.g. /stream/42).
-  + **Canonical Path Verification:** When looking up a media file from the database, the server resolves all symbolic links using filepath.EvalSymlinks and verifies that the resulting absolute path starts with one of the configured library root directories.
+  + **Canonical Path Verification:** When looking up a media file from the database, the server resolves all symbolic links using filepath.EvalSymlinks and verifies that the resulting absolute path starts with one of the configured media directory root paths.
   + **Static Asset Isolation:** Static files (HTML, CSS, JS) are embedded into the Go binary using embed.FS. The file server never serves from the operating system root.
 
 ---
 
-### Vector 2: PIN Brute-Forcing
+## Vector 2: PIN Brute-Forcing
 * **Threat:** Profiles are authenticated using 4 or 6-digit numeric PINs for usability on TVs and mobile devices. A 4-digit PIN has only 10,000 combinations (0000 to 9999), which an automated script could test within seconds over a local network.
 * **Impact:** High. Unauthorized profile takeover.
 * **Mitigations:**
@@ -40,7 +40,7 @@ Flan Media Server is designed to run on low-power Linux computers and single-boa
 
 ---
 
-### Vector 3: Disk Space Exhaustion (Denial of Service)
+## Vector 3: Disk Space Exhaustion (Denial of Service)
 * **Threat:** SBCs typically run on small micro-SD cards or flash drives (16gb to 64gb). An attacker or runaway upload could fill the storage partition, causing the Linux kernel to panic or system services to crash.
 * **Impact:** High. System unavailability.
 * **Mitigations:**
@@ -50,7 +50,7 @@ Flan Media Server is designed to run on low-power Linux computers and single-boa
 
 ---
 
-### Vector 4: File Type Confusion and Stored Script Execution
+## Vector 4: File Type Confusion and Stored Script Execution
 * **Threat:** An attacker uploads malicious HTML, SVG, or executable scripts disguised as media files, attempting to execute cross-site scripting (XSS) in an admin's browser session.
 * **Impact:** High. Session hijacking and administrative takeover.
 * **Mitigations:**
@@ -63,32 +63,31 @@ Flan Media Server is designed to run on low-power Linux computers and single-boa
 
 ---
 
-### Vector 5: Server-Side Request Forgery (SSRF) in Scraper
+## Vector 5: Server-Side Request Forgery (SSRF) in Scraper
 * **Threat:** If the cover and metadata scraper accepts arbitrary URLs from users, an attacker could instruct the server to make requests to internal network services (for example, hitting a router admin page at http://192.168.1.1).
 * **Impact:** Medium to High. Internal network reconnaissance.
 * **Mitigations:**
-  + **Hardcoded External Domains:** The scraper only queries trusted, hardcoded public API domains (such as The Movie Database or OpenLibrary).
+  + **Hardcoded External Domains:** The scraper only queries trusted, hardcoded public API domains (The Movie Database and OpenLibrary).
   + **Private IP Blocking:** The HTTP client used for scraping rejects any redirects or targets resolving to private, loopback, or link-local IP ranges (127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16).
 
 ---
 
-### Vector 6: Privilege Escalation
-* **Threat:** A standard household user attempts to call administrative endpoints to add library folders, trigger scans, or alter other user accounts.
+## Vector 6: Privilege Escalation
+* **Threat:** A standard household user attempts to call administrative endpoints to initiate scans or alter other user accounts.
 * **Impact:** Medium. Unauthorized configuration changes.
 * **Mitigations:**
-  + **Role Verification Middleware:** Endpoints that modify libraries, initiate scans, or manage users verify that the active session belongs to a user with the admin role.
-  + **Session Security:** Session tokens are 32 cryptographically random bytes generated via crypto/rand. Cookies are configured with HttpOnly, SameSite=Lax, and Secure flags when running over HTTPS.
+  + **Role Verification Middleware:** Endpoints that initiate scans, upload files, or manage users verify that the active session belongs to a user with the admin role.
+  + **HMAC-Signed Session Security:** Session cookies are cryptographically signed using HMAC-SHA256 with a server secret. Cookies are configured with HttpOnly, SameSite=Lax, and Secure flags when running over HTTPS.
 
 ---
 
 ## 3. Account Recovery and Failsafes
 
-Because the server runs locally without external email dependencies, account recovery uses a three-tier model:
+Because the server runs locally without external email dependencies, account recovery uses two straightforward mechanisms:
 
 1. **Standard Profile Recovery:** The admin can reset or change any standard user's PIN directly from the settings page.
-2. **Admin Emergency Key:** During first-time setup, the server generates a one-time emergency recovery key. The admin can use this key from the login screen to reset their PIN.
-3. **Command-Line Failsafe:** If the admin loses both their PIN and their recovery key, physical or SSH access to the host allows running:
+2. **Command-Line Failsafe:** If the admin forgets their PIN, physical or SSH access to the host allows running:
    ```bash
    ./flan --reset-admin
    ```
-   This resets the admin account directly in the local SQLite database.
+   This interactive command resets the admin account directly in the local SQLite database.

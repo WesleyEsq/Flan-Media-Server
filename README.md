@@ -10,7 +10,7 @@ To access your catalog, visit the client in your browser by entering the IP of y
 
 + **First run:** On first boot, the server opens a setup wizard at /setup where you create your admin profile, set a numeric PIN, and point to your media folder.
 + **Returning visits:** Shows a "Who is watching?" profile selector. Enter your PIN to access the catalog.
-+ **Account recovery:** If you forget your admin PIN, an emergency recovery key is provided during setup, or you can reset it directly from the host terminal using `./flan --reset-admin`.
++ **Account recovery:** If you forget your admin PIN, you can reset it directly from the host terminal using `./flan --reset-admin`. Regular profiles can be reset by the admin from the settings page.
 
 ## How to install
 
@@ -47,16 +47,18 @@ The server does the bare minimum to deliver video directly to the client without
 
 + Video delivery relies on the Linux sendfile system call via Go's standard library to transfer byte ranges directly from the filesystem to the network socket. This keeps media data off the application heap.
 + The server handles Partial Content requests so media players can seek and stream individual parts of files.
-+ Books and documents (EPUB, PDF) are delivered as direct file transfers with dedicated browser views.
++ Tailored media players: Plyr for video with subtitle support, native browser viewing for PDF documents, and an ePub.js web reader for EPUB books with direct download options.
++ Subtitles (.srt) are discovered directly on disk alongside videos and converted to WebVTT format on the fly with zero memory overhead.
++ TV shows are organized hierarchically (Series → Seasons → Episodes) so multi-episode seasons do not flood the main catalog grid.
 + Media intake supports both scanning existing folders in-place without moving files, and direct browser uploads for administrators that stream straight to disk without memory spikes.
 + Requests are handled using lightweight goroutines. Each idle connection consumes only about 2kb of memory, easily handling 10 idle connections and 2 to 3 active streams.
 + Go runtime limits like GOMEMLIMIT and GOGC keep the garbage collector disciplined so total memory stays within 15 to 20mb.
 
 ## Database and other dependencies
 
-+ **SQLite3:** Used to index the media catalog, track playback and reading progress, and store or reference cover art. Configured in WAL mode with a small 2mb page cache.
++ **SQLite3:** Uses a streamlined 3-table schema (users, media_items, playback_progress) running in WAL mode with a small 2mb page cache. Sessions use HMAC-signed cookies to avoid database hits on page visits.
 + **Web Client:** Built with Go html/template for multi-page rendering, along with modular vanilla JavaScript and CSS styled in a soft dark slate theme with lavender accents. The templates and static assets are embedded directly into the single binary with embed.FS, so no external assets need to be deployed.
-+ **Metadata & covers:** A lightweight scraping module fetches covers and metadata from the web over HTTPS.
++ **Metadata & covers:** Uses a local-first approach (checking for poster.jpg or embedded EPUB art first), falling back to TMDB for missing covers, ratings, and genre tags. Covers are stored locally for offline resilience. Administrators can also fix matches or upload custom covers manually.
 + **Libraries:** This project uses Apache 2.0 and all external libraries should use a similar license like MIT or BSD.
 
 ## Project background
@@ -74,8 +76,10 @@ The name comes from my hamster, Flan (custard in Spanish).
 3. Embedded multi-page web client using Go templates and vanilla JavaScript with soft dark and lavender styling.
 4. Media streaming endpoint supporting HTTP Range and Partial Content transfers.
 5. In-place library scanning and zero-memory admin file uploads.
-6. SQLite catalog tracking files, metadata, and watch progress.
-7. Unit and integration tests.
+6. Local-first scraping engine with TMDB fallback and admin manual override.
+7. Tailored media players (Plyr for video, native PDF iframe, ePub.js for books) and subtitle delivery.
+8. Streamlined 3-table SQLite catalog tracking files, metadata, and watch progress.
+9. Unit and integration tests.
 
 ---
 
