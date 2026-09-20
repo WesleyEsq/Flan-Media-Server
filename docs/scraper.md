@@ -125,9 +125,19 @@ Books/
 To protect the server's 15 to 20mb memory target and prevent network lockups:
 
 + **Concurrency Limits:** Only one scraping task runs at any time in a single background goroutine.
-+ **Request Throttling:** A ticker enforces a 350ms delay between consecutive API calls to stay within free API rate limits.
++ **Request Throttling:** A ticker enforces a 350ms delay between consecutive API calls to stay within free API rate limits, governed by [Zone E of the Rate Limiting Architecture](docs/rate-limiting.md).
 + **Timeout Protection:** Every outbound HTTP request uses a strict 10-second timeout via context.WithTimeout.
 + **Graceful Fallbacks:** If an item cannot be matched online or the server is running without an internet connection:
   + The display title defaults to the cleaned filename.
   + The cover defaults to an embedded SVG placeholder or an embedded hamster mascot graphic.
   + The item remains fully playable and can be manually edited later.
+
+---
+
+### Related Documentation
+
++ [Master System Specifications](docs/design.md)
++ [Five-Zone Rate Limiting Architecture](docs/rate-limiting.md)
++ [Security Threat Model & SSRF Defense](docs/threat-model.md)
++ [Database Schema & Catalog Queries](docs/database.md)
++ [Ingestion & Scraping Sequence Diagram](docs/diagrams/data-flow.md#4-ingestion--scraping-data-flow-uml-sequence)

@@ -118,3 +118,13 @@ SBCs in homelabs often suffer unexpected power loss when cords are bumped or pow
    VACUUM INTO 'data/flan.db.backup';
    ```
    This command creates an atomic, consistent hot copy of the database without locking active readers or writers. If a catastrophic corruption ever occurs, the administrator can restore from the backup file.
+
+---
+
+### Related Documentation
+
++ [Master System Specifications](docs/design.md)
++ [Database Schema & Wear-Leveling Pragmas](docs/database.md)
++ [Cross-Compilation & SBC Deployment Guide](docs/compilation.md)
++ [Five-Zone Rate Limiting Architecture](docs/rate-limiting.md)
++ [Security Threat Model & Mount Hijacking Defense](docs/threat-model.md)

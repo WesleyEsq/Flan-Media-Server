@@ -27,7 +27,7 @@ The server operates through direct streaming without on-the-fly transcoding, ker
 
 ## 3. User Experience & Design System
 
-The visual design is aimed at regular people who want an approachable, comfortable interface rather than a clinical dashboard or a harsh pitch-black screen.
+The visual design is aimed at regular people who want an approachable, comfortable interface rather than a clinical dashboard or a harsh pitch-black screen. Complete design tokens, components, and template wireframes are documented in [docs/client/design-system.md](docs/client/design-system.md), [docs/client/pages.md](docs/client/pages.md), and [docs/client/components.md](docs/client/components.md).
 
 ### Color Palette: Soft Dark with Lavender
 
@@ -214,3 +214,17 @@ Complete schema declarations, storage location advice for single-board computers
 + POST /api/upload : Admin-only streaming multipart upload endpoint.
 + POST /api/scan : Triggers an immediate re-scan of configured media folders.
 + POST /api/media/{id}/match : Admin manual metadata override ("Fix Match").
+
+---
+
+### Related Documentation
+
++ [System Directories & Package Anatomy](docs/directories.md)
++ [Database Schema & Storage Procedures](docs/database.md)
++ [Cross-Compilation & SBC Deployment Guide](docs/compilation.md)
++ [Storage Architecture & Mount Resiliency](docs/storage.md)
++ [Five-Zone Rate Limiting Architecture](docs/rate-limiting.md)
++ [Security Threat Model & Defensive Posture](docs/threat-model.md)
++ [Testing Strategy & TDD Guidelines](docs/testing.md)
++ [Data Flow & Sequence Diagrams](docs/diagrams/data-flow.md)
++ [User Flows & Navigation Journeys](docs/diagrams/user-flows.md)

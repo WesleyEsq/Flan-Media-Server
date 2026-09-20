@@ -23,6 +23,7 @@ Flan-Media-Server/
 │       └── assets/         # Mascots, icons, and default cover art
 ├── docs/                   # Specifications, architecture, and diagrams
 │   ├── design.md           # Full system specification and architecture
+│   ├── compilation.md      # Cross-compilation matrix and SBC deployment guide
 │   ├── database.md         # Database schema, storage location, and SQL query procedures
 │   ├── storage.md          # Multi-drive architecture, mount defenses, and backup snapshots
 │   ├── scraper.md          # Web scraping pipeline, APIs, local cover storage, and tags
@@ -111,8 +112,17 @@ All templates and static assets are embedded into the Go binary using embed.FS, 
 
 ### docs
 
-Stores design specifications, complete database schemas and query procedures, multi-drive storage architecture, scraping engine designs, security threat models, rate-limiting rules, TDD testing guidelines, web client design systems, architectural documentation, and user flow diagrams for the project.
+Stores design specifications, cross-compilation guides for single-board computers, complete database schemas and query procedures, multi-drive storage architecture, scraping engine designs, security threat models, rate-limiting rules, TDD testing guidelines, web client design systems, architectural documentation, and user flow diagrams for the project.
 
 ### tests
 
 Houses unit and integration tests, including tests for HTTP range handling, subtitle conversion, database queries, and media scanner behavior.
+
+---
+
+### Related Documentation
+
++ [Master System Specifications](docs/design.md)
++ [Database Schema & Wear-Leveling Pragmas](docs/database.md)
++ [Cross-Compilation & SBC Deployment Guide](docs/compilation.md)
++ [Testing Strategy & TDD Guidelines](docs/testing.md)

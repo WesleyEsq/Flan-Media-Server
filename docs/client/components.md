@@ -515,3 +515,11 @@ Used for the built-in e-manual, the admin upload dialog, and metadata editing.
     color: #12131a;
 }
 ```
+
+---
+
+### Related Documentation
+
++ [Web Client Design System & Tokens](design-system.md)
++ [Web Client Pages & Template Specifications](pages.md)
++ [Master System Specifications](../design.md)

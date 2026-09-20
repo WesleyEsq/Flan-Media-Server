@@ -195,3 +195,12 @@ To guarantee complete offline autonomy and eliminate external CDN dependencies, 
 1. **Zero External CDN Links:** Templates must never reference public CDNs (e.g. `cdn.jsdelivr.net`, `cdnjs`, Google Fonts). All resources resolve locally through `/static/vendor/...`.
 2. **Deterministic Offline Operation:** The client renders identically on air-gapped homelab local networks without internet connectivity.
 3. **Non-Invasive Theme Integration:** Vendor components are adapted using CSS custom property overrides (e.g. `--plyr-color-main: var(--accent-lavender)`), preserving unmodified upstream minified sources.
+
+---
+
+### Related Documentation
+
++ [Web Client Pages & Template Layouts](pages.md)
++ [Web Client Component Specifications](components.md)
++ [Master System Specifications](../design.md)
++ [User Flows & Client Navigation Diagrams](../diagrams/user-flows.md)

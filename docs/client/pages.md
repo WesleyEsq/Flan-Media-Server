@@ -378,3 +378,12 @@ The administrative control center for storage management, scanning, and user pro
 + **Scan Trigger:** Clicking `[ ⟳ Scan All Libraries ]` initiates a background scan and changes the button state to a disabled spinner with a 30-second cooldown timer.
 + **Upload Trigger:** Clicking `[ ⬆ Upload Files/Folder ]` opens the streaming upload modal with target drive selection.
 + **Profile Management:** Admin can add new household profiles, change avatars, and reset user PINs without terminal access.
+
+---
+
+### Related Documentation
+
++ [Web Client Design System & Foundations](design-system.md)
++ [Web Client Component Specifications](components.md)
++ [User Flows & Journey Diagrams](../diagrams/user-flows.md)
++ [Master System Specifications](../design.md)

@@ -130,3 +130,13 @@ This turns a 15-second brute-force attack on 10,000 combinations into an operati
 + **Tick Rate:** 350 milliseconds between outbound requests.
 + **Effective Rate:** ~2.8 requests per second.
 + **Queue:** Scraping jobs are processed sequentially in a single background goroutine. Even if 100 new movies are added simultaneously, the scraper queues them and meters requests safely below the standard 40-requests-per-10-seconds threshold of public APIs.
+
+---
+
+### Related Documentation
+
++ [Master System Specifications](docs/design.md)
++ [Security Threat Model & Attack Mitigations](docs/threat-model.md)
++ [Storage Architecture & Drive Resiliency](docs/storage.md)
++ [Scraping Engine & Throttled Pipeline](docs/scraper.md)
++ [Zero-Copy Video Streaming Sequence](docs/diagrams/data-flow.md#3-zero-copy-video-streaming-data-flow-uml-sequence)

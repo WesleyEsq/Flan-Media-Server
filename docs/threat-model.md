@@ -121,3 +121,13 @@ Because the server runs locally without external email dependencies, account rec
    ```
 
    This interactive command resets the admin account directly in the local SQLite database.
+
+---
+
+### Related Documentation
+
++ [Master System Specifications](docs/design.md)
++ [Five-Zone Rate Limiting Architecture](docs/rate-limiting.md)
++ [Storage Architecture & Mount Resiliency](docs/storage.md)
++ [Database Schema & Hardened Session Storage](docs/database.md)
++ [Admin File Upload Sequence Diagram](docs/diagrams/data-flow.md#6-admin-zero-memory-file-upload-data-flow)

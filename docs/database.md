@@ -292,3 +292,13 @@ PRAGMA quick_check;
 -- 2. Zero-lock hot snapshot executed daily in background
 VACUUM INTO 'data/flan.db.backup';
 ```
+
+---
+
+### Related Documentation
+
++ [Master System Specifications](docs/design.md)
++ [Storage Architecture & Mount Resiliency](docs/storage.md)
++ [Testing Strategy & TDD Decoupling](docs/testing.md)
++ [Security Threat Model & Session Hardening](docs/threat-model.md)
++ [Cross-Compilation & SBC Deployment Guide](docs/compilation.md)

@@ -26,18 +26,7 @@ To run with memory limits tuned for low-memory devices:
 GOMEMLIMIT=16MiB GOGC=30 ./flan
 ```
 
-You can also cross-compile directly for ARM boards like Raspberry Pi without needing external C cross-compilers:
-
-```bash
-# Raspberry Pi Zero / 1 (ARMv6)
-CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -o flan-armv6 ./cmd/flan
-
-# Raspberry Pi 2 / 3 (32-bit ARMv7)
-CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o flan-armv7 ./cmd/flan
-
-# Raspberry Pi 3 / 4 / 5 (64-bit ARM64)
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o flan-arm64 ./cmd/flan
-```
+For cross-compiling to single-board computers (Raspberry Pi Zero, 1, 2, 3, 4, 5) and hardware deployment tips, see the [Cross-Compilation & Hardware Guide](docs/compilation.md).
 
 Eventually, I will also configure an Alpine Linux Docker image for containerized deployment.
 
@@ -80,6 +69,16 @@ The name comes from my hamster, Flan (custard in Spanish).
 7. Tailored media players (Plyr for video, native PDF iframe, ePub.js for books) and subtitle delivery.
 8. Streamlined 3-table SQLite catalog tracking files, metadata, and watch progress.
 9. Unit and integration tests.
+
+## Documentation
+
+Full architectural and implementation specifications:
+
++ [Master System Specifications](docs/design.md)
++ [Directory Structure & Package Guide](docs/directories.md)
++ [Database Schema & Wear-Leveling Pragmas](docs/database.md)
++ [Cross-Compilation & SBC Deployment Guide](docs/compilation.md)
++ [Storage Architecture & Drive Resiliency](docs/storage.md)
 
 ---
 

@@ -150,3 +150,12 @@ flowchart TD
     Interactive --> DirectDB["Updates admin record directly in flan.db"]
     DirectDB --> Done["Admin logs in with the new PIN"]
 ```
+
+---
+
+### Related Documentation
+
++ [Data Flow & Sequence Diagrams](data-flow.md)
++ [Web Client Pages & Interaction Wireframes](../client/pages.md)
++ [Master System Specifications](../design.md)
++ [Security Threat Model & Account Recovery](../threat-model.md)
