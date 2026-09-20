@@ -6,7 +6,7 @@ Explains the software design of Flan Media Server in one summarized file.
 
 Flan Media Server is a lightweight media streaming server written in Go, specifically built for underpowered Linux devices like single-board computers (SBCs). The primary engineering constraint is keeping the operational footprint around 15 to 20mb RAM while serving 1 to 5 users and 2 to 3 active streams.
 
-The server operates through direct streaming without on-the-fly transcoding, kernel-level zero-copy data transfer, an embedded SQLite database with a streamlined three-table schema, server-rendered Go templates styled with a comfortable soft dark theme, and custom players for video and EPUB books.
+The server operates through direct streaming without on-the-fly transcoding, kernel-level zero-copy data transfer, an embedded SQLite database with a normalized multi-table relational schema, server-rendered Go templates styled with a comfortable soft dark theme, and custom players for video and EPUB books.
 
 ---
 
@@ -19,7 +19,7 @@ The server operates through direct streaming without on-the-fly transcoding, ker
   + Video: Vendored Plyr (lightweight HTML5 media player styled with custom CSS).
   + Books: Native browser PDF rendering via iframe/embed, and vendored ePub.js with JSZip for client-side EPUB reading with an immediate download option.
 + **Asset Packaging:** Go standard library embed.FS to package templates, styles, scripts, and vendored player assets directly into the single binary executable with zero external CDN dependencies.
-+ **Database:** SQLite3 managed through database/sql using the pure-Go modernc.org/sqlite driver (zero CGo, allowing direct cross-compilation to ARMv6, ARMv7, and ARM64). Uses Write-Ahead Logging (WAL) and limited page caching to keep memory low.
++ **Database:** SQLite3 managed through database/sql using the pure-Go modernc.org/sqlite driver (zero CGo, allowing direct cross-compilation to ARMv6, ARMv7, and ARM64). Uses Write-Ahead Logging (WAL), strict connection pool limits (`SetMaxOpenConns(1)`), and limited page caching (2mb) to keep memory low.
 + **Authentication:** Password/PIN hashing using bcrypt and HMAC-SHA256-signed session cookies backed by an automatically persisted 32-byte secret key (avoiding database reads on every page load).
 + **External Dependencies:** Kept to an absolute minimum, adhering to Apache 2.0, MIT, or BSD licensing.
 
@@ -49,7 +49,7 @@ Mixing movies, multi-season TV shows, and books on the same screen creates confu
    + **Books:** Standard 1:1.4 book cover aspect ratio with a subtle faux book spine shadow on the left edge.
 3. **Dedicated Progress Bars:**
    + Video cards show remaining duration (e.g. "35m left").
-   + Book cards show page progress (e.g. "Page 120 of 340").
+   + Book cards show reading progress (e.g. "Page 120 of 340" or "45%").
 
 ### Profile Avatars & Customization
 
@@ -71,7 +71,6 @@ The video viewing page (/watch/{id}) embeds a tailored instance of Plyr styled w
 
 + **Custom Accent:** CSS variable overrides (--plyr-color-main: #bb9af7) match the server theme.
 + **Controls:** Touch-friendly scrub bar, 10-second skip forward/backward buttons, playback speed selection (0.5x to 2x), and fullscreen toggle.
-+ **Subtitles:** Native support for WebVTT subtitle tracks with customizable text size and background styling.
 + **Auto-Resume Prompt:** If a user previously watched part of the video, a prominent prompt appears on start: "Resume from 24:12?".
 + **Progress Syncing:** player.js hooks into timeupdate events and sends a throttled update to POST /api/progress every 5 seconds.
 
@@ -83,12 +82,14 @@ The video viewing page (/watch/{id}) embeds a tailored instance of Plyr styled w
 
 ---
 
-## 5. Subtitle Handling (SRT to WebVTT)
+## 5. Multi-Directory Storage Architecture (Libraries)
 
-Because the server avoids on-the-fly video transcoding, subtitles cannot be burned into the video stream. Subtitles are delivered as separate text tracks via the HTML5 video player:
+Instead of relying on rigid, single-path environment configurations, Flan treats storage directories as first-class dynamic entities in SQLite via the `libraries` table:
 
-1. **Direct Disk Discovery:** When streaming a video, the server checks the host directory for sidecar subtitle files matching the video filename (for example, movie.mp4 and movie.en.srt or movie.es.vtt). No database entries are needed for subtitles.
-2. **On-The-Fly WebVTT Streaming Conversion:** Browsers strictly require the WebVTT format (.vtt). The dedicated `internal/subtitle` package converts SRT to WebVTT on the fly using a streaming `ConvertSRTToWebVTT(r io.Reader, w io.Writer) error` pipeline. The converter parses cue timestamps (`00:00:01,000` to `00:00:01.000`) and streams output chunks directly to the HTTP response with zero intermediate memory allocations or file writes.
+1. **Multi-Mount Flexibility:** Users can map separate storage pools or physical drives to designated library records (e.g. `/mnt/hdd1/movies` for movies, `/mnt/hdd2/tv` for shows, and `/mnt/nvme/books` for books).
+2. **Deterministic Typing:** Each library specifies its `media_type` (`movies`, `tv`, `books`). This eliminates guessing during library scanning and ensures accurate metadata scraping.
+3. **Graceful Defaults:** If `.env` leaves `MEDIA_DIR` blank or omitted, Flan boots without crashing and initializes default directories at `./media/movies`, `./media/tv`, and `./media/books` during the `/setup` wizard.
+4. **Dynamic Management:** Administrators can register or remove libraries dynamically via the `/settings` page and JSON API without needing to restart the daemon.
 
 ---
 
@@ -136,7 +137,7 @@ When the server boots with an empty database:
 
 + **Profile Selection ("Who is watching?"):** Users choose their profile tile and enter their 4 to 6-digit PIN.
 + **Brute-Force Lockout:** After 5 failed attempts, the profile is locked for 5 minutes with exponential backoff on further failures.
-+ **HMAC-Signed Session Cookies:** Authenticated sessions use signed cookies containing the payload `userID:role:issuedAt:signature` generated with HMAC-SHA256. Signatures are verified in constant time (`hmac.Equal`) on each request, eliminating database lookups on page views.
++ **HMAC-Signed Session Cookies:** Authenticated sessions use signed cookies containing the payload `userID:role:issuedAt:signature` generated with HMAC-SHA256. Signatures are verified in constant time (`hmac.Equal`) and checked against a 30-day expiration window, eliminating database lookups on page views.
 + **Persistent Secret Management:** The HMAC secret is loaded from `SESSION_SECRET` or read from a persistent `0600`-permission `.session_secret` file in the database directory (auto-generated on first boot via `crypto/rand`). This ensures user sessions remain valid across server restarts without manual intervention.
 + **Two-Tier Account Recovery:**
   1. **Standard Users:** Admin resets any user's PIN via the settings page.
@@ -146,12 +147,17 @@ When the server boots with an empty database:
 
 ## 10. File Intake Pipeline & Multi-Drive Resiliency
 
-Flan Media Server supports scattered storage across multiple drives (SD, NVMe, USB HDD):
+Flan Media Server supports scattered storage across multiple directories and drives (SD, NVMe, USB HDD):
 
-+ **Local In-Place Scanning:** The server crawls configured media directories recursively across any number of mount points (configured via MEDIA_DIRS). Files remain in place on disk, recorded with their full canonical paths.
++ **First-Class Libraries:** Storage folders are managed through the `libraries` table in SQLite, each assigned a specific `media_type` (`movies`, `tv`, `books`).
++ **Local In-Place Scanning:** The server crawls configured library paths recursively. Files remain in place on disk, recorded with paths relative to their library root.
++ **Deterministic Folder Structure:**
+  + Movies: `<library_path>/Movie Title (Year).mp4` or `<library_path>/Movie Title (Year)/Movie Title (Year).mp4`.
+  + TV Series: `<library_path>/<Series Title>/Season <NN>/<Series Title> - S<NN>E<NN> - <Title>.<ext>`.
+  + Books: `<library_path>/<Author>/<Book Title>.<ext>` or `<library_path>/<Book Title>.<ext>`.
 + **Mount Liveness Safeguard:** If an external drive disconnects or is unmounted, the scanner detects that the directory is empty or absent and skips it entirely, preserving the catalog in SQLite without wiping records. When a user streams an offline item, the server returns HTTP 503 Service Unavailable ("Media drive is offline").
-+ **Admin Web Uploads:** Administrators can upload files or folders via the web client. The modal allows selecting the target library drive, and the server checks free space via statfs on that specific filesystem before streaming incoming files directly to disk via r.MultipartReader and io.Copy.
-+ **Ghost Database Prevention:** Uses marker files (.flan-keep) to prevent accidentally creating empty databases on root boot drives when external mounts fail. Detailed multi-drive guidelines are in [docs/storage.md](file:///home/wess/Documents/MechanicalSpeak/Flan-Media-Server/docs/storage.md).
++ **Admin Web Uploads & Routing:** Administrators can upload files or folders via the web client. The modal allows selecting the target library. For TV shows, the modal captures Series Title and Season Number (or preserves folder structures via folder uploads), placing files directly into the correct season folder. The server validates free space via statfs before streaming incoming files directly to disk via `r.MultipartReader` in 32kb chunks.
++ **Ghost Database Prevention:** Uses marker files (.flan-keep) to prevent accidentally creating empty databases on root boot drives when external mounts fail. Detailed multi-drive guidelines are in [docs/storage.md](docs/storage.md).
 
 ---
 
@@ -159,7 +165,7 @@ Flan Media Server supports scattered storage across multiple drives (SD, NVMe, U
 
 + **Zero-Copy Streaming:** Video delivery uses Go's http.ServeContent, delegating byte transfers directly to Linux sendfile. Media data moves straight from kernel page cache to socket without touching the Go application heap.
 + **Stream Governor (Disk Thrashing Defense):** Limits active concurrent streams via semaphore (MAX_CONCURRENT_STREAMS=3). This protects mechanical USB hard drive read heads from seeking thrashing, guaranteeing stutter-free streaming.
-+ **Traffic Rate Limiting:** Enforces five rate-limiting zones covering stream capacity, PIN brute-forcing, API token buckets, scan cooldowns, and scraper pacing. Complete details are in [docs/rate-limiting.md](file:///home/wess/Documents/MechanicalSpeak/Flan-Media-Server/docs/rate-limiting.md).
++ **Traffic Rate Limiting:** Enforces five rate-limiting zones covering stream capacity, PIN brute-forcing, API token buckets, scan cooldowns, and scraper pacing. Complete details are in [docs/rate-limiting.md](docs/rate-limiting.md).
 + **Runtime Memory Ceilings:** GOMEMLIMIT=16MiB and GOGC=30 enforce disciplined garbage collection.
 + **Read-Only Binary Assets:** HTML templates, CSS, JS, and player libraries are embedded into the binary via embed.FS, residing in read-only memory rather than the application heap.
 + **Goroutines:** Each connection consumes ~2kb. 10 idle connections and 2 to 3 active streams consume less than 50kb of memory.
@@ -168,13 +174,17 @@ Flan Media Server supports scattered storage across multiple drives (SD, NVMe, U
 
 ## 12. Database Schema and Storage Strategy
 
-The database uses a clean, non-bloated three-table schema:
+The database uses a clean, normalized relational schema evaluated up to 4NF:
 
-+ **users:** User profiles with bcrypt-hashed PINs, avatar icons and colors, roles (admin/user), and lockout tracking.
-+ **media_items:** Central catalog table storing movies, TV episodes, and books with metadata, genres, and series hierarchy.
-+ **playback_progress:** Per-user playback positions and completion status.
++ **users:** Profiles with bcrypt-hashed PINs, avatars, roles, and lockout tracking.
++ **libraries:** Configured storage roots with explicit media types (`movies`, `tv`, `books`).
++ **movies:** Standalone films with release year, duration, rating, overview, and cover path.
++ **series & episodes:** Dedicated tables for TV series hierarchy and episode files.
++ **books:** Books and documents with author, overview, format, and cover path.
++ **genres & item_genres:** Normalized genres eliminating full-table string matching.
++ **video_progress & book_progress:** Dedicated progress tracking for videos (seconds) and books (EPUB CFI / PDF page counts).
 
-Complete schema declarations, storage location advice for single-board computers, and core query procedures are documented in [docs/database.md](file:///home/wess/Documents/MechanicalSpeak/Flan-Media-Server/docs/database.md).
+Complete schema declarations, storage location advice for single-board computers, and core query procedures are documented in [docs/database.md](docs/database.md).
 
 ---
 
@@ -183,37 +193,49 @@ Complete schema declarations, storage location advice for single-board computers
 ### Onboarding & Authentication
 
 + GET /setup : First-time setup wizard (disabled once users exist).
-+ POST /api/setup : Initializes admin account and primary library.
++ POST /api/setup : Initializes admin account and initial library.
 + GET /login : Renders profile selector and PIN entry screen.
 + POST /api/login : Validates PIN and issues signed session cookie.
 + POST /api/logout : Clears session cookie.
++ GET /api/users : Lists profile tiles for selector and settings.
++ POST /api/users : Admin creates new user profile.
++ PUT /api/users/{id} : Updates username, avatar icon, and avatar color.
++ PUT /api/users/{id}/pin : Changes or resets profile PIN.
++ DELETE /api/users/{id} : Admin deletes a user profile.
 
 ### Web Pages (Go Templates)
 
 + GET / : Main dashboard (Continue Watching, Continue Reading, Recent).
 + GET /videos : Videos catalog with Movies and TV tabs, and genre filter pills.
-+ GET /show/{title} : Series detail view with season tabs and episode lists.
++ GET /show/{id} : Series detail view with season tabs and episode lists.
 + GET /books : Books catalog with genre and author filters.
-+ GET /watch/{id} : Video player page with custom Plyr interface and subtitles.
++ GET /watch/{type}/{id} : Video player page with custom Plyr interface (`type`: `movie` or `episode`).
 + GET /read/{id} : Document viewer with native PDF iframe or ePub.js.
-+ GET /settings : Server settings, library paths, and user profiles.
++ GET /settings : Server settings, library management, storage health, and user profiles.
 
-### Media, Covers & Subtitle Streaming
+### Media & Covers Streaming
 
-+ GET /stream/{id} : Streams video/documents using HTTP 206 Partial Content and sendfile.
-+ GET /covers/{id} : Serves locally cached cover images with long-lived browser caching.
-+ GET /subtitles/{id} : Delivers WebVTT subtitle tracks (converting SRT on the fly).
++ GET /stream/{type}/{id} : Streams video/documents using HTTP 206 Partial Content and sendfile.
++ GET /covers/{type}/{id} : Serves locally cached cover images with long-lived browser caching.
 + GET /static/* : Serves embedded CSS, JS, player scripts, and icons.
 
-### Management API (JSON)
+### Management & Catalog APIs (JSON)
 
-+ GET /api/media : Lists catalog items (supports ?type=movie|tv|book&genre=...).
-+ GET /api/media/{id} : Retrieves single item metadata.
-+ GET /api/progress/{id} : Retrieves saved playback position for active user.
++ GET /api/libraries : Lists configured libraries with disk space stats.
++ POST /api/libraries : Admin registers a new library directory and media type.
++ DELETE /api/libraries/{id} : Admin removes a library directory.
++ POST /api/libraries/{id}/scan : Triggers an immediate re-scan of a specific library.
++ POST /api/scan : Triggers an immediate re-scan across all configured libraries.
++ POST /api/upload : Admin streaming multipart upload with library and series routing.
++ GET /api/movies : Lists standalone movies with optional genre filters.
++ GET /api/series : Lists TV series catalog cards.
++ GET /api/series/{id} : Retrieves single series with season list and episodes.
++ GET /api/books : Lists books with format and genre filters.
++ GET /api/progress/{type}/{id} : Retrieves saved playback or reading position.
 + POST /api/progress : Saves current playback position or completion status.
-+ POST /api/upload : Admin-only streaming multipart upload endpoint.
-+ POST /api/scan : Triggers an immediate re-scan of configured media folders.
-+ POST /api/media/{id}/match : Admin manual metadata override ("Fix Match").
++ PUT /api/media/{type}/{id} : Admin edits title, year, genres, overview.
++ POST /api/media/{type}/{id}/match : Admin manual metadata override ("Fix Match").
++ DELETE /api/media/{type}/{id} : Admin deletes item from catalog.
 
 ---
 

@@ -129,7 +129,6 @@ The manual uses the standard HTML `<dialog id="manual-dialog">` element:
 | `←` / `→` | Skip backward / forward 10 seconds |
 | `↑` / `↓` | Volume up / down (5% increments) |
 | `0` to `9` | Jump to 0% through 90% of duration |
-| `C` | Toggle subtitles on / off |
 
 #### Section 2: Supported Media Formats (Direct Play)
 
@@ -137,12 +136,11 @@ The server delivers files directly without transcoding. The manual explains requ
 
 + **Video:** MP4 container with H.264 video and AAC audio, or WebM container with VP9 video and Opus audio.
 + **Documents:** EPUB and PDF files.
-+ **Subtitles:** External `.srt` or `.vtt` files placed in the same folder with the same name as the video (e.g. `movie.mp4` and `movie.en.srt`).
 
 #### Section 3: Adding New Files
 
-+ Explains how to drop files into the configured media folder and click "Scan Library" in Settings, or use the Admin upload option.
-+ Notes standard file naming conventions: `Movie Title (Year).mp4` and `Show Title - S01E01.mp4`.
++ Explains how to drop files into a configured library directory and click "Scan Libraries" in Settings, or use the Admin upload option.
++ Notes standard file naming conventions: `Movie Title (Year).mp4` and `<Series>/Season <NN>/<Series> - S<NN>E<NN> - <Title>.mp4`.
 
 ---
 
@@ -186,7 +184,7 @@ To guarantee complete offline autonomy and eliminate external CDN dependencies, 
 
 | Package | Files | Version Target | License | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| **Plyr** | `plyr/plyr.min.js`<br>`plyr/plyr.css`<br>`plyr/plyr.svg` | v3.7+ | MIT | Lightweight HTML5 video player with custom CSS variable overrides (`--plyr-color-main`), WebVTT subtitle track rendering, and keyboard accessibility. |
+| **Plyr** | `plyr/plyr.min.js`<br>`plyr/plyr.css`<br>`plyr/plyr.svg` | v3.7+ | MIT | Lightweight HTML5 video player with custom CSS variable overrides (`--plyr-color-main`), responsive touch scrub bar, and keyboard accessibility. |
 | **ePub.js** | `epubjs/epub.min.js` | v0.3+ | BSD-2-Clause | Client-side EPUB unpacker and paginated reader for browser viewing. |
 | **JSZip** | `epubjs/jszip.min.js` | v3.10+ | MIT | In-browser zip archive decompression dependency required by ePub.js. |
 

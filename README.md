@@ -36,8 +36,8 @@ The server does the bare minimum to deliver video directly to the client without
 
 + Video delivery relies on the Linux sendfile system call via Go's standard library to transfer byte ranges directly from the filesystem to the network socket. This keeps media data off the application heap.
 + The server handles Partial Content requests so media players can seek and stream individual parts of files.
-+ Tailored media players: Plyr for video with subtitle support, native browser viewing for PDF documents, and an ePub.js web reader for EPUB books with direct download options.
-+ Subtitles (.srt) are discovered directly on disk alongside videos and converted to WebVTT format on the fly with zero memory overhead.
++ Tailored media players: Plyr for video direct streaming, native browser viewing for PDF documents, and an ePub.js web reader for EPUB books with direct download options.
++ Multi-directory libraries: Organize media across separate folders and storage drives (Movies, TV Shows, Books) with deterministic file structure and automatic directory health checks.
 + TV shows are organized hierarchically (Series → Seasons → Episodes) so multi-episode seasons do not flood the main catalog grid.
 + Media intake supports both scanning existing folders in-place without moving files, and direct browser uploads for administrators that stream straight to disk without memory spikes.
 + Requests are handled using lightweight goroutines. Each idle connection consumes only about 2kb of memory, easily handling 10 idle connections and 2 to 3 active streams.
@@ -45,7 +45,7 @@ The server does the bare minimum to deliver video directly to the client without
 
 ## Database and other dependencies
 
-+ **SQLite3:** Powered by the pure-Go driver (`modernc.org/sqlite`) for effortless cross-compilation without CGo. Uses a streamlined 3-table schema (users, media_items, playback_progress) running in WAL mode with a small 2mb page cache. Sessions use HMAC-signed cookies backed by a persistent secret key to avoid database hits on page visits.
++ **SQLite3:** Powered by the pure-Go driver (`modernc.org/sqlite`) for effortless cross-compilation without CGo. Uses a normalized relational schema (users, libraries, movies, series, episodes, books, genres, and dedicated video/reading progress tables) running in WAL mode with a small 2mb page cache. Sessions use HMAC-signed cookies backed by a persistent secret key to avoid database hits on page visits.
 + **Web Client:** Built with Go html/template for multi-page rendering, along with modular vanilla JavaScript and CSS styled in a soft dark slate theme with lavender accents. The templates and static assets are embedded directly into the single binary with embed.FS, so no external assets need to be deployed.
 + **Metadata & covers:** Uses a local-first approach (checking for poster.jpg or embedded EPUB art first), falling back to TMDB for missing covers, ratings, and genre tags. Covers are stored locally for offline resilience. Administrators can also fix matches or upload custom covers manually.
 + **Libraries:** This project uses Apache 2.0 and all external libraries should use a similar license like MIT or BSD.
@@ -60,14 +60,14 @@ The name comes from my hamster, Flan (custard in Spanish).
 
 ## MVP
 
-1. Basic HTTP server with port and directory configuration loaded from .env.
+1. Basic HTTP server with port and directory configuration loaded from .env and SQLite database.
 2. First-time onboarding wizard (/setup) and PIN profile authentication with brute-force rate limiting.
 3. Embedded multi-page web client using Go templates and vanilla JavaScript with soft dark and lavender styling.
 4. Media streaming endpoint supporting HTTP Range and Partial Content transfers.
-5. In-place library scanning and zero-memory admin file uploads.
+5. In-place multi-directory library scanning and zero-memory admin file uploads.
 6. Local-first scraping engine with TMDB fallback and admin manual override.
-7. Tailored media players (Plyr for video, native PDF iframe, ePub.js for books) and subtitle delivery.
-8. Streamlined 3-table SQLite catalog tracking files, metadata, and watch progress.
+7. Tailored media players (Plyr for video, native PDF iframe, ePub.js for books).
+8. Normalized SQLite catalog tracking libraries, movies, TV series, books, genres, and independent watch/read progress.
 9. Unit and integration tests.
 
 ## Documentation

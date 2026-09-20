@@ -19,9 +19,9 @@ The media card is the central building block of the interface. It represents a s
 
 ```html
 <article class="card card--video">
-    <a href="/watch/42" class="card__link">
+    <a href="/watch/movie/42" class="card__link">
         <div class="card__poster-wrap">
-            <img src="/covers/42" alt="Dune: Part Two" class="card__poster" loading="lazy">
+            <img src="/covers/movie/42" alt="Dune: Part Two" class="card__poster" loading="lazy">
             <span class="card__badge">4K</span>
             <!-- Progress Bar (Only rendered if position_seconds > 0) -->
             <div class="card__progress">

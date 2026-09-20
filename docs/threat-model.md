@@ -28,8 +28,8 @@ Flan Media Server is designed to run on low-power Linux computers and single-boa
 
 + **Impact:** Critical. Complete exposure of the host operating system.
 + **Mitigations:**
-  + **Opaque Numeric Identifiers:** The web client and streaming endpoints never accept file paths. All media requests use integer IDs (e.g. /stream/42).
-  + **Canonical Path Verification:** When looking up a media file from the database, the server resolves all symbolic links using filepath.EvalSymlinks and verifies that the resulting absolute path starts with one of the configured media directory root paths.
+  + **Opaque Numeric Identifiers:** The web client and streaming endpoints never accept file paths. All media requests use typed endpoints and integer IDs (e.g. `/stream/movie/42` or `/stream/episode/42`).
+  + **Canonical Path Verification:** When looking up a media file from the database, the server resolves all symbolic links using `filepath.EvalSymlinks` and verifies that the resulting absolute path starts with the verified root path of the library it belongs to (from the `libraries` table).
   + **Static Asset Isolation:** Static files (HTML, CSS, JS) are embedded into the Go binary using embed.FS. The file server never serves from the operating system root.
 
 ---

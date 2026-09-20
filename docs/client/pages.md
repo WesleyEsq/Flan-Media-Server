@@ -92,14 +92,14 @@ The primary video browsing view supporting tabbed filtering between standalone m
 
 #### Behavior & Interactions
 
-+ **Sub-Tabs:** Clicking Movies filters the query to standalone films (`series_id IS NULL`). Clicking TV Series groups results by series title, displaying one card per show.
++ **Sub-Tabs:** Clicking Movies queries the `movies` table. Clicking TV Series queries the `series` table, displaying one card per show.
 + **Genre Pills:** Clicking a genre pill appends `?genre=Animation` to the URL. The active genre pill displays with a solid lavender background (`--accent-lavender`).
 + **Responsive CSS Grid:** Cards wrap automatically across rows (`grid-template-columns: repeat(auto-fill, minmax(160px, 1fr))`), accommodating screens from 320px smartphones to 4K TVs.
-+ **Click Targets:** Clicking a movie card navigates to `/watch/{id}`. Clicking a TV series card navigates to `/show/{title}`.
++ **Click Targets:** Clicking a movie card navigates to `/watch/movie/{id}`. Clicking a TV series card navigates to `/show/{id}`.
 
 ---
 
-### Page 3: TV Series Detail View (`show.html` - Route: `GET /show/{title}`)
+### Page 3: TV Series Detail View (`show.html` - Route: `GET /show/{id}`)
 
 A dedicated view for television shows that organizes multiple seasons and episodes without cluttering the main catalog.
 
@@ -140,7 +140,7 @@ A dedicated view for television shows that organizes multiple seasons and episod
 
 + **Season Switcher:** Clicking a season tab filters the episode list in place. The active season tab is highlighted in lavender.
 + **Progress Badges:** Each episode displays an inline watch progress bar. Completed episodes show a subtle green checkmark badge (`[ ✓ ]`).
-+ **Direct Play:** Clicking anywhere on an episode row immediately launches `/watch/{media_id}`.
++ **Direct Play:** Clicking anywhere on an episode row immediately launches `/watch/episode/{episode_id}`.
 
 ---
 
@@ -176,9 +176,9 @@ The catalog view for PDF documents and EPUB books.
 
 ---
 
-### Page 5: Video Player View (`watch.html` - Route: `GET /watch/{id}`)
+### Page 5: Video Player View (`watch.html` - Route: `GET /watch/{type}/{id}`)
 
-A distraction-free, blacked-out viewing screen where media playback takes center stage.
+A distraction-free, blacked-out viewing screen where media playback takes center stage (`type`: `movie` or `episode`).
 
 #### Wireframe Layout
 
@@ -194,7 +194,7 @@ A distraction-free, blacked-out viewing screen where media playback takes center
 |  |   [ ▶ Resume from 24:12 ]      [ ↺ Start from Beginning ]       |  |
 |  |                                                                   |  |
 |  |-------------------------------------------------------------------|  |
-|  |  [▶] [10s↺] [10s↻]  00:24:12 / 02:46:00    [CC] [1.0x] [🔊] [⛶] |  |
+|  |  [▶] [10s↺] [10s↻]  00:24:12 / 02:46:00          [1.0x] [🔊] [⛶] |  |
 |  +-------------------------------------------------------------------+  |
 |                                                                         |
 +-------------------------------------------------------------------------+
@@ -204,7 +204,7 @@ A distraction-free, blacked-out viewing screen where media playback takes center
 
 + **Header Overlay:** A minimalist top bar containing a `[← Back]` button and the media title. Auto-hides after 3 seconds of mouse inactivity during playback.
 + **Auto-Resume Prompt:** If saved progress exists (`position_seconds > 10`), a flat modal overlay appears before playback starts asking whether to resume or start over.
-+ **Player Controls (Plyr):** Custom lavender accent (`--plyr-color-main: #bb9af7`), skip 10s buttons, playback speed options (0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x), and WebVTT subtitle track switcher.
++ **Player Controls (Plyr):** Custom lavender accent (`--plyr-color-main: #bb9af7`), skip 10s buttons, playback speed options (0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x), and fullscreen toggle.
 + **Progress Sync:** `player.js` emits a throttled `POST /api/progress` every 5 seconds. On video completion (`ended` event), marks `is_finished = 1`.
 
 ---
@@ -355,11 +355,11 @@ The administrative control center for storage management, scanning, and user pro
 |                                                                         |
 |  Library Folders                                                        |
 |  +--------------------------------------------------------------------+ |
-|  | /mnt/hdd1/movies (Videos)  •  342 files                            | |
-|  | /mnt/hdd2/tv (TV Shows)    •  18 shows, 214 episodes               | |
-|  | /mnt/nvme/books (Books)    •  48 books                             | |
+|  | /mnt/hdd1/movies (Movies)    •  342 films                            | |
+|  | /mnt/hdd2/tv (TV Shows)      •  18 shows, 214 episodes               | |
+|  | /mnt/nvme/books (Books)      •  48 books                             | |
 |  |                                                                    | |
-|  | [ ⟳ Scan All Libraries ]      [ ⬆ Upload Files/Folder ]            | |
+|  | [ ⟳ Scan All ]   [ + Add Library ]   [ ⬆ Upload Files/Folder ]     | |
 |  +--------------------------------------------------------------------+ |
 |                                                                         |
 |  User Profiles                                                          |
@@ -375,9 +375,13 @@ The administrative control center for storage management, scanning, and user pro
 
 #### Behavior & Interactions
 
-+ **Scan Trigger:** Clicking `[ ⟳ Scan All Libraries ]` initiates a background scan and changes the button state to a disabled spinner with a 30-second cooldown timer.
-+ **Upload Trigger:** Clicking `[ ⬆ Upload Files/Folder ]` opens the streaming upload modal with target drive selection.
-+ **Profile Management:** Admin can add new household profiles, change avatars, and reset user PINs without terminal access.
++ **Scan Triggers:** Clicking `[ ⟳ Scan All ]` triggers `POST /api/scan` across all configured libraries (with single-flight mutex and 30s cooldown). Individual libraries can also be scanned via `POST /api/libraries/{id}/scan`.
++ **Library Management:** Admin can click `[ + Add Library ]` to register an absolute host directory path, display name, and media type (`movies`, `tv`, or `books`) via `POST /api/libraries`. Libraries can be removed via `DELETE /api/libraries/{id}`.
++ **Upload Trigger & Routing:** Clicking `[ ⬆ Upload Files/Folder ]` opens the streaming upload modal:
+  + Target **Library** is chosen from a dropdown.
+  + For **TV Shows**, inputs for **Series Title** and **Season Number** are provided (or relative paths are parsed from folder uploads), saving files directly to `<library_path>/<Series Title>/Season <NN>/<file>`.
+  + Pre-upload check queries `statfs` on the selected filesystem (requires > 2 GB free).
++ **Profile Management:** Admin can add new household profiles (`POST /api/users`), change avatars (`PUT /api/users/{id}`), and reset user PINs (`PUT /api/users/{id}/pin`) without terminal access.
 
 ---
 

@@ -18,13 +18,13 @@ Flan Media Server enforces three core testing rules:
 
 ## 2. Decoupling the Filesystem: In-Memory Virtual FS
 
-Instead of writing tests that create real folders or copy dummy MP4 files on disk, the scanner and subtitle components depend on Go's standard `io/fs.FS` interface.
+Instead of writing tests that create real folders or copy dummy MP4 files on disk, the library scanner and media intake components depend on Go's standard `io/fs.FS` interface.
 
 ### The Production Interface
 
 ```go
 // internal/scraper/scanner.go
-func ScanDirectory(fileSystem fs.FS) ([]MediaCandidate, error) {
+func ScanDirectory(fileSystem fs.FS, mediaType string) ([]MediaCandidate, error) {
     // Walks fileSystem using fs.WalkDir
 }
 ```
@@ -34,14 +34,13 @@ func ScanDirectory(fileSystem fs.FS) ([]MediaCandidate, error) {
 In tests, use Go's standard `testing/fstest.MapFS` to construct a virtual directory in RAM:
 
 ```go
-func TestScanDirectory_DetectsMediaAndSidecarSubtitles(t *testing.T) {
+func TestScanDirectory_DetectsMediaAndLocalArtwork(t *testing.T) {
     mockFS := fstest.MapFS{
-        "movies/The Matrix (1999).mp4":    &fstest.MapFile{Data: []byte("fake video data")},
-        "movies/The Matrix (1999).en.srt": &fstest.MapFile{Data: []byte("1\n00:00:01,000 --> 00:00:04,000\nHello\n")},
-        "movies/poster.jpg":                &fstest.MapFile{Data: []byte("fake cover art")},
+        "The Matrix (1999).mp4": &fstest.MapFile{Data: []byte("fake video data")},
+        "poster.jpg":            &fstest.MapFile{Data: []byte("fake cover art")},
     }
 
-    candidates, err := ScanDirectory(mockFS)
+    candidates, err := ScanDirectory(mockFS, "movies")
     if err != nil {
         t.Fatalf("unexpected error: %v", err)
     }
@@ -155,12 +154,12 @@ Core business logic is isolated into pure functions that take inputs and return 
 1. **Filename Regex Sanitizer:**
    `CleanFilename(raw string) (title string, year int, season int, episode int)`
    Tested with table-driven tests against dozens of messy real-world filenames.
-2. **Subtitle Converter:**
-   `ConvertSRTToWebVTT(r io.Reader, w io.Writer) error`
-   Tested by streaming small strings through bytes.Buffer.
-3. **HTTP Range Parser:**
+2. **HTTP Range Parser:**
    `ParseByteRange(rangeHeader string, fileSize int64) (start int64, length int64, err error)`
    Tested with boundary conditions (open-ended ranges, invalid offsets).
+3. **EPUB Identifier & CFI Validator:**
+   `ValidateCFI(cfi string) bool`
+   Tested against valid and malformed Canonical Fragment Identifiers.
 
 ---
 

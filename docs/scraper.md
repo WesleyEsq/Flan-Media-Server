@@ -61,12 +61,12 @@ When external metadata is needed, the scraper queries lightweight REST APIs over
 
 When a remote cover image URL is identified:
 
-1. The server opens a destination file on local disk under the configured data directory: data/covers/{media_id}.jpg.
+1. The server opens a destination file on local disk under the configured data directory: `data/covers/{type}/{id}.jpg`.
 2. The remote image is fetched via an HTTPS GET request.
-3. The response body is copied directly to disk using io.Copy.
+3. The response body is copied directly to disk using `io.Copy`.
 4. The local file path is recorded in SQLite.
-5. Genres are stored directly as a clean, comma-separated string (e.g. "Animation, Sci-Fi") on the media_items record, allowing fast filtering via SQL without junction tables.
-6. Client browsers fetch covers from the local endpoint /covers/{id}.jpg, which serves files with long-lived browser caching headers (Cache-Control: public, max-age=31536000).
+5. Genres are inserted into the normalized `genres` and `item_genres` tables, enabling fast index lookups and genre filtering without full-table string scanning.
+6. Client browsers fetch covers from the local endpoint `/covers/{type}/{id}`, which serves files with long-lived browser caching headers (`Cache-Control: public, max-age=31536000`).
 
 ---
 
@@ -82,7 +82,7 @@ Automatic scrapers occasionally make mistakes, such as confusing a 1984 film wit
 
 ## 4. Supported File Naming Conventions
 
-To ensure high match accuracy, media files should adhere to standard naming conventions:
+To ensure high match accuracy, media files should adhere to standard naming conventions within their respective libraries:
 
 ### Movies
 
@@ -90,8 +90,7 @@ To ensure high match accuracy, media files should adhere to standard naming conv
 Movies/
 ├── The Matrix (1999)/
 │   ├── The Matrix (1999).mp4
-│   ├── poster.jpg                  # Optional local cover
-│   └── The Matrix (1999).en.srt    # Optional sidecar subtitle
+│   └── poster.jpg                  # Optional local cover
 └── Spirited Away (2001).mp4
 ```
 

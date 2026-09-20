@@ -48,7 +48,7 @@ To balance security and system stability without degrading the viewing experienc
 ### Zone A: The Concurrent Stream Governor (Mechanical Disk Defense)
 
 + **Protected Resource:** External USB 3.0 / SATA mechanical hard drive read heads.
-+ **Target Endpoint:** GET /stream/{id}
++ **Target Endpoint:** GET /stream/{type}/{id}
 + **Mechanism:** In-memory counting semaphore.
 + **Configuration:** MAX_CONCURRENT_STREAMS in the .env file (default: 3).
 
@@ -88,7 +88,7 @@ This turns a 15-second brute-force attack on 10,000 combinations into an operati
 ### Zone C: Inbound API Rate Limiting (CPU & Database Protection)
 
 + **Protected Resource:** SBC CPU cores and SQLite query processing.
-+ **Target Endpoints:** All JSON API routes (/api/media, /api/progress, /api/libraries).
++ **Target Endpoints:** All JSON API routes (/api/movies, /api/series, /api/books, /api/progress, /api/libraries, /api/users).
 + **Mechanism:** Token Bucket algorithm per client IP address (using Go's standard golang.org/x/time/rate).
 
 #### Parameters
@@ -96,14 +96,14 @@ This turns a 15-second brute-force attack on 10,000 combinations into an operati
 + **Sustained Rate:** 15 requests per second per IP.
 + **Burst Capacity:** 30 requests per IP.
 + **Memory Cleanup:** An in-memory cleaner runs every 5 minutes and evicts IP rate-limit records that have been idle for more than 5 minutes. This prevents the rate-limiter map from growing and consuming RAM.
-+ **Exemptions:** Static assets (CSS, JS, icons) and cached cover images (/covers/{id}) have a higher burst allowance (60 requests) so grid browsing never stutters.
++ **Exemptions:** Static assets (CSS, JS, icons) and cached cover images (/covers/{type}/{id}) have a higher burst allowance (60 requests) so grid browsing never stutters.
 
 ---
 
 ### Zone D: Heavy Operations Cooldown (Library Scans)
 
 + **Protected Resource:** Filesystem I/O and SQLite write transactions.
-+ **Target Endpoint:** POST /api/scan
++ **Target Endpoints:** POST /api/scan, POST /api/libraries/{id}/scan
 + **Mechanism:** Single-worker mutex with a trailing timestamp cooldown.
 
 #### Rules
