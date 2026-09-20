@@ -30,12 +30,14 @@ The server operates through direct streaming without on-the-fly transcoding, ker
 The visual design is aimed at regular people who want an approachable, comfortable interface rather than a clinical dashboard or a harsh pitch-black screen.
 
 ### Color Palette: Soft Dark with Lavender
+
 + **Background:** Deep charcoal and slate (#16161e and #1a1b26) to reduce eye strain in low-light environments without the harsh contrast of pure black.
 + **Accents & Highlights:** Soft muted lavender (#bb9af7 and #7aa2f7) for buttons, active tabs, and playback indicators.
 + **Cards & Surfaces:** Slightly lighter slate (#24283b) with subtle rounded corners and clean borders.
 + **Typography:** Clean system sans-serif fonts (Inter, system-ui) with high-contrast, off-white text (#c0caf5) for easy reading on TVs, tablets, and phones.
 
 ### Interface Division: Videos and Books
+
 Mixing movies, multi-season TV shows, and books on the same screen creates confusion. The interface separates media intuitively:
 
 1. **Top Navigation Tabs:**
@@ -56,7 +58,9 @@ Mixing movies, multi-season TV shows, and books on the same screen creates confu
 Default browser players look inconsistent across operating systems and lack critical media features. Flan provides tailored players while avoiding heavy library bloat:
 
 ### Custom Video Player (Plyr)
+
 The video viewing page (/watch/{id}) embeds a tailored instance of Plyr styled with the soft dark and lavender theme:
+
 + **Custom Accent:** CSS variable overrides (--plyr-color-main: #bb9af7) match the server theme.
 + **Controls:** Touch-friendly scrub bar, 10-second skip forward/backward buttons, playback speed selection (0.5x to 2x), and fullscreen toggle.
 + **Subtitles:** Native support for WebVTT subtitle tracks with customizable text size and background styling.
@@ -64,6 +68,7 @@ The video viewing page (/watch/{id}) embeds a tailored instance of Plyr styled w
 + **Progress Syncing:** player.js hooks into timeupdate events and sends a throttled update to POST /api/progress every 5 seconds.
 
 ### Document & Book Reading (Native PDF and Web ePub.js)
+
 + **PDF Documents:** Rendered directly using the browser's native PDF viewing engine via an iframe or embed element. This completely avoids bundling heavy PDF rendering engines (like the 8MB PDF.js distribution) into the server binary.
 + **EPUB Books:** The /read/{id} page embeds ePub.js to unpack and render chapters in the browser with dark mode styling, font size adjustments, and reading progress tracking. A prominent "Download EPUB" button allows users to open the book in their favorite native reading app on tablets or phones.
 
@@ -95,6 +100,7 @@ Treating every video file as an individual catalog item causes TV shows with doz
 The server enriches media with covers, ratings, and genre tags using a local-first approach. Detailed specifications are documented in [docs/scraper.md](file:///home/wess/Documents/MechanicalSpeak/Flan-Media-Server/docs/scraper.md).
 
 Key features:
+
 + **Local-First Covers:** The scanner first checks if a local poster image (poster.jpg, cover.jpg, or folder.jpg) exists in the media folder, or if an EPUB contains an embedded cover image. If found, it uses it immediately without any network calls.
 + **TMDB Fallback:** If no local cover exists, the server queries The Movie Database (TMDB) for movies and TV shows.
 + **Streamed Local Storage:** Downloaded covers are streamed directly from remote HTTPS connections to local disk storage (data/covers/{media_id}.jpg) and served locally with long-lived browser caching.
@@ -106,6 +112,7 @@ Key features:
 ## 8. First-Time Setup Wizard
 
 When the server boots with an empty database:
+
 1. Any request redirects to /setup.
 2. The setup wizard prompts for:
    + Admin username (e.g. Wesley).
@@ -148,6 +155,7 @@ Flan Media Server supports two intake methods:
 ## 12. Database Schema and Storage Strategy
 
 The database uses a clean, non-bloated three-table schema:
+
 + **users:** User profiles with bcrypt-hashed PINs, avatar colors, roles (admin/user), and lockout tracking.
 + **media_items:** Central catalog table storing movies, TV episodes, and books with metadata, genres, and series hierarchy.
 + **playback_progress:** Per-user playback positions and completion status.
@@ -159,6 +167,7 @@ Complete schema declarations, storage location advice for single-board computers
 ## 13. Server Endpoints
 
 ### Onboarding & Authentication
+
 + GET /setup : First-time setup wizard (disabled once users exist).
 + POST /api/setup : Initializes admin account and primary library.
 + GET /login : Renders profile selector and PIN entry screen.
@@ -166,6 +175,7 @@ Complete schema declarations, storage location advice for single-board computers
 + POST /api/logout : Clears session cookie.
 
 ### Web Pages (Go Templates)
+
 + GET / : Main dashboard (Continue Watching, Continue Reading, Recent).
 + GET /videos : Videos catalog with Movies and TV tabs, and genre filter pills.
 + GET /show/{title} : Series detail view with season tabs and episode lists.
@@ -175,12 +185,14 @@ Complete schema declarations, storage location advice for single-board computers
 + GET /settings : Server settings, library paths, and user profiles.
 
 ### Media, Covers & Subtitle Streaming
+
 + GET /stream/{id} : Streams video/documents using HTTP 206 Partial Content and sendfile.
 + GET /covers/{id} : Serves locally cached cover images with long-lived browser caching.
 + GET /subtitles/{id} : Delivers WebVTT subtitle tracks (converting SRT on the fly).
 + GET /static/* : Serves embedded CSS, JS, player scripts, and icons.
 
 ### Management API (JSON)
+
 + GET /api/media : Lists catalog items (supports ?type=movie|tv|book&genre=...).
 + GET /api/media/{id} : Retrieves single item metadata.
 + GET /api/progress/{id} : Retrieves saved playback position for active user.

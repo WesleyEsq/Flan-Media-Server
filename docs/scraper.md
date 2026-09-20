@@ -18,7 +18,7 @@ The scraping engine is responsible for enriching raw video and document files wi
 
 ## 2. The Four-Stage Scraping Pipeline
 
-```
+``` text
 [Raw File on Disk]
        ↓
 Stage 1: Local Art Check (poster.jpg / cover.jpg / embedded EPUB)
@@ -31,13 +31,17 @@ Stage 4: Streamed Cover Download & Metadata Insertion (SQLite)
 ```
 
 ### Stage 1: Local Art Check (Zero-Network Path)
+
 Before calling any external service, the scanner inspects the local directory:
+
 + For **Movies & TV:** Looks for poster.jpg, cover.jpg, or folder.jpg in the same directory as the media file.
 + For **EPUB Books:** Reads the internal EPUB zip directory to extract the embedded cover image (typically cover.jpeg or OEBPS/images/cover.jpg).
 + If local art is found, it is copied or linked to the local covers directory, and the file is indexed immediately with zero network latency.
 
 ### Stage 2: Clean Filename Parsing
+
 If no local metadata exists, raw filenames are sanitized using regular expressions to remove release artifacts, resolution tags, and encoding information:
+
 1. **Resolution & Source Stripping:** Removes 1080p, 720p, 4K, 2160p, WEBRip, BluRay, HDTV, and x264/x265 tags.
 2. **Audio & Group Stripping:** Removes AAC, DTS, DDP5.1, and bracketed release group names.
 3. **Token Extraction:**
@@ -45,6 +49,7 @@ If no local metadata exists, raw filenames are sanitized using regular expressio
    + **TV Show Pattern:** Detects Show Title, Season, and Episode from standard patterns like S01E05 or 1x05.
 
 ### Stage 3: External API Matchers
+
 When external metadata is needed, the scraper queries lightweight REST APIs over HTTPS using Go's standard library net/http:
 
 + **The Movie Database (TMDB):**
@@ -53,7 +58,9 @@ When external metadata is needed, the scraper queries lightweight REST APIs over
 + **Books:** For books lacking embedded covers, OpenLibrary is queried using the cleaned title.
 
 ### Stage 4: Streamed Cover Download & Metadata Storage
+
 When a remote cover image URL is identified:
+
 1. The server opens a destination file on local disk under the configured data directory: data/covers/{media_id}.jpg.
 2. The remote image is fetched via an HTTPS GET request.
 3. The response body is copied directly to disk using io.Copy.
@@ -78,7 +85,8 @@ Automatic scrapers occasionally make mistakes, such as confusing a 1984 film wit
 To ensure high match accuracy, media files should adhere to standard naming conventions:
 
 ### Movies
-```
+
+``` text
 Movies/
 ├── The Matrix (1999)/
 │   ├── The Matrix (1999).mp4
@@ -88,7 +96,8 @@ Movies/
 ```
 
 ### TV Shows
-```
+
+``` text
 TV Shows/
 └── Breaking Bad/
     ├── poster.jpg                  # Optional show cover
@@ -100,7 +109,8 @@ TV Shows/
 ```
 
 ### Books
-```
+
+``` text
 Books/
 ├── Frank Herbert/
 │   └── Dune.epub                   # Embedded cover auto-extracted
@@ -113,6 +123,7 @@ Books/
 ## 5. Resource Guardrails & Error Handling
 
 To protect the server's 15 to 20mb memory target and prevent network lockups:
+
 + **Concurrency Limits:** Only one scraping task runs at any time in a single background goroutine.
 + **Request Throttling:** A ticker enforces a 350ms delay between consecutive API calls to stay within free API rate limits.
 + **Timeout Protection:** Every outbound HTTP request uses a strict 10-second timeout via context.WithTimeout.

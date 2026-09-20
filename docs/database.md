@@ -9,12 +9,15 @@ This document details the SQLite database location, storage considerations for s
 The database runs on embedded SQLite3 via Go's database/sql package. Because the server frequently runs on SBCs (like Raspberry Pis) using micro-SD cards, where the database file resides and how it writes to disk requires careful planning.
 
 ### Where the Database Lives
+
 The database file location is configurable via the DB_PATH variable in the .env file:
+
 + **Local Development & Default:** data/flan.db (created automatically on first boot).
 + **Production Homelab / SBC:** /var/lib/flan/flan.db or ~/.local/share/flan/flan.db.
 + **Attached Storage Recommendation:** If an external USB hard drive or SSD is attached to the SBC for media files, placing the database on that external drive (e.g. /mnt/storage/flan.db) is strongly recommended. External drives offer significantly higher write endurance and faster random I/O than micro-SD cards.
 
 ### SQLite Performance and Wear-Leveling Pragmas
+
 When opening the database connection pool, the server applies these pragmas immediately:
 
 ```sql
@@ -27,7 +30,8 @@ PRAGMA foreign_keys = ON;
 PRAGMA wal_autocheckpoint = 1000;
 ```
 
-#### Why These Pragmas Matter:
+#### Why These Pragmas Matter
+
 + **WAL Mode (Write-Ahead Logging):** Enables non-blocking concurrent readers during write transactions. Video streaming and catalog browsing never block when playback progress or scraper results are being written.
 + **Synchronous Normal:** In WAL mode, synchronous normal is safe against application crashes and reduces the frequency of fsync disk calls, significantly extending the lifespan of micro-SD cards.
 + **Cache Size (-2000):** Strictly limits SQLite page cache to roughly 2mb of RAM, supporting the overall 15 to 20mb server memory budget.
@@ -106,6 +110,7 @@ CREATE INDEX IF NOT EXISTS idx_progress_updated ON playback_progress(user_id, up
 These are the primary database procedures needed by the server handlers:
 
 ### A. Dashboard Shelves (Continue Watching & Continue Reading)
+
 Retrieves media that the active user has started but not finished, ordered by most recently updated:
 
 ```sql
@@ -134,6 +139,7 @@ LIMIT 12;
 ---
 
 ### B. Catalog Filtering by Type and Genre
+
 Loads movies, TV series, or books, optionally filtered by genre keyword:
 
 ```sql
@@ -169,6 +175,7 @@ ORDER BY title ASC;
 ---
 
 ### C. TV Series Detail View (Seasons & Episodes)
+
 Retrieves all episodes for a specific series alongside watch progress for the current user:
 
 ```sql
@@ -190,6 +197,7 @@ ORDER BY m.season_number ASC, m.episode_number ASC;
 ---
 
 ### D. Playback Progress Upsert
+
 Updates playback progress atomically when the video player emits timeupdate pings:
 
 ```sql
@@ -205,6 +213,7 @@ ON CONFLICT(user_id, media_id) DO UPDATE SET
 ---
 
 ### E. PIN Authentication & Brute-Force Rate Limiting
+
 Procedures to validate users, enforce rate limiting, and reset lockouts:
 
 ```sql
@@ -236,6 +245,7 @@ WHERE role = 'admin';
 ---
 
 ### F. Library Scanning & Ingestion
+
 Procedures used by the background scanner:
 
 ```sql
