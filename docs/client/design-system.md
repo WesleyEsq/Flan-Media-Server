@@ -175,3 +175,23 @@ All client styling is consolidated into `web/static/css/style.css`:
        outline-offset: 2px;
    }
    ```
+
+---
+
+## 7. Embedded Third-Party Vendor Assets
+
+To guarantee complete offline autonomy and eliminate external CDN dependencies, third-party frontend libraries are vendored into `web/static/vendor/` and compiled directly into the executable via `embed.FS`.
+
+### Vendor Inventory & Responsibilities
+
+| Package | Files | Version Target | License | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| **Plyr** | `plyr/plyr.min.js`<br>`plyr/plyr.css`<br>`plyr/plyr.svg` | v3.7+ | MIT | Lightweight HTML5 video player with custom CSS variable overrides (`--plyr-color-main`), WebVTT subtitle track rendering, and keyboard accessibility. |
+| **ePub.js** | `epubjs/epub.min.js` | v0.3+ | BSD-2-Clause | Client-side EPUB unpacker and paginated reader for browser viewing. |
+| **JSZip** | `epubjs/jszip.min.js` | v3.10+ | MIT | In-browser zip archive decompression dependency required by ePub.js. |
+
+### Architectural Rules for Vendor Assets
+
+1. **Zero External CDN Links:** Templates must never reference public CDNs (e.g. `cdn.jsdelivr.net`, `cdnjs`, Google Fonts). All resources resolve locally through `/static/vendor/...`.
+2. **Deterministic Offline Operation:** The client renders identically on air-gapped homelab local networks without internet connectivity.
+3. **Non-Invasive Theme Integration:** Vendor components are adapted using CSS custom property overrides (e.g. `--plyr-color-main: var(--accent-lavender)`), preserving unmodified upstream minified sources.

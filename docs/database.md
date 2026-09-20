@@ -17,6 +17,7 @@ The database file location is configurable via the DB_PATH variable in the .env 
 + **Attached Storage Recommendation:** If an external USB hard drive or SSD is attached to the SBC for media files, placing the database on that external drive (e.g. /mnt/storage/flan.db) is strongly recommended. External drives offer significantly higher write endurance and faster random I/O than micro-SD cards. Detailed multi-drive guidelines are documented in [docs/storage.md](file:///home/wess/Documents/MechanicalSpeak/Flan-Media-Server/docs/storage.md).
 
 ### Ghost Database Prevention (.flan-keep)
+
 To prevent accidentally creating a fresh empty database on an unmounted boot drive when an external drive fails to mount at startup, Flan writes a hidden marker file (`.flan-keep`) in the database folder. If DB_PATH points to an external path and `.flan-keep` is absent, the server refuses to initialize a new database and halts with a fatal warning.
 
 ### SQLite Performance and Wear-Leveling Pragmas
@@ -40,6 +41,15 @@ PRAGMA wal_autocheckpoint = 1000;
 + **Cache Size (-2000):** Strictly limits SQLite page cache to roughly 2mb of RAM, supporting the overall 15 to 20mb server memory budget.
 + **Busy Timeout (5000ms):** Prevents SQLITE_BUSY errors during simultaneous progress updates by having Go automatically wait up to 5 seconds for write locks to clear.
 
+### Pure-Go Driver Selection (modernc.org/sqlite)
+
+To satisfy Flan's single-binary deployment model and seamless cross-compilation across heterogeneous SBC hardware (ARMv6, ARMv7, ARM64), the server utilizes the pure-Go SQLite driver `modernc.org/sqlite` instead of CGo-dependent alternatives (`github.com/mattn/go-sqlite3`).
+
+#### Rationale:
++ **Zero-Friction Cross-Compilation:** Cross-compiling for Raspberry Pi Zero/1 (`GOARCH=arm GOARM=6`) or Raspberry Pi 4/5 (`GOARCH=arm64`) requires zero host C cross-compilers or system header dependencies. Setting `CGO_ENABLED=0` produces an immutable, self-contained binary.
++ **Standard Database Interface:** Registers cleanly as a standard `database/sql` driver (`sqlite`), preserving idiomatic Go query semantics.
++ **Pragma Compatibility:** Fully honors all low-memory pragmas (`cache_size = -2000`, `journal_mode = WAL`, and `synchronous = NORMAL`), operating comfortably within the 15 to 20mb RAM target.
+
 ---
 
 ## 2. Streamlined Three-Table Schema
@@ -50,7 +60,9 @@ To avoid relational complexity, excessive joins, and write contention on low-spe
 2. **media_items:** Central catalog table storing movies, TV episodes, and books.
 3. **playback_progress:** Tracks current playback position and completion status per user.
 
-*Note on Sessions:* Session tokens are not stored in SQLite. Instead, the server uses HMAC-signed session cookies containing the user ID and expiration timestamp. This eliminates a database read on every HTTP request and removes the need for periodic session table cleanup.
+*Note on Sessions:* Session tokens are not stored in SQLite. Instead, the server uses stateless, HMAC-SHA256-signed session cookies containing the user ID, role, and expiration timestamp. This eliminates a database read on every HTTP request and removes the need for periodic session table cleanup. Key lifecycle:
++ **Configuration:** The server looks for a 32-byte hexadecimal `SESSION_SECRET` in the `.env` file or environment.
++ **Automatic Persistence:** If no secret is configured, the server inspects the database folder for a `.session_secret` file. If missing, it generates 32 cryptographically secure random bytes via `crypto/rand` and writes the file with restrictive `0600` permissions. This ensures active user sessions persist across daemon restarts without requiring manual administrator configuration.
 
 *Note on Subtitles:* Subtitles are not stored in SQLite. The server discovers sidecar subtitle files (.srt and .vtt) directly on disk in the same directory as the video.
 

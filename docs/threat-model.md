@@ -84,14 +84,17 @@ Flan Media Server is designed to run on low-power Linux computers and single-boa
 
 ---
 
-## Vector 6: Privilege Escalation
+## Vector 6: Privilege Escalation & Session Tampering
 
-+ **Threat:** A standard household user attempts to call administrative endpoints to initiate scans or alter other user accounts.
++ **Threat:** A standard household user attempts to call administrative endpoints to initiate scans or alter other user accounts, or attempts to forge/tamper with session cookies to elevate their role from `user` to `admin`.
 
-+ **Impact:** Medium. Unauthorized configuration changes.
++ **Impact:** High. Unauthorized administrative takeover.
 + **Mitigations:**
-  + **Role Verification Middleware:** Endpoints that initiate scans, upload files, or manage users verify that the active session belongs to a user with the admin role.
-  + **HMAC-Signed Session Security:** Session cookies are cryptographically signed using HMAC-SHA256 with a server secret. Cookies are configured with HttpOnly, SameSite=Lax, and Secure flags when running over HTTPS.
+  + **Role Verification Middleware:** Endpoints that initiate scans, upload files, or manage users strictly verify that the active session's authenticated user record carries the `admin` role.
+  + **HMAC-SHA256 Cryptographic Signing:** Session cookies use a tamper-proof payload formatted as `userID:role:issuedAt:signature`. Changing any token component invalidates the signature immediately.
+  + **Constant-Time Verification:** Cookie signatures are verified using Go's standard `crypto/hmac.Equal` to eliminate side-channel timing attacks during authentication verification.
+  + **Hardened Key Storage:** The 32-byte signing secret is loaded from `SESSION_SECRET` or read from a local `.session_secret` keyfile stored in the database folder. The keyfile is created with restrictive `0600` permissions (readable only by the daemon process user), preventing unauthorized local disclosure.
+  + **Cookie Security Flags:** Session cookies are strictly configured with `HttpOnly` (blocking JavaScript access), `SameSite=Lax` (preventing CSRF during cross-origin navigation), and `Secure` when TLS/HTTPS is active.
 
 ---
 

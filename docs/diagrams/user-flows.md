@@ -10,7 +10,7 @@ When the server runs for the first time with an empty database, it guides the ad
 
 ```mermaid
 flowchart TD
-    Start["User visits server at http://device-ip:4907"] --> CheckDB{"Are there any users in database?"}
+    Start["User visits server at http://<ip>:4907"] --> CheckDB{"Are there any users in database?"}
     CheckDB -- "No (Initial Boot)" --> RedirectSetup["Redirect to /setup"]
     CheckDB -- "Yes" --> ShowLogin["Redirect to Profile Selector /login"]
 

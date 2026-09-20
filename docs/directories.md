@@ -17,9 +17,9 @@ Flan-Media-Server/
 ├── web/                    # Embedded web assets (via embed.FS)
 │   ├── templates/          # Server-rendered Go HTML templates
 │   └── static/             # Static web files served at /static/
-│       ├── css/            # Stylesheets (soft dark theme with lavender accents)
-│       ├── js/             # Modular vanilla JS (API caller, player and reader wrappers)
-│       ├── vendor/         # Lightweight embedded player assets (Plyr, ePub.js)
+│       ├── vendor/         # Embedded offline client libraries (embed.FS)
+│       │   ├── plyr/       # plyr.min.js, plyr.css, plyr.svg
+│       │   └── epubjs/     # epub.min.js, jszip.min.js
 │       └── assets/         # Mascots, icons, and default cover art
 ├── docs/                   # Specifications, architecture, and diagrams
 │   ├── design.md           # Full system specification and architecture
@@ -79,7 +79,7 @@ Implements the local-first scraping pipeline:
 
 ### internal/subtitle
 
-Discovers sidecar subtitle files (.srt and .vtt) in the video directory on disk and provides on-the-fly conversion from SRT format to browser-compatible WebVTT format without database overhead.
+Discovers sidecar subtitle files (.srt and .vtt) alongside video files on disk using the `fs.FS` interface. Implements a streaming `ConvertSRTToWebVTT(r io.Reader, w io.Writer) error` pipeline that parses and normalizes cue timing on the fly without intermediate disk writes or memory buffers.
 
 ### web/templates
 
@@ -100,9 +100,11 @@ Contains the Go HTML templates used to render web pages:
 
 Holds static client assets that are served directly to browsers under /static/:
 
-+ **css:** Minimal, responsive stylesheet styled with a soft dark slate background and lavender accents.
-+ **js:** Modular vanilla JavaScript modules. Includes api.js for backend communication, player.js for Plyr bindings and progress syncing, and reader.js for EPUB navigation.
-+ **vendor:** Minimal embedded vendor libraries: Plyr for video and ePub.js for EPUB books.
++ **css:** Minimal, responsive stylesheet styled with a soft dark slate background and lavender accents (`style.css`).
++ **js:** Modular vanilla JavaScript modules. Includes `api.js` for backend communication, `player.js` for Plyr bindings and progress syncing, and `reader.js` for EPUB navigation.
++ **vendor:** Self-contained, offline third-party client dependencies:
+  + `vendor/plyr/`: Minimal bundle (`plyr.min.js`, `plyr.css`, `plyr.svg`) for media streaming and subtitle rendering.
+  + `vendor/epubjs/`: Client-side EPUB rendering engine (`epub.min.js`) and archive decompression utility (`jszip.min.js`).
 + **assets:** Mascots, curated profile avatar icons (Flan hamster, popcorn, retro TV, cat, robot), and fallback covers.
 
 All templates and static assets are embedded into the Go binary using embed.FS, meaning the server can be deployed as a single standalone executable.

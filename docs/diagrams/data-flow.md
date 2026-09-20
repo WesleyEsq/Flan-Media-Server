@@ -1,44 +1,62 @@
 # Data Flow & Architecture Diagrams
 
-This document visualizes the internal and external data flows of Flan Media Server using standard UML sequence diagrams and Data Flow Diagrams (DFD) rendered with Mermaid.
+This document visualizes the internal and external data flows using standard UML sequence diagrams and Data Flow Diagrams (DFD) rendered with Mermaid.
 
 ---
 
-## 1. Context Data Flow Diagram (Level 0 DFD)
+## 1. Context Data Flow Architecture (Level 0 DFD)
 
-Illustrates the high-level boundary between external entities (browsers, filesystem drives, and metadata providers) and the core Flan Media Server process.
+Illustrates the high-level boundaries between external actors, upstream providers, host storage tiers, and the core Flan Media Server daemon process.
 
 ```mermaid
-flowchart TD
-    subgraph Entities["External Entities"]
-        Client["Client Browser (Phone, TV, Laptop)"]
-        Admin["Administrator"]
-        TMDB["The Movie Database (TMDB API)"]
-        MediaDrives["Bulk Media Storage (USB HDD / SATA)"]
-        AppData["Fast Storage (NVMe / SD Card)"]
+flowchart LR
+    subgraph Clients["Clients & Users"]
+        direction TB
+        Browser["Client Browsers<br/>(TV, Mobile, Desktop)"]
+        Admin["Administrator<br/>(Setup & Intake)"]
     end
 
-    subgraph Flan["Flan Media Server Process"]
-        ServerCore["Flan Media Server Daemon"]
+    subgraph Core["Flan Media Server Process"]
+        Daemon["Flan Daemon (:4907)<br/>• net/http & HTML Engine<br/>• Stream Governor Semaphore<br/>• SQLite WAL Persistence"]
     end
 
-    Client -- "1. HTTP Request (Page Views, Range Headers)" --> ServerCore
-    ServerCore -- "2. Streamed Media Bytes (sendfile 206 Partial)" --> Client
-    ServerCore -- "3. Server-Rendered HTML & Embedded Assets" --> Client
-    Client -- "4. Playback Progress Sync (POST /api/progress)" --> ServerCore
+    subgraph External["External Cloud Services"]
+        TMDB["TMDB / OpenLibrary<br/>(Metadata & Covers)"]
+    end
 
-    Admin -- "5. First-Time Setup & Settings Configuration" --> ServerCore
-    Admin -- "6. Streaming File Uploads (POST /api/upload)" --> ServerCore
+    subgraph Storage["Host Storage Tiers"]
+        direction TB
+        AppData["App Storage (NVMe / SD)<br/>• flan.db (WAL Mode)<br/>• data/covers/"]
+        BulkMedia["Bulk Storage (USB / SATA)<br/>• Video & Document Libraries<br/>• Sidecar Subtitles"]
+    end
 
-    ServerCore -- "7. Cleaned Title/Year Search (HTTPS)" --> TMDB
-    TMDB -- "8. Metadata, Ratings & Cover Image URLs" --> ServerCore
+    %% Client Interactions
+    Browser -->|"1. HTTP Range & Progress"| Daemon
+    Daemon -->|"2. 206 Partial (sendfile) & UI"| Browser
 
-    ServerCore -- "9. Direct Zero-Copy Read (Kernel VFS)" --> MediaDrives
-    ServerCore -- "10. Stream Uploaded Files (32kb chunks)" --> MediaDrives
+    %% Admin Interactions
+    Admin -->|"3. Setup & Multipart Uploads"| Daemon
+    Daemon -->|"4. Admin Views & Status"| Admin
 
-    ServerCore -- "11. Read/Write SQLite Queries (WAL Mode)" --> AppData
-    ServerCore -- "12. Save Downloaded Artwork (data/covers/)" --> AppData
+    %% Upstream Metadata
+    Daemon <-->|"5. Throttled HTTPS Queries & Posters"| TMDB
+
+    %% Storage Interactions
+    Daemon <-->|"6. Read/Write SQLite & Covers"| AppData
+    Daemon <-->|"7. Zero-Copy Reads & Chunked Writes"| BulkMedia
 ```
+
+### Context Data Flow Specification
+
+| Ref | Channel | Direction | Protocol / Mechanism | Description & Payload |
+| :--- | :--- | :--- | :--- | :--- |
+| **1** | Client Inbound | Browser → Daemon | HTTP/1.1 (TCP :4907) | Page navigation, user PIN authentication, HTTP Range requests (`bytes=start-end`), and throttled playback progress (`POST /api/progress`). |
+| **2** | Client Outbound | Daemon → Browser | HTTP 200 / 206 Partial | Server-rendered HTML templates with embedded CSS/JS, WebVTT subtitles, and zero-copy byte ranges streamed via Linux `sendfile`. |
+| **3** | Admin Inbound | Admin → Daemon | HTTP/1.1 | Initial onboarding setup (`/setup`), library scan triggers (`/api/scan`), and multipart file uploads streamed in 32kb chunks (`/api/upload`). |
+| **4** | Admin Outbound | Daemon → Admin | HTTP 200 / JSON | Server settings interface, hardware storage stats, scan task progress, and upload status responses. |
+| **5** | Upstream Scraper | Daemon ↔ TMDB | HTTPS (Throttled ~2.8 req/s) | Outbound cleaned title queries to TMDB/OpenLibrary; inbound JSON metadata (ratings, overviews, genres) and streamed cover images. |
+| **6** | App Persistence | Daemon ↔ App Storage | POSIX File I/O & SQLite WAL | Fast random I/O: SQLite transactions (`flan.db`) with 2mb page cache, `.flan-keep` mount verification, and local artwork storage (`data/covers/`). |
+| **7** | Media Storage | Daemon ↔ Bulk Storage | Linux VFS / Kernel `sendfile` | Sequential media reads via kernel zero-copy transfer to network sockets, and direct socket-to-disk 32kb writes during admin uploads. |
 
 ---
 

@@ -16,11 +16,11 @@ The server operates through direct streaming without on-the-fly transcoding, ker
 + **Network & HTTP:** Go standard library net/http. No third-party web frameworks are used.
 + **Web Client:** Go standard library html/template for multi-page server rendering, paired with modular vanilla JavaScript and CSS.
 + **Players:**
-  + Video: Plyr (lightweight HTML5 media player styled with custom CSS).
-  + Books: Native browser PDF rendering via iframe/embed, and ePub.js for client-side EPUB reading with an immediate download option.
-+ **Asset Packaging:** Go standard library embed.FS to package templates, styles, scripts, and player assets directly into the single binary executable.
-+ **Database:** SQLite3 managed through database/sql. Uses Write-Ahead Logging (WAL) and limited page caching to keep memory low.
-+ **Authentication:** Password/PIN hashing using bcrypt and HMAC-signed session cookies (avoiding database reads on every page load).
+  + Video: Vendored Plyr (lightweight HTML5 media player styled with custom CSS).
+  + Books: Native browser PDF rendering via iframe/embed, and vendored ePub.js with JSZip for client-side EPUB reading with an immediate download option.
++ **Asset Packaging:** Go standard library embed.FS to package templates, styles, scripts, and vendored player assets directly into the single binary executable with zero external CDN dependencies.
++ **Database:** SQLite3 managed through database/sql using the pure-Go modernc.org/sqlite driver (zero CGo, allowing direct cross-compilation to ARMv6, ARMv7, and ARM64). Uses Write-Ahead Logging (WAL) and limited page caching to keep memory low.
++ **Authentication:** Password/PIN hashing using bcrypt and HMAC-SHA256-signed session cookies backed by an automatically persisted 32-byte secret key (avoiding database reads on every page load).
 + **External Dependencies:** Kept to an absolute minimum, adhering to Apache 2.0, MIT, or BSD licensing.
 
 ---
@@ -52,7 +52,9 @@ Mixing movies, multi-season TV shows, and books on the same screen creates confu
    + Book cards show page progress (e.g. "Page 120 of 340").
 
 ### Profile Avatars & Customization
+
 Users can personalize their profile tiles:
+
 + **Curated Built-In Icons:** A collection of lightweight, embedded SVG icons included directly in the binary (Flan the hamster, popcorn bowl, retro TV, cat, dog, book, robot, and cassette tape).
 + **Custom Accent Colors:** Profiles pair their icon with a customizable background color (defaulting to soft lavender #bb9af7).
 + **Custom Uploads:** Users can also upload a personal photo or image to serve as their avatar.
@@ -76,7 +78,8 @@ The video viewing page (/watch/{id}) embeds a tailored instance of Plyr styled w
 ### Document & Book Reading (Native PDF and Web ePub.js)
 
 + **PDF Documents:** Rendered directly using the browser's native PDF viewing engine via an iframe or embed element. This completely avoids bundling heavy PDF rendering engines (like the 8MB PDF.js distribution) into the server binary.
-+ **EPUB Books:** The /read/{id} page embeds ePub.js to unpack and render chapters in the browser with dark mode styling, font size adjustments, and reading progress tracking. A prominent "Download EPUB" button allows users to open the book in their favorite native reading app on tablets or phones.
++ **EPUB Books:** The /read/{id} page embeds vendored ePub.js and JSZip to unpack and render chapters in the browser with dark mode styling, font size adjustments, and reading progress tracking. A prominent "Download EPUB" button allows users to open the book in their favorite native reading app on tablets or phones.
++ **Offline Asset Vendoring:** All third-party libraries (Plyr, ePub.js, JSZip) are stored directly within `web/static/vendor/` and embedded into the binary using Go's `embed.FS`. The web client makes zero runtime network calls to external CDNs, maintaining full functionality in air-gapped or offline homelab environments.
 
 ---
 
@@ -85,7 +88,7 @@ The video viewing page (/watch/{id}) embeds a tailored instance of Plyr styled w
 Because the server avoids on-the-fly video transcoding, subtitles cannot be burned into the video stream. Subtitles are delivered as separate text tracks via the HTML5 video player:
 
 1. **Direct Disk Discovery:** When streaming a video, the server checks the host directory for sidecar subtitle files matching the video filename (for example, movie.mp4 and movie.en.srt or movie.es.vtt). No database entries are needed for subtitles.
-2. **On-The-Fly WebVTT Conversion:** Browsers only support the WebVTT format (.vtt). If the subtitle file on disk is an .srt file, the endpoint /subtitles/{id} converts the SRT timestamps to WebVTT format on the fly. This string conversion is lightweight and operates with virtually zero memory overhead.
+2. **On-The-Fly WebVTT Streaming Conversion:** Browsers strictly require the WebVTT format (.vtt). The dedicated `internal/subtitle` package converts SRT to WebVTT on the fly using a streaming `ConvertSRTToWebVTT(r io.Reader, w io.Writer) error` pipeline. The converter parses cue timestamps (`00:00:01,000` to `00:00:01.000`) and streams output chunks directly to the HTTP response with zero intermediate memory allocations or file writes.
 
 ---
 
@@ -133,7 +136,8 @@ When the server boots with an empty database:
 
 + **Profile Selection ("Who is watching?"):** Users choose their profile tile and enter their 4 to 6-digit PIN.
 + **Brute-Force Lockout:** After 5 failed attempts, the profile is locked for 5 minutes with exponential backoff on further failures.
-+ **HMAC-Signed Session Cookies:** Authenticated sessions use signed cookies containing the user ID and timestamp. This avoids database lookups on every page request.
++ **HMAC-Signed Session Cookies:** Authenticated sessions use signed cookies containing the payload `userID:role:issuedAt:signature` generated with HMAC-SHA256. Signatures are verified in constant time (`hmac.Equal`) on each request, eliminating database lookups on page views.
++ **Persistent Secret Management:** The HMAC secret is loaded from `SESSION_SECRET` or read from a persistent `0600`-permission `.session_secret` file in the database directory (auto-generated on first boot via `crypto/rand`). This ensures user sessions remain valid across server restarts without manual intervention.
 + **Two-Tier Account Recovery:**
   1. **Standard Users:** Admin resets any user's PIN via the settings page.
   2. **Admin Terminal CLI Failsafe:** Running `./flan --reset-admin` from the host shell resets the admin PIN directly in SQLite. This eliminates the need for emergency recovery keys and extra recovery web endpoints.

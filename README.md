@@ -26,17 +26,17 @@ To run with memory limits tuned for low-memory devices:
 GOMEMLIMIT=16MiB GOGC=30 ./flan
 ```
 
-You can also cross-compile directly for ARM boards like Raspberry Pi:
+You can also cross-compile directly for ARM boards like Raspberry Pi without needing external C cross-compilers:
 
 ```bash
 # Raspberry Pi Zero / 1 (ARMv6)
-GOOS=linux GOARCH=arm GOARM=6 go build -o flan-armv6 ./cmd/flan
+CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -o flan-armv6 ./cmd/flan
 
 # Raspberry Pi 2 / 3 (32-bit ARMv7)
-GOOS=linux GOARCH=arm GOARM=7 go build -o flan-armv7 ./cmd/flan
+CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o flan-armv7 ./cmd/flan
 
 # Raspberry Pi 3 / 4 / 5 (64-bit ARM64)
-GOOS=linux GOARCH=arm64 go build -o flan-arm64 ./cmd/flan
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o flan-arm64 ./cmd/flan
 ```
 
 Eventually, I will also configure an Alpine Linux Docker image for containerized deployment.
@@ -56,7 +56,7 @@ The server does the bare minimum to deliver video directly to the client without
 
 ## Database and other dependencies
 
-+ **SQLite3:** Uses a streamlined 3-table schema (users, media_items, playback_progress) running in WAL mode with a small 2mb page cache. Sessions use HMAC-signed cookies to avoid database hits on page visits.
++ **SQLite3:** Powered by the pure-Go driver (`modernc.org/sqlite`) for effortless cross-compilation without CGo. Uses a streamlined 3-table schema (users, media_items, playback_progress) running in WAL mode with a small 2mb page cache. Sessions use HMAC-signed cookies backed by a persistent secret key to avoid database hits on page visits.
 + **Web Client:** Built with Go html/template for multi-page rendering, along with modular vanilla JavaScript and CSS styled in a soft dark slate theme with lavender accents. The templates and static assets are embedded directly into the single binary with embed.FS, so no external assets need to be deployed.
 + **Metadata & covers:** Uses a local-first approach (checking for poster.jpg or embedded EPUB art first), falling back to TMDB for missing covers, ratings, and genre tags. Covers are stored locally for offline resilience. Administrators can also fix matches or upload custom covers manually.
 + **Libraries:** This project uses Apache 2.0 and all external libraries should use a similar license like MIT or BSD.

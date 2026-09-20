@@ -19,7 +19,7 @@ To balance security and system stability without degrading the viewing experienc
 
 ## 2. The Five Rate-Limiting Zones
 
-```
+``` text
 +-------------------------------------------------------------------+
 |                        Incoming Traffic                           |
 +---------------------------------+---------------------------------+
@@ -47,29 +47,34 @@ To balance security and system stability without degrading the viewing experienc
 
 ### Zone A: The Concurrent Stream Governor (Mechanical Disk Defense)
 
-* **Protected Resource:** External USB 3.0 / SATA mechanical hard drive read heads.
-* **Target Endpoint:** GET /stream/{id}
-* **Mechanism:** In-memory counting semaphore.
-* **Configuration:** MAX_CONCURRENT_STREAMS in the .env file (default: 3).
++ **Protected Resource:** External USB 3.0 / SATA mechanical hard drive read heads.
++ **Target Endpoint:** GET /stream/{id}
++ **Mechanism:** In-memory counting semaphore.
++ **Configuration:** MAX_CONCURRENT_STREAMS in the .env file (default: 3).
 
-#### How It Works:
+#### How It Works
+
 When a client requests a video stream, the handler acquires a token from the stream governor semaphore:
+
 + **Under Capacity (1 to 3 active streams):** The token is acquired and the Linux kernel streams byte ranges via sendfile. The drive performs smooth, high-throughput sequential reads.
 + **Over Capacity (4+ active streams):** The handler returns HTTP 429 Too Many Requests:
+
   ```json
   {"error": "Stream capacity reached (3 active streams). Please try again shortly."}
   ```
+
 + When streaming completes or the socket closes (e.g. user pauses or navigates away), the semaphore token is released immediately.
 
 ---
 
 ### Zone B: Authentication & PIN Brute-Force Protection
 
-* **Protected Resource:** User profile PIN authentication.
-* **Target Endpoint:** POST /api/login
-* **Mechanism:** Dual-key in-memory progressive lockout (keyed by IP address and Profile ID).
++ **Protected Resource:** User profile PIN authentication.
++ **Target Endpoint:** POST /api/login
++ **Mechanism:** Dual-key in-memory progressive lockout (keyed by IP address and Profile ID).
 
-#### Schedule:
+#### Schedule
+
 + **Attempts 1 to 3:** Standard response time.
 + **Attempt 4:** Artificial 2-second delay before responding.
 + **Attempt 5:** **5-minute account lockout**.
@@ -82,11 +87,12 @@ This turns a 15-second brute-force attack on 10,000 combinations into an operati
 
 ### Zone C: Inbound API Rate Limiting (CPU & Database Protection)
 
-* **Protected Resource:** SBC CPU cores and SQLite query processing.
-* **Target Endpoints:** All JSON API routes (/api/media, /api/progress, /api/libraries).
-* **Mechanism:** Token Bucket algorithm per client IP address (using Go's standard golang.org/x/time/rate).
++ **Protected Resource:** SBC CPU cores and SQLite query processing.
++ **Target Endpoints:** All JSON API routes (/api/media, /api/progress, /api/libraries).
++ **Mechanism:** Token Bucket algorithm per client IP address (using Go's standard golang.org/x/time/rate).
 
-#### Parameters:
+#### Parameters
+
 + **Sustained Rate:** 15 requests per second per IP.
 + **Burst Capacity:** 30 requests per IP.
 + **Memory Cleanup:** An in-memory cleaner runs every 5 minutes and evicts IP rate-limit records that have been idle for more than 5 minutes. This prevents the rate-limiter map from growing and consuming RAM.
@@ -96,27 +102,31 @@ This turns a 15-second brute-force attack on 10,000 combinations into an operati
 
 ### Zone D: Heavy Operations Cooldown (Library Scans)
 
-* **Protected Resource:** Filesystem I/O and SQLite write transactions.
-* **Target Endpoint:** POST /api/scan
-* **Mechanism:** Single-worker mutex with a trailing timestamp cooldown.
++ **Protected Resource:** Filesystem I/O and SQLite write transactions.
++ **Target Endpoint:** POST /api/scan
++ **Mechanism:** Single-worker mutex with a trailing timestamp cooldown.
 
-#### Rules:
+#### Rules
+
 1. **Single-Flight Only:** Only one recursive directory scan can run at any given moment.
 2. **Conflict Response:** If a scan is already running, clicking "Scan" returns HTTP 409 Conflict:
+
    ```json
    {"error": "A library scan is already in progress."}
    ```
+
 3. **Cooldown Window:** Once a scan finishes, a 30-second cooldown is enforced. Any scan requests during the cooldown return HTTP 429 Too Many Requests.
 
 ---
 
 ### Zone E: Outbound Web Scraper Throttling (API Ban Defense)
 
-* **Protected Resource:** Upstream API reputation and IP address standing with The Movie Database (TMDB) and OpenLibrary.
-* **Target:** Outbound HTTPS calls in internal/scraper.
-* **Mechanism:** Sequential worker queue governed by a Go time.Ticker.
++ **Protected Resource:** Upstream API reputation and IP address standing with The Movie Database (TMDB) and OpenLibrary.
++ **Target:** Outbound HTTPS calls in internal/scraper.
++ **Mechanism:** Sequential worker queue governed by a Go time.Ticker.
 
-#### Parameters:
+#### Parameters for the scraper
+
 + **Tick Rate:** 350 milliseconds between outbound requests.
 + **Effective Rate:** ~2.8 requests per second.
 + **Queue:** Scraping jobs are processed sequentially in a single background goroutine. Even if 100 new movies are added simultaneously, the scraper queues them and meters requests safely below the standard 40-requests-per-10-seconds threshold of public APIs.
