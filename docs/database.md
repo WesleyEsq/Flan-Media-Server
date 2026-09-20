@@ -14,7 +14,10 @@ The database file location is configurable via the DB_PATH variable in the .env 
 
 + **Local Development & Default:** data/flan.db (created automatically on first boot).
 + **Production Homelab / SBC:** /var/lib/flan/flan.db or ~/.local/share/flan/flan.db.
-+ **Attached Storage Recommendation:** If an external USB hard drive or SSD is attached to the SBC for media files, placing the database on that external drive (e.g. /mnt/storage/flan.db) is strongly recommended. External drives offer significantly higher write endurance and faster random I/O than micro-SD cards.
++ **Attached Storage Recommendation:** If an external USB hard drive or SSD is attached to the SBC for media files, placing the database on that external drive (e.g. /mnt/storage/flan.db) is strongly recommended. External drives offer significantly higher write endurance and faster random I/O than micro-SD cards. Detailed multi-drive guidelines are documented in [docs/storage.md](file:///home/wess/Documents/MechanicalSpeak/Flan-Media-Server/docs/storage.md).
+
+### Ghost Database Prevention (.flan-keep)
+To prevent accidentally creating a fresh empty database on an unmounted boot drive when an external drive fails to mount at startup, Flan writes a hidden marker file (`.flan-keep`) in the database folder. If DB_PATH points to an external path and `.flan-keep` is absent, the server refuses to initialize a new database and halts with a fatal warning.
 
 ### SQLite Performance and Wear-Leveling Pragmas
 
@@ -261,4 +264,18 @@ INSERT INTO media_items (
 
 -- Clean up files removed from disk
 DELETE FROM media_items WHERE file_path = ?;
+```
+
+---
+
+### G. Database Integrity & Zero-Lock Snapshots
+
+Procedures for power-cut resilience and hot backups:
+
+```sql
+-- 1. Fast integrity check executed on startup
+PRAGMA quick_check;
+
+-- 2. Zero-lock hot snapshot executed daily in background
+VACUUM INTO 'data/flan.db.backup';
 ```

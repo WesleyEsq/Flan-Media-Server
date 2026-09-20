@@ -95,6 +95,17 @@ Flan Media Server is designed to run on low-power Linux computers and single-boa
 
 ---
 
+## Vector 7: Unmounted Storage Path Hijacking & Ghost Database Initialization
+
++ **Threat:** When external NVMe or USB drives fail to mount on boot, the target directory remains as an empty folder on the root micro-SD card. A server that blindly initializes databases or accepts uploads will write to the root filesystem, exhausting flash storage, causing split-brain database corruption, or exposing the setup wizard to users.
++ **Impact:** High. Data corruption and system crash.
++ **Mitigations:**
+  + **Marker File Verification (.flan-keep):** Before opening an external database path, verify the presence of the hidden marker file. If absent, immediately abort startup with a fatal log error.
+  + **Scanner Mount Liveness:** Check that the media root exists and is not empty before pruning any catalog items.
+  + **Destination statfs Validation:** Ensure upload destination filesystems match the expected external mount points and possess adequate free space before writing bytes.
+
+---
+
 ## 3. Account Recovery and Failsafes
 
 Because the server runs locally without external email dependencies, account recovery uses two straightforward mechanisms:

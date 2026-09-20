@@ -24,6 +24,7 @@ Flan-Media-Server/
 ├── docs/                   # Specifications, architecture, and diagrams
 │   ├── design.md           # Full system specification and architecture
 │   ├── database.md         # Database schema, storage location, and SQL query procedures
+│   ├── storage.md          # Multi-drive architecture, mount defenses, and backup snapshots
 │   ├── scraper.md          # Web scraping pipeline, APIs, local cover storage, and tags
 │   ├── threat-model.md     # Security posture, attack vectors, and mitigations
 │   ├── testing.md          # TDD guidelines, in-memory fs, and database decoupling
@@ -102,7 +103,7 @@ All templates and static assets are embedded into the Go binary using embed.FS, 
 
 ### docs
 
-Stores design specifications, complete database schemas and query procedures, scraping engine designs, security threat models, TDD testing guidelines, architectural documentation, and user flow diagrams for the project.
+Stores design specifications, complete database schemas and query procedures, multi-drive storage architecture, scraping engine designs, security threat models, TDD testing guidelines, architectural documentation, and user flow diagrams for the project.
 
 ### tests
 

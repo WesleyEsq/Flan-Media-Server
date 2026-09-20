@@ -134,12 +134,14 @@ When the server boots with an empty database:
 
 ---
 
-## 10. File Intake Pipeline
+## 10. File Intake Pipeline & Multi-Drive Resiliency
 
-Flan Media Server supports two intake methods:
+Flan Media Server supports scattered storage across multiple drives (SD, NVMe, USB HDD):
 
-+ **Local In-Place Scanning:** The server crawls configured media directories recursively. Files remain in place on disk. The server records the file size, format, and path into SQLite without moving or modifying files.
-+ **Admin Web Uploads:** For remote headless servers, administrators can drag and drop folders or files into the browser. Incoming files are streamed directly from the network socket to disk in 32kb chunks via r.MultipartReader and io.Copy with pre-upload disk space verification. Memory usage remains constant even during multi-gigabyte transfers.
++ **Local In-Place Scanning:** The server crawls configured media directories recursively across any number of mount points (configured via MEDIA_DIRS). Files remain in place on disk, recorded with their full canonical paths.
++ **Mount Liveness Safeguard:** If an external drive disconnects or is unmounted, the scanner detects that the directory is empty or absent and skips it entirely, preserving the catalog in SQLite without wiping records. When a user streams an offline item, the server returns HTTP 503 Service Unavailable ("Media drive is offline").
++ **Admin Web Uploads:** Administrators can upload files or folders via the web client. The modal allows selecting the target library drive, and the server checks free space via statfs on that specific filesystem before streaming incoming files directly to disk via r.MultipartReader and io.Copy.
++ **Ghost Database Prevention:** Uses marker files (.flan-keep) to prevent accidentally creating empty databases on root boot drives when external mounts fail. Detailed multi-drive guidelines are in [docs/storage.md](file:///home/wess/Documents/MechanicalSpeak/Flan-Media-Server/docs/storage.md).
 
 ---
 
