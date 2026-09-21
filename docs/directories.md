@@ -1,6 +1,6 @@
 # Directories in the Project
 
-The project is organized according to standard Go conventions. This keeps application entry points, internal packages, web assets, and documentation cleanly separated.
+The project is organized according to standard Go conventions and a clean **Model-View-Controller (MVC)** architectural pattern. This keeps domain data models, presentation templates, HTTP controllers, cross-cutting middlewares, and database initialization cleanly separated.
 
 ## Directory Structure
 
@@ -10,119 +10,138 @@ Flan-Media-Server/
 │   └── flan/               # Server entry point (main.go)
 ├── internal/               # Private application packages
 │   ├── config/             # .env and environment variable loading
-│   ├── database/           # SQLite connection, normalized schema, and queries
-│   ├── handler/            # HTTP handlers for auth, pages, streaming, upload, and REST APIs
-│   └── scraper/            # Local-first artwork finder, TMDB scraper, cover downloader
-├── web/                    # Embedded web assets (via embed.FS)
+│   ├── database/           # SQLite connection, pragmas, pool limits, and schema DDL
+│   │   └── database.go     # Dedicated DB initialization and configuration file
+│   ├── model/              # [M] Model Layer: Domain entities, stores, and queries
+│   │   ├── errors.go       # Sentinel domain errors (ErrNotFound, ErrDuplicate, etc.)
+│   │   ├── user.go         # User entity, lockout tracking, and PIN verification
+│   │   ├── library.go      # Library entity, mount validation, and queries
+│   │   ├── movie.go        # Movie entity, catalog queries, and file tracking
+│   │   ├── series.go       # Series & Episode entities, season tree queries
+│   │   ├── book.go         # Book entity, format checks, and catalog queries
+│   │   ├── genre.go        # Genre & ItemGenre normalized mapping
+│   │   └── progress.go     # VideoProgress & BookProgress upsert/query stores
+│   ├── controller/         # [C] Controller Layer: HTTP handlers & self-contained routes
+│   │   ├── auth.go         # /login, /setup, /api/auth routes and session cookies
+│   │   ├── user.go         # /api/users CRUD endpoints and PIN reset routes
+│   │   ├── library.go      # /api/libraries management and scan trigger routes
+│   │   ├── movie.go        # /api/movies, /stream/movie/{id}, and /covers/movie/{id}
+│   │   ├── series.go       # /api/series, /stream/episode/{id}, and series covers
+│   │   ├── book.go         # /api/books, /stream/book/{id}, and document delivery
+│   │   ├── progress.go     # /api/progress watch and reading position sync
+│   │   ├── upload.go       # /api/upload streaming multipart file/series intake
+│   │   └── page.go         # HTML template page views and ViewModel assembly
+│   ├── middleware/         # Cross-cutting HTTP filters
+│   │   ├── auth.go         # HMAC cookie authentication & user context injection
+│   │   ├── ratelimit.go    # IP token bucket & progressive lockout throttles
+│   │   └── governor.go     # In-memory semaphore concurrent stream governor
+│   └── scraper/            # Local-first artwork finder & throttled TMDB worker
+├── web/                    # [V] View Layer: Embedded web assets (via embed.FS)
 │   ├── templates/          # Server-rendered Go HTML templates
-│   └── static/             # Static web files served at /static/
-│       ├── vendor/         # Embedded offline client libraries (embed.FS)
-│       │   ├── plyr/       # plyr.min.js, plyr.css, plyr.svg
-│       │   └── epubjs/     # epub.min.js, jszip.min.js
-│       └── assets/         # Mascots, icons, and default cover art
-├── docs/                   # Specifications, architecture, and diagrams
-│   ├── design.md           # Full system specification and architecture
-│   ├── compilation.md      # Cross-compilation matrix and SBC deployment guide
-│   ├── database.md         # Database schema, storage location, and SQL query procedures
-│   ├── storage.md          # Multi-drive architecture, libraries, and upload routing
-│   ├── scraper.md          # Web scraping pipeline, APIs, local cover storage, and tags
-│   ├── threat-model.md     # Security posture, attack vectors, and mitigations
-│   ├── rate-limiting.md    # Stream governor, API token buckets, and brute-force defenses
-│   ├── testing.md          # TDD guidelines, in-memory fs, and database decoupling
-│   ├── client/             # Web client UI design and component specs
-│   │   ├── design-system.md# Foundations, palette, navbar, and e-manual
-│   │   ├── pages.md        # Wireframes and interaction specs for all templates
-│   │   └── components.md   # Media cards, shelves, avatar tiles, and modals
-│   ├── directories.md      # Codebase organization and package guide
-│   └── diagrams/           # User flows and architectural diagrams
-│       ├── user-flows.md   # Mermaid diagrams for setup, auth, streaming, intake
-│       └── data-flow.md    # DFD and UML sequence diagrams for internal pipelines
-├── tests/                  # Unit and integration tests
+│   │   ├── base.html       # Shell, navbar with e-manual dialog, and footer
+│   │   ├── index.html      # Dashboard with Continue Watching/Reading shelves
+│   │   ├── videos.html     # Movies and TV series catalog with genre pills
+│   │   ├── show.html       # TV series detail view with season tabs and episodes
+│   │   ├── books.html      # Book and document catalog view
+│   │   ├── watch.html      # Plyr video player view with auto-resume prompt
+│   │   ├── read.html       # Native PDF iframe embed & ePub.js book reader
+│   │   ├── login.html      # "Who is watching?" profile selector & PIN keypad
+│   │   ├── setup.html      # Initial onboarding wizard (admin & first library)
+│   │   └── settings.html   # Storage health, library manager, and user settings
+│   └── static/             # Static web files served under /static/
+│       ├── css/            # Soft dark slate stylesheet with lavender accents (style.css)
+│       ├── js/             # Modular vanilla JS (api.js, player.js, reader.js)
+│       ├── vendor/         # Offline client dependencies (Plyr, ePub.js, JSZip)
+│       └── assets/         # Curated profile avatar icons and mascots
+├── docs/                   # Architectural specifications and diagrams
+├── tests/                  # Unit and integration tests (TDD virtual fs / mocks)
 ├── .env                    # Default environment configuration
 ├── LICENSE                 # Apache 2.0 License
 └── README.md               # Project overview and instructions
 ```
 
-## Directory Explanations
+---
 
-### cmd/flan
+## Package Responsibilities
 
-Contains `main.go`, the main executable entry point for the server. It parses command-line flags (including the `--reset-admin` CLI failsafe), reads the `.env` file, initializes the SQLite database connection, registers HTTP routes, and handles graceful shutdown when receiving interrupt signals.
+### `cmd/flan`
 
-### internal/config
+Contains `main.go`, the executable entry point:
 
-Handles reading configuration settings from the `.env` file and system environment variables. Provides typed configuration values with sensible defaults for server port, host, fallback media directory paths, database file location, and memory tuning parameters.
+- Parses CLI flags (including `--reset-admin` failsafe).
+- Loads configuration via `internal/config`.
+- Initializes the SQLite database via `internal/database`.
+- Instantiates domain models (`internal/model`), middlewares (`internal/middleware`), and controllers (`internal/controller`).
+- Mounts controller routes directly to Go 1.22's standard library multiplexer (`http.ServeMux`).
+- Handles graceful shutdown on SIGINT/SIGTERM.
 
-### internal/database
+### `internal/config`
 
-Manages the SQLite3 database connection:
-+ Applies performance pragmas (WAL mode, normal synchronous disk writes, 2mb page cache limit).
-+ Enforces strict connection pool limits (`db.SetMaxOpenConns(1)`) for minimal memory footprint and zero lock contention under `modernc.org/sqlite`.
-+ Initializes the normalized relational schema (`users`, `libraries`, `movies`, `series`, `episodes`, `books`, `genres`, `item_genres`, `video_progress`, and `book_progress`).
-+ Implements query functions for authentication, multi-directory catalog querying, and watch/reading progress tracking.
+Reads `.env` and system environment variables into strongly-typed configuration structs with default fallbacks for ports, hosts, and memory targets.
 
-### internal/handler
+### `internal/database` (Database Configuration & Initialization)
 
-Implements the HTTP request handlers and routing logic:
+Houses the dedicated database initialization logic (`database.go`):
 
-+ **Auth & Setup Handlers:** Manages first-time setup (`/setup`), user profile PIN authentication (`/login`), HMAC-signed session cookies, and brute-force rate limiting.
-+ **Page Handlers:** Renders the Go templates (dashboard, videos, series details, books, watch, read, and settings).
-+ **Streaming Handler:** Handles video and document streaming using `http.ServeContent`. On Linux, this uses the `sendfile` system call to transfer byte ranges directly from the kernel page cache to the client socket without copying data into Go heap memory.
-+ **Upload Handler:** Implements zero-memory streaming file and folder uploads via `r.MultipartReader` and `io.Copy` with pre-upload disk space verification and library/series routing.
-+ **Cover Handler:** Serves locally cached poster images with long-lived browser caching headers.
-+ **REST API Handlers:** Provides JSON endpoints for querying libraries, catalog items, retrieving playback positions, saving watch/reading progress, triggering library scans, and fixing metadata matches.
+- Opens the SQLite database connection using pure-Go `modernc.org/sqlite`.
+- Enforces single-connection pool limits (`db.SetMaxOpenConns(1)`, `db.SetMaxIdleConns(1)`) to guarantee minimal memory usage and zero write-lock contention.
+- Applies low-memory wear-leveling pragmas (`WAL`, `synchronous = NORMAL`, `cache_size = -2000`, `busy_timeout = 5000`).
+- Validates the `.flan-keep` marker file to prevent ghost databases on unmounted drives.
+- Executes automatic DDL schema migrations on boot (creating `users`, `libraries`, `movies`, `series`, `episodes`, `books`, `genres`, `item_genres`, `video_progress`, and `book_progress`).
+- Provides integrity checks (`PRAGMA quick_check;`) and daily zero-lock hot backups (`VACUUM INTO`).
 
-### internal/scraper
+### `internal/model` (The Model Layer)
 
-Implements the local-first scraping pipeline:
+Contains domain entities and data access stores:
 
-+ Inspects local folders for existing `poster.jpg`, `cover.jpg`, or embedded EPUB covers.
-+ Sanitizes filenames using clean regex patterns to extract titles, years, seasons, and episodes.
-+ Queries TMDB for movie and TV metadata when local artwork is missing.
-+ Streams cover artwork directly from remote HTTPS connections to local disk storage without memory buffering.
+- **`errors.go`**: Defines sentinel domain errors (`ErrNotFound`, `ErrDuplicate`, `ErrUnauthorized`, `ErrDiskLow`), decoupling transport from persistence.
+- **`user.go`**: Handles user authentication queries, bcrypt PIN verification, and progressive lockout counters.
+- **`library.go`**: Manages library paths, mount validation, and directory queries.
+- **`movie.go`**: Handles movie catalog queries, filtering by genre, and relative path lookups.
+- **`series.go`**: Manages TV series records, season groupings, and episode queries.
+- **`book.go`**: Handles book catalog filtering by format (`epub`, `pdf`) and genre.
+- **`genre.go`**: Manages the normalized `genres` and `item_genres` junction tables.
+- **`progress.go`**: Manages atomic upserts for `video_progress` (seconds) and `book_progress` (EPUB CFI / PDF page counts).
 
-### web/templates
+### `internal/controller` (The Controller Layer)
 
-Contains the Go HTML templates used to render web pages:
+Encapsulates HTTP transport and business orchestration:
 
-+ **base.html:** Common layout template containing the HTML shell, navigation bar, logo, and footer.
-+ **setup.html:** First-time onboarding wizard to create the admin account and register the initial media library.
-+ **login.html:** Profile selector ("Who is watching?") and numeric PIN keypad.
-+ **index.html:** Home dashboard featuring Continue Watching, Continue Reading, and Recently Added shelves.
-+ **videos.html:** Videos catalog with Movies and TV tabs, and genre filter pills.
-+ **show.html:** TV series detail view with season tabs and episode lists.
-+ **books.html:** Document and book catalog with genre and author filter pills.
-+ **watch.html:** Video player view embedding Plyr with custom lavender styling and auto-resume prompt.
-+ **read.html:** Document reader view supporting native browser PDF embedding and ePub.js with a direct download button.
-+ **settings.html:** Server status, storage health, library paths, and user profiles.
+- Each controller defines a `RegisterRoutes(mux *http.ServeMux)` method that binds its own endpoints.
+- Decodes HTTP query parameters, path variables, and JSON/multipart bodies.
+- Translates model sentinel errors into standard HTTP status codes (404, 409, 507).
+- Assembles ViewModels and renders server-side Go HTML templates.
+- Manages zero-copy streaming (`http.ServeContent` / `sendfile`) and streaming multipart uploads (`r.MultipartReader`).
 
-### web/static
+### `internal/middleware` (HTTP Filters)
 
-Holds static client assets that are served directly to browsers under `/static/`:
+Provides composable standard library HTTP middleware:
 
-+ **css:** Minimal, responsive stylesheet styled with a soft dark slate background and lavender accents (`style.css`).
-+ **js:** Modular vanilla JavaScript modules. Includes `api.js` for backend communication, `player.js` for Plyr bindings and progress syncing, and `reader.js` for EPUB navigation.
-+ **vendor:** Self-contained, offline third-party client dependencies:
-  + `vendor/plyr/`: Minimal bundle (`plyr.min.js`, `plyr.css`, `plyr.svg`) for media streaming.
-  + `vendor/epubjs/`: Client-side EPUB rendering engine (`epub.min.js`) and archive decompression utility (`jszip.min.js`).
-+ **assets:** Mascots, curated profile avatar icons (Flan hamster, popcorn, retro TV, cat, robot), and fallback covers.
+- **`auth.go`**: Validates HMAC-signed session cookies and injects the authenticated `userID` and `role` into request contexts.
+- **`ratelimit.go`**: Enforces IP token buckets (Zone C) and brute-force lockout intervals (Zone B).
+- **`governor.go`**: Enforces the counting semaphore limiting concurrent video streams to protect mechanical drives (Zone A).
 
-All templates and static assets are embedded into the Go binary using `embed.FS`, meaning the server can be deployed as a single standalone executable.
+### `internal/scraper`
 
-### docs
+Operates as a background worker:
 
-Stores design specifications, cross-compilation guides for single-board computers, complete database schemas and query procedures, multi-drive storage architecture, scraping engine designs, security threat models, rate-limiting rules, TDD testing guidelines, web client design systems, architectural documentation, and user flow diagrams for the project.
+- Inspects local folders for existing artwork (`poster.jpg`, cover art, embedded EPUB art).
+- Sanitizes filenames using regex patterns to extract canonical titles, years, seasons, and episodes.
+- Queries TMDB at a metered rate (~2.8 req/s) and streams cover images directly to disk.
 
-### tests
+### `web/templates` (The View Layer)
 
-Houses unit and integration tests, including tests for HTTP range handling, database queries, and media scanner behavior against in-memory virtual filesystems.
+Server-rendered Go HTML templates (`html/template`) styled with a soft dark slate background and lavender accents. Embedded into the binary via `embed.FS`.
+
+### `web/static`
+
+Static stylesheets (`style.css`), modular vanilla JavaScript (`api.js`, `player.js`, `reader.js`), vendored offline player libraries (Plyr, ePub.js, JSZip), and mascot SVGs. Embedded into the binary via `embed.FS`.
 
 ---
 
 ### Related Documentation
 
-+ [Master System Specifications](design.md)
-+ [Database Schema & Wear-Leveling Pragmas](database.md)
-+ [Storage Architecture & Drive Resiliency](storage.md)
-+ [Cross-Compilation & SBC Deployment Guide](compilation.md)
-+ [Testing Strategy & TDD Guidelines](testing.md)
+- [Master System Specifications](design.md)
+- [Database Schema & Wear-Leveling Pragmas](database.md)
+- [Storage Architecture & Drive Resiliency](storage.md)
+- [Testing Strategy & TDD Guidelines](testing.md)

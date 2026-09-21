@@ -223,7 +223,7 @@ Provides dedicated reading interfaces tailored to the file format (PDF vs. EPUB)
 |  +-------------------------------------------------------------------+  |
 |  |                                                                   |  |
 |  |               [ Native Browser PDF Viewing Engine ]               |  |
-|  |            (Embedded via <iframe src="/stream/{id}">)             |  |
+|  |            (Embedded via <iframe src="/stream/book/{id}">)        |  |
 |  |                                                                   |  |
 |  +-------------------------------------------------------------------+  |
 |                                                                         |

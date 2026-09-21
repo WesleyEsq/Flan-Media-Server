@@ -6,20 +6,25 @@ Explains the software design of Flan Media Server in one summarized file.
 
 Flan Media Server is a lightweight media streaming server written in Go, specifically built for underpowered Linux devices like single-board computers (SBCs). The primary engineering constraint is keeping the operational footprint around 15 to 20mb RAM while serving 1 to 5 users and 2 to 3 active streams.
 
-The server operates through direct streaming without on-the-fly transcoding, kernel-level zero-copy data transfer, an embedded SQLite database with a normalized multi-table relational schema, server-rendered Go templates styled with a comfortable soft dark theme, and custom players for video and EPUB books.
+The server operates through direct streaming without on-the-fly transcoding, kernel-level zero-copy data transfer, an idiomatic **Model-View-Controller (MVC)** software architecture, an embedded SQLite database with a normalized relational schema, server-rendered Go templates styled with a comfortable soft dark theme, and custom players for video and EPUB books.
 
 ---
 
 ## 2. Technology and Dependencies
 
 + **Language:** Go (1.22 or higher).
-+ **Network & HTTP:** Go standard library net/http. No third-party web frameworks are used.
-+ **Web Client:** Go standard library html/template for multi-page server rendering, paired with modular vanilla JavaScript and CSS.
++ **Architecture:** Model-View-Controller (MVC) with decentralized route mounting:
+  + **Model (`internal/model`):** Domain entities, sentinel errors, and database query implementations.
+  + **View (`web/templates`):** Server-rendered Go HTML templates styled with vanilla CSS.
+  + **Controller (`internal/controller`):** HTTP transport, status codes, ViewModel assembly, and route registration.
+  + **Middleware (`internal/middleware`):** Composable HTTP filters for auth, rate limiting, and stream capacity.
++ **Network & HTTP:** Go standard library `net/http` using native Go 1.22+ method routing. No third-party web frameworks are used.
++ **Web Client:** Go standard library `html/template` for multi-page server rendering, paired with modular vanilla JavaScript and CSS.
 + **Players:**
   + Video: Vendored Plyr (lightweight HTML5 media player styled with custom CSS).
   + Books: Native browser PDF rendering via iframe/embed, and vendored ePub.js with JSZip for client-side EPUB reading with an immediate download option.
 + **Asset Packaging:** Go standard library embed.FS to package templates, styles, scripts, and vendored player assets directly into the single binary executable with zero external CDN dependencies.
-+ **Database:** SQLite3 managed through database/sql using the pure-Go modernc.org/sqlite driver (zero CGo, allowing direct cross-compilation to ARMv6, ARMv7, and ARM64). Uses Write-Ahead Logging (WAL), strict connection pool limits (`SetMaxOpenConns(1)`), and limited page caching (2mb) to keep memory low.
++ **Database:** SQLite3 managed through `database/sql` using the pure-Go `modernc.org/sqlite` driver (zero CGo, allowing direct cross-compilation to ARMv6, ARMv7, and ARM64). Dedicated configuration and initialization module (`internal/database/database.go`) manages connection pooling (`SetMaxOpenConns(1)`), wear-leveling pragmas (`WAL`, `cache_size = -2000`), `.flan-keep` verification, and schema DDL migrations.
 + **Authentication:** Password/PIN hashing using bcrypt and HMAC-SHA256-signed session cookies backed by an automatically persisted 32-byte secret key (avoiding database reads on every page load).
 + **External Dependencies:** Kept to an absolute minimum, adhering to Apache 2.0, MIT, or BSD licensing.
 
@@ -67,7 +72,7 @@ Default browser players look inconsistent across operating systems and lack crit
 
 ### Custom Video Player (Plyr)
 
-The video viewing page (/watch/{id}) embeds a tailored instance of Plyr styled with the soft dark and lavender theme:
+The video viewing page (/watch/{type}/{id}) embeds a tailored instance of Plyr styled with the soft dark and lavender theme:
 
 + **Custom Accent:** CSS variable overrides (--plyr-color-main: #bb9af7) match the server theme.
 + **Controls:** Touch-friendly scrub bar, 10-second skip forward/backward buttons, playback speed selection (0.5x to 2x), and fullscreen toggle.
@@ -100,7 +105,7 @@ Treating every video file as an individual catalog item causes TV shows with doz
 + **Movies:** Standalone items displayed directly on the catalog grid.
 + **TV Shows (Series → Seasons → Episodes):**
   + The main catalog displays **one poster card** for the entire television series (grouped by series_title).
-  + Clicking the series card opens the series view (/show/{title}) showing the series synopsis, overall rating, and a season selector tab (Season 1, Season 2).
+  + Clicking the series card opens the series view (/show/{id}) showing the series synopsis, overall rating, and a season selector tab (Season 1, Season 2).
   + Selecting a season displays a clean list of episode cards with episode titles, overview, and individual watch progress bars.
 
 ---
@@ -113,8 +118,8 @@ Key features:
 
 + **Local-First Covers:** The scanner first checks if a local poster image (poster.jpg, cover.jpg, or folder.jpg) exists in the media folder, or if an EPUB contains an embedded cover image. If found, it uses it immediately without any network calls.
 + **TMDB Fallback:** If no local cover exists, the server queries The Movie Database (TMDB) for movies and TV shows.
-+ **Streamed Local Storage:** Downloaded covers are streamed directly from remote HTTPS connections to local disk storage (data/covers/{media_id}.jpg) and served locally with long-lived browser caching.
-+ **Genre Tags:** Genres are saved as a simple comma-separated string on the media item record (e.g. "Animation, Comedy"), allowing instant filtering via SQL.
++ **Streamed Local Storage:** Downloaded covers are streamed directly from remote HTTPS connections to local disk storage (data/covers/{type}/{id}.jpg) and served locally with long-lived browser caching.
++ **Genre Tags:** Genres are saved in normalized relational tables (`genres` and `item_genres`), allowing instant indexed filtering via SQL without full-table string scans.
 + **Admin Fix Match:** Administrators can search manually by title or TMDB ID, upload custom poster images, or edit metadata by hand.
 
 ---

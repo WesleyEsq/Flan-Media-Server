@@ -45,7 +45,8 @@ PRAGMA wal_autocheckpoint = 1000;
 
 To satisfy Flan's single-binary deployment model and seamless cross-compilation across heterogeneous SBC hardware (ARMv6, ARMv7, ARM64), the server utilizes the pure-Go SQLite driver `modernc.org/sqlite` instead of CGo-dependent alternatives (`github.com/mattn/go-sqlite3`).
 
-#### Connection Pool Configuration:
+#### Connection Pool Configuration
+
 Because `modernc.org/sqlite` is implemented in pure Go and runs within strict memory boundaries (`GOMEMLIMIT=16MiB`), unbounded connection pools can quickly exhaust RAM. In `internal/database`, the pool is strictly constrained:
 
 ```go
@@ -53,6 +54,37 @@ db.SetMaxOpenConns(1) // Single writer/reader serialization ensures zero lock co
 db.SetMaxIdleConns(1)
 db.SetConnMaxLifetime(0)
 ```
+
+### Dedicated Database Initialization & Configuration (`database.go`)
+
+To maintain clean architectural separation, all SQLite driver initialization, configuration, and migration mechanics are isolated into a single dedicated file: `internal/database/database.go`.
+
+```go
+// internal/database/database.go
+package database
+
+// Open initializes the SQLite connection, enforces pragmas, and runs migrations
+func Open(dbPath string) (*sql.DB, error) {
+    // 1. Verify .flan-keep marker file if dbPath is on an external mount
+    // 2. Open modernc.org/sqlite database handle
+    // 3. Configure connection pool: SetMaxOpenConns(1), SetMaxIdleConns(1)
+    // 4. Apply pragmas (WAL, synchronous=NORMAL, cache_size=-2000, busy_timeout=5000)
+    // 5. Execute DDL migrations to create all normalized tables and indexes
+    // 6. Run PRAGMA quick_check;
+    // 7. Return configured *sql.DB
+}
+
+// Snapshot executes an atomic, zero-lock hot backup of the database
+func Snapshot(db *sql.DB, backupPath string) error {
+    _, err := db.Exec("VACUUM INTO ?", backupPath)
+    return err
+}
+```
+
+#### Separation of Concerns
+
++ **`internal/database/database.go`**: Manages the connection lifecycle, low-memory settings, `.flan-keep` verification, integrity checks, and DDL schema creation.
++ **`internal/model/`**: Contains domain-specific query logic (`user.go`, `movie.go`, `series.go`, etc.). Models receive the initialized `*sql.DB` handle and execute business queries, keeping driver/connection concerns cleanly decoupled from application business logic.
 
 ---
 
@@ -206,7 +238,8 @@ CREATE INDEX IF NOT EXISTS idx_item_genres_lookup ON item_genres(genre_id, item_
 
 ### A. Dashboard Shelves (Continue Watching & Continue Reading)
 
-#### Continue Watching (Movies & Episodes Union):
+#### Continue Watching (Movies & Episodes Union)
+
 ```sql
 -- In-progress movies
 SELECT 
@@ -247,7 +280,8 @@ ORDER BY updated_at DESC
 LIMIT 12;
 ```
 
-#### Continue Reading (Books):
+#### Continue Reading (Books)
+
 ```sql
 SELECT 
     b.book_id,
@@ -270,7 +304,8 @@ LIMIT 12;
 
 ### B. Catalog Filtering by Genre
 
-#### Movies Filtered by Genre:
+#### Movies Filtered by Genre
+
 ```sql
 SELECT m.movie_id, m.title, m.cover_path, m.release_year, m.rating, m.duration_seconds
 FROM movies m
@@ -282,7 +317,8 @@ WHERE (? IS NULL OR EXISTS (
 ORDER BY m.title ASC;
 ```
 
-#### TV Series Filtered by Genre:
+#### TV Series Filtered by Genre
+
 ```sql
 SELECT s.series_id, s.title, s.cover_path, s.release_year, s.rating,
        COUNT(e.episode_id) AS episode_count
@@ -297,7 +333,8 @@ GROUP BY s.series_id
 ORDER BY s.title ASC;
 ```
 
-#### Books Filtered by Genre or Format:
+#### Books Filtered by Genre or Format
+
 ```sql
 SELECT b.book_id, b.title, b.author, b.format, b.cover_path
 FROM books b
@@ -336,7 +373,8 @@ ORDER BY e.season_number ASC, e.episode_number ASC;
 
 ### D. Progress Upserts
 
-#### Video Progress Upsert:
+#### Video Progress Upsert
+
 ```sql
 INSERT INTO video_progress (user_id, video_type, video_id, position_seconds, duration_seconds, is_finished, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -347,7 +385,8 @@ ON CONFLICT(user_id, video_type, video_id) DO UPDATE SET
     updated_at = CURRENT_TIMESTAMP;
 ```
 
-#### Book Progress Upsert:
+#### Book Progress Upsert
+
 ```sql
 INSERT INTO book_progress (user_id, book_id, position_cfi, current_page, total_pages, percentage, is_finished, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)

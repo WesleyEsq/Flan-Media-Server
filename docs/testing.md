@@ -71,7 +71,7 @@ HTTP controllers (such as login, catalog viewing, and progress saving) do not ac
 ### The Consumer Interface
 
 ```go
-// internal/handler/auth.go
+// internal/controller/auth.go (or internal/model/user.go)
 type UserStore interface {
     GetByUsername(username string) (*User, error)
     VerifyPIN(userID int, pin string) (bool, error)
@@ -97,18 +97,18 @@ func (m *mockUserStore) GetByUsername(u string) (*User, error) { return nil, nil
 func (m *mockUserStore) RecordFailedAttempt(id int) (*time.Time, error) { return nil, nil }
 func (m *mockUserStore) ResetFailedAttempts(id int) error { return nil }
 
-func TestLoginHandler_RejectsInvalidPIN(t *testing.T) {
+func TestLoginController_RejectsInvalidPIN(t *testing.T) {
     store := &mockUserStore{
         verifyPINFunc: func(id int, pin string) (bool, error) {
             return false, nil // simulate wrong PIN
         },
     }
 
-    handler := NewAuthHandler(store)
+    controller := NewAuthController(store)
     req := httptest.NewRequest("POST", "/api/login", strings.NewReader(`{"pin":"0000"}`))
     rec := httptest.NewRecorder()
 
-    handler.ServeHTTP(rec, req)
+    controller.ServeHTTP(rec, req)
 
     if rec.Code != http.StatusUnauthorized {
         t.Errorf("expected 401 Unauthorized, got %d", rec.Code)
@@ -128,10 +128,10 @@ func TestLoginHandler_RejectsInvalidPIN(t *testing.T) {
 Never spin up a live TCP server on port 4907 to test HTTP endpoints. Use Go's built-in `net/http/httptest` package.
 
 ```go
-func TestStreamHandler_HandlesMissingFile(t *testing.T) {
+func TestStreamController_HandlesMissingFile(t *testing.T) {
     router := SetupRoutes(&mockStore{})
 
-    req := httptest.NewRequest("GET", "/stream/9999", nil)
+    req := httptest.NewRequest("GET", "/stream/movie/9999", nil)
     rec := httptest.NewRecorder()
 
     router.ServeHTTP(rec, req)
