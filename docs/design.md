@@ -24,8 +24,8 @@ The server operates through direct streaming without on-the-fly transcoding, ker
   + Video: Vendored Plyr (lightweight HTML5 media player styled with custom CSS).
   + Books: Native browser PDF rendering via iframe/embed, and vendored ePub.js with JSZip for client-side EPUB reading with an immediate download option.
 + **Asset Packaging:** Go standard library embed.FS to package templates, styles, scripts, and vendored player assets directly into the single binary executable with zero external CDN dependencies.
-+ **Database:** SQLite3 managed through `database/sql` using the pure-Go `modernc.org/sqlite` driver (zero CGo, allowing direct cross-compilation to ARMv6, ARMv7, and ARM64). Dedicated configuration and initialization module (`internal/database/database.go`) manages connection pooling (`SetMaxOpenConns(1)`), wear-leveling pragmas (`WAL`, `cache_size = -2000`), `.flan-keep` verification, and schema DDL migrations.
-+ **Authentication:** Password/PIN hashing using bcrypt and HMAC-SHA256-signed session cookies backed by an automatically persisted 32-byte secret key (avoiding database reads on every page load).
++ **Database:** SQLite3 managed through `database/sql` using the pure-Go `modernc.org/sqlite` driver (zero CGo, allowing direct cross-compilation to ARMv6, ARMv7, and ARM64). Dedicated configuration and initialization module (`internal/database/database.go`) manages connection pooling (`SetMaxOpenConns(1)`), wear-leveling pragmas (`WAL`, `cache_size = -2000`), `.flan-keep` verification, cooperative lock yielding, and schema DDL migrations.
++ **Authentication:** Password/PIN hashing using bcrypt and HMAC-SHA256-signed session cookies with token versioning backed by an automatically persisted 32-byte secret key and an in-memory version map (guaranteeing instant revocation on PIN reset with zero database reads on page loads).
 + **External Dependencies:** Kept to an absolute minimum, adhering to Apache 2.0, MIT, or BSD licensing.
 
 ---
@@ -117,7 +117,7 @@ The server enriches media with covers, ratings, and genre tags using a local-fir
 Key features:
 
 + **Local-First Covers:** The scanner first checks if a local poster image (poster.jpg, cover.jpg, or folder.jpg) exists in the media folder, or if an EPUB contains an embedded cover image. If found, it uses it immediately without any network calls.
-+ **TMDB Fallback:** If no local cover exists, the server queries The Movie Database (TMDB) for movies and TV shows.
++ **TMDB Fallback:** If no local cover exists and `TMDB_API_KEY` is configured in `.env` or settings, the server queries The Movie Database (TMDB) for movies and TV shows. If no key is set, Flan operates cleanly in offline mode, falling back to embedded SVG placeholders with zero network delays.
 + **Streamed Local Storage:** Downloaded covers are streamed directly from remote HTTPS connections to local disk storage (data/covers/{type}/{id}.jpg) and served locally with long-lived browser caching.
 + **Genre Tags:** Genres are saved in normalized relational tables (`genres` and `item_genres`), allowing instant indexed filtering via SQL without full-table string scans.
 + **Admin Fix Match:** Administrators can search manually by title or TMDB ID, upload custom poster images, or edit metadata by hand.
@@ -142,7 +142,7 @@ When the server boots with an empty database:
 
 + **Profile Selection ("Who is watching?"):** Users choose their profile tile and enter their 4 to 6-digit PIN.
 + **Brute-Force Lockout:** After 5 failed attempts, the profile is locked for 5 minutes with exponential backoff on further failures.
-+ **HMAC-Signed Session Cookies:** Authenticated sessions use signed cookies containing the payload `userID:role:issuedAt:signature` generated with HMAC-SHA256. Signatures are verified in constant time (`hmac.Equal`) and checked against a 30-day expiration window, eliminating database lookups on page views.
++ **HMAC-Signed Session Cookies with Versioning:** Authenticated sessions use signed cookies containing the payload `userID:role:tokenVersion:issuedAt:signature` generated with HMAC-SHA256. Signatures are verified in constant time (`hmac.Equal`) against an in-memory user version cache (`map[int]int`, loaded at startup) and a 30-day expiration window. This preserves the zero-database-hit guarantee on page views while ensuring immediate session invalidation when a user's PIN is reset or their account is deleted.
 + **Persistent Secret Management:** The HMAC secret is loaded from `SESSION_SECRET` or read from a persistent `0600`-permission `.session_secret` file in the database directory (auto-generated on first boot via `crypto/rand`). This ensures user sessions remain valid across server restarts without manual intervention.
 + **Two-Tier Account Recovery:**
   1. **Standard Users:** Admin resets any user's PIN via the settings page.
@@ -155,13 +155,13 @@ When the server boots with an empty database:
 Flan Media Server supports scattered storage across multiple directories and drives (SD, NVMe, USB HDD):
 
 + **First-Class Libraries:** Storage folders are managed through the `libraries` table in SQLite, each assigned a specific `media_type` (`movies`, `tv`, `books`).
-+ **Local In-Place Scanning:** The server crawls configured library paths recursively. Files remain in place on disk, recorded with paths relative to their library root.
++ **Local In-Place Scanning:** The server crawls configured library paths recursively with cooperative lock yielding between items to prevent SQLite busy contention. Files remain in place on disk, recorded with paths relative to their library root.
 + **Deterministic Folder Structure:**
   + Movies: `<library_path>/Movie Title (Year).mp4` or `<library_path>/Movie Title (Year)/Movie Title (Year).mp4`.
   + TV Series: `<library_path>/<Series Title>/Season <NN>/<Series Title> - S<NN>E<NN> - <Title>.<ext>`.
   + Books: `<library_path>/<Author>/<Book Title>.<ext>` or `<library_path>/<Book Title>.<ext>`.
 + **Mount Liveness Safeguard:** If an external drive disconnects or is unmounted, the scanner detects that the directory is empty or absent and skips it entirely, preserving the catalog in SQLite without wiping records. When a user streams an offline item, the server returns HTTP 503 Service Unavailable ("Media drive is offline").
-+ **Admin Web Uploads & Routing:** Administrators can upload files or folders via the web client. The modal allows selecting the target library. For TV shows, the modal captures Series Title and Season Number (or preserves folder structures via folder uploads), placing files directly into the correct season folder. The server validates free space via statfs before streaming incoming files directly to disk via `r.MultipartReader` in 32kb chunks.
++ **Admin Web Uploads & Routing:** Administrators can upload files or folders via the web client. The modal allows selecting the target library. For TV shows, the modal captures Series Title and Season Number (or preserves folder structures via folder uploads), placing files directly into the correct season folder. The server validates web-compatible direct-play formats (`.mp4`, `.webm`, web-safe `.mkv`), checks free space via a portable `statfs` helper, and streams bytes directly to disk via `r.MultipartReader` in 32kb chunks.
 + **Ghost Database Prevention:** Uses marker files (.flan-keep) to prevent accidentally creating empty databases on root boot drives when external mounts fail. Detailed multi-drive guidelines are in [docs/storage.md](docs/storage.md).
 
 ---

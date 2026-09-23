@@ -132,10 +132,15 @@ The manual uses the standard HTML `<dialog id="manual-dialog">` element:
 
 #### Section 2: Supported Media Formats (Direct Play)
 
-The server delivers files directly without transcoding. The manual explains required formats:
+The server delivers files directly without real-time transcoding to preserve low-power CPU and memory. The manual explains supported formats:
 
-+ **Video:** MP4 container with H.264 video and AAC audio, or WebM container with VP9 video and Opus audio.
-+ **Documents:** EPUB and PDF files.
++ **Native Direct Play (Browser Playable):**
+  + **MP4:** H.264 video with AAC audio (universal browser compatibility).
+  + **WebM:** VP9 or AV1 video with Opus audio.
+  + **MKV:** Playable in modern browsers only if the underlying streams are web-compatible (H.264/VP9 video + AAC/Opus audio).
++ **Unsupported Formats (Download Only):**
+  + Files containing non-web codecs (e.g. DivX/XviD in `.avi`, or DTS/AC3 multi-channel audio tracks in `.mkv`) cannot be transcoded on-the-fly by the SBC. The web player will display a prompt allowing the user to download the original file for playback in external apps (such as VLC).
++ **Documents & Books:** EPUB and PDF files.
 
 #### Section 3: Adding New Files
 

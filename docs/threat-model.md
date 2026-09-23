@@ -53,22 +53,23 @@ Flan Media Server is designed to run on low-power Linux computers and single-boa
 + **Impact:** High. System unavailability.
 + **Mitigations:**
   + **Admin-Only Upload Permissions:** File and folder upload endpoints are strictly restricted to the admin profile. Standard profiles cannot upload files.
-  + **Pre-Upload Disk Check:** Before accepting an upload, query available disk space via statfs. If free space is below a safety threshold (e.g. 2gb), the upload is rejected immediately with HTTP 507 Insufficient Storage.
+  + **Pre-Upload Disk Check:** Before accepting an upload, query available disk space via `statfs`. If free space is below a safety threshold (e.g. 2gb), the upload is rejected immediately with HTTP 507 Insufficient Storage. Filesystem space checks are abstracted behind a portable storage helper with Go build tags (`//go:build linux` via `unix.Statfs` / `syscall.Statfs`, and `//go:build !linux` fallback for developer workstations).
   + **Streaming Directly to Disk:** File uploads are streamed straight from the network socket to disk in 32kb chunks via r.MultipartReader and io.Copy. This ensures memory usage remains near zero and prevents Out-Of-Memory (OOM) crashes during large file transfers.
 
 ---
 
 ## Vector 4: File Type Confusion and Stored Script Execution
 
-+ **Threat:** An attacker uploads malicious HTML, SVG, or executable scripts disguised as media files, attempting to execute cross-site scripting (XSS) in an admin's browser session.
++ **Threat:** An attacker uploads malicious HTML, SVG, or executable scripts disguised as media files, attempting to execute cross-site scripting (XSS) in an admin's browser session, or uploads legacy video formats that freeze or fail during streaming.
 
-+ **Impact:** High. Session hijacking and administrative takeover.
++ **Impact:** High. Session hijacking, administrative takeover, or broken client playback.
 + **Mitigations:**
-  + **Strict Extension Whitelist:** The server only accepts approved extensions:
-    + Video: .mp4, .webm, .mkv (if direct play compatible), .avi
-    + Books: .epub, .pdf
-    + Images: .jpg, .jpeg, .png, .webp
-  + **Explicit MIME Headers:** When serving media, the server explicitly sets the Content-Type header (such as video/mp4) and adds X-Content-Type-Options: nosniff. This prevents the browser from interpreting video files as executable HTML or script content.
+  + **Strict Extension Whitelist & Codec Policy:**
+    + **Direct Play Native:** `.mp4` (H.264/AAC), `.webm` (VP9/Opus, AV1). These stream natively with zero transcoding.
+    + **Container Support (`.mkv`):** Allowed only when encoded with web-compatible audio/video streams (H.264/VP9 and AAC/Opus). Files containing incompatible codecs (e.g. DTS/AC3 or DivX) will trigger a client-side warning banner advising users to download the file or play via external apps (like VLC), since real-time transcoding is not supported. Legacy non-web containers like `.avi` are disallowed during upload.
+    + **Books:** `.epub`, `.pdf`.
+    + **Images:** `.jpg`, `.jpeg`, `.png`, `.webp`.
+  + **Explicit MIME Headers:** When serving media, the server explicitly sets the Content-Type header (such as `video/mp4`, `video/webm`, `application/pdf`, `application/epub+zip`) and adds `X-Content-Type-Options: nosniff`. This prevents the browser from interpreting video files as executable HTML or script content.
   + **File Permissions:** Uploaded files are written with 0644 permissions (read and write only, no execution flag).
 
 ---
@@ -86,12 +87,13 @@ Flan Media Server is designed to run on low-power Linux computers and single-boa
 
 ## Vector 6: Privilege Escalation & Session Tampering
 
-+ **Threat:** A standard household user attempts to call administrative endpoints to initiate scans or alter other user accounts, or attempts to forge/tamper with session cookies to elevate their role from `user` to `admin`.
++ **Threat:** A standard household user attempts to call administrative endpoints to initiate scans or alter other user accounts, or attempts to forge/tamper with session cookies to elevate their role from `user` to `admin`, or continues using a compromised session cookie after a PIN reset or user deletion.
 
-+ **Impact:** High. Unauthorized administrative takeover.
++ **Impact:** High. Unauthorized administrative takeover or unauthorized persistent access.
 + **Mitigations:**
   + **Role Verification Middleware:** Endpoints that initiate scans, upload files, or manage users strictly verify that the active session's authenticated user record carries the `admin` role.
-  + **HMAC-SHA256 Cryptographic Signing:** Session cookies use a tamper-proof payload formatted as `userID:role:issuedAt:signature`. Changing any token component invalidates the signature immediately.
+  + **HMAC-SHA256 Cryptographic Signing with Token Versioning:** Session cookies use a tamper-proof payload formatted as `userID:role:tokenVersion:issuedAt:signature`. Changing any token component invalidates the signature immediately.
+  + **Instant Session Revocation via In-Memory Version Cache:** The server tracks each user's current `token_version` in an in-memory map (`map[int]int`, consuming less than 50 bytes of RAM for 1–5 users) loaded on startup. When a PIN is changed or user deleted, the in-memory version is immediately incremented/removed and persisted to SQLite. The authentication middleware validates `cookie.tokenVersion == userVersion[cookie.userID]` in $O(1)$ memory without database queries. All existing cookies are invalidated instantly with zero database query overhead on normal page loads.
   + **Constant-Time Verification:** Cookie signatures are verified using Go's standard `crypto/hmac.Equal` to eliminate side-channel timing attacks during authentication verification.
   + **Hardened Key Storage:** The 32-byte signing secret is loaded from `SESSION_SECRET` or read from a local `.session_secret` keyfile stored in the database folder. The keyfile is created with restrictive `0600` permissions (readable only by the daemon process user), preventing unauthorized local disclosure.
   + **Cookie Security Flags:** Session cookies are strictly configured with `HttpOnly` (blocking JavaScript access), `SameSite=Lax` (preventing CSRF during cross-origin navigation), and `Secure` when TLS/HTTPS is active.

@@ -55,6 +55,13 @@ db.SetMaxIdleConns(1)
 db.SetConnMaxLifetime(0)
 ```
 
+##### Transaction Granularity & Lock Yielding
+
+With `SetMaxOpenConns(1)`, all read and write queries share a single serialized connection handle. To ensure that background operations (such as initial library crawling or recursive directory scanning) never starve high-priority foreground operations (such as catalog browsing, video chunk delivery, or throttled playback progress syncs every 5 seconds):
+
+1. **Short, Granular Transactions:** Heavy indexing routines must never wrap entire directory trees in a single monolithic transaction. Instead, files are indexed individually or in small batches of 5 to 10 items.
+2. **Cooperative Yielding:** The background scanner explicitly yields execution (`runtime.Gosched()` and minimal inter-item delays) between file checks. This allows pending HTTP requests waiting on `busy_timeout = 5000` to acquire the database handle immediately without latency spikes.
+
 ### Dedicated Database Initialization & Configuration (`database.go`)
 
 To maintain clean architectural separation, all SQLite driver initialization, configuration, and migration mechanics are isolated into a single dedicated file: `internal/database/database.go`.
@@ -99,6 +106,7 @@ CREATE TABLE IF NOT EXISTS users (
     username         TEXT NOT NULL UNIQUE,
     pin_hash         TEXT NOT NULL,
     role             TEXT NOT NULL CHECK(role IN ('admin', 'user')),
+    token_version    INTEGER NOT NULL DEFAULT 1, -- Incremented on PIN reset or revocation
     avatar_icon      TEXT DEFAULT 'flan',        -- Curated SVG icon name
     avatar_color     TEXT DEFAULT '#bb9af7',     -- Hex color accent
     failed_attempts  INTEGER DEFAULT 0,
@@ -425,8 +433,13 @@ WHERE user_id = ?;
 
 -- 4. Reset admin PIN from CLI command (./flan --reset-admin)
 UPDATE users
-SET pin_hash = ?, failed_attempts = 0, locked_until = NULL
+SET pin_hash = ?, failed_attempts = 0, locked_until = NULL, token_version = token_version + 1
 WHERE role = 'admin';
+
+-- 5. Change or reset user PIN via Settings or Admin API (invalidates existing sessions)
+UPDATE users
+SET pin_hash = ?, failed_attempts = 0, locked_until = NULL, token_version = token_version + 1
+WHERE user_id = ?;
 ```
 
 ---

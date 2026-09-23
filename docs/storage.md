@@ -111,10 +111,14 @@ Administrators can upload media directly through the web client without SSH or t
      - The modal allows an optional **Author** field (defaults to "Unknown" or extracted from EPUB metadata).
      - Files stream to `<library_path>/<Author>/<filename>`.
 3. **Mount-Specific Free Space Verification:**
-   Before accepting bytes, the server runs `statfs` on the selected library's mount point. If free space is below **2gb**, the upload is immediately rejected with HTTP 507 Insufficient Storage.
-4. **Zero-Memory Streaming:**
+   Before accepting bytes, the server queries available disk space on the selected library's mount point. If free space is below **2gb**, the upload is immediately rejected with HTTP 507 Insufficient Storage. Filesystem free-space queries are decoupled behind a portable helper in `internal/storage` using Go build tags:
+   + `disk_linux.go` (`//go:build linux`): Implements `CheckFreeSpace(path string)` using `unix.Statfs` or `syscall.Statfs` to calculate available blocks on production Linux single-board computers.
+   + `disk_other.go` (`//go:build !linux`): Provides a portable fallback for developer workstations (macOS, Windows, BSD), preventing cross-compilation and local testing failures.
+4. **Direct Play Format Verification:**
+   The intake pipeline verifies that incoming video files match web-compatible standards (`.mp4`, `.webm`). Files with `.mkv` extensions are accepted only if they contain web-safe codecs (H.264/VP9 and AAC/Opus). Uploading legacy non-web containers (like `.avi`) or incompatible audio codecs (DTS/AC3) triggers a client-side warning advising external playback, as on-the-fly transcoding is strictly excluded.
+5. **Zero-Memory Streaming:**
    File bytes stream straight from `r.MultipartReader` to disk using `io.Copy` in 32kb buffers. Memory usage stays under 1MB even when uploading a 4GB video file.
-5. **Immediate Indexing:**
+6. **Immediate Indexing:**
    Once written to disk with `0644` permissions, the file is immediately indexed into the SQLite database and metadata is fetched in the background.
 
 ---
@@ -169,6 +173,9 @@ In naive media servers, if a scan runs while a drive is disconnected, the scanne
    + If a user attempts to stream an offline item, the server returns HTTP 503 Service Unavailable:
      `"Media storage drive is offline. Please check drive connection."`
    + As soon as the drive is reconnected, streaming resumes immediately with zero re-indexing required.
+3. **Database Lock Yielding During Scans:**
+   + To prevent scan jobs from monopolizing SQLite's single connection (`db.SetMaxOpenConns(1)`), newly discovered items are persisted using small transactions or individual upserts.
+   + The scanner yields execution (`runtime.Gosched()`) between files, ensuring active video streams, playback progress updates, and user web navigation are never blocked by long-running background scans.
 
 ---
 

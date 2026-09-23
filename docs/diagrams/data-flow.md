@@ -182,10 +182,15 @@ sequenceDiagram
         Scanner->>DB: Insert into movies with local cover path
     else No local poster found
         Scanner->>Scanner: Regex clean: Title="Dune Part Two", Year=2024
-        Scanner->>TMDB: Search query via HTTPS (throttled at 2.8 req/s)
-        TMDB-->>Scanner: Return canonical metadata, rating, genres, poster URL
-        Scanner->>Covers: Stream image bytes directly to disk (io.Copy)
-        Scanner->>DB: Insert into movies & item_genres with cached cover
+        alt TMDB_API_KEY configured
+            Scanner->>TMDB: Search query via HTTPS (throttled at 2.8 req/s)
+            TMDB-->>Scanner: Return canonical metadata, rating, genres, poster URL
+            Scanner->>Covers: Stream image bytes directly to disk (io.Copy)
+            Scanner->>DB: Insert into movies & item_genres with cached cover
+        else No API key configured (Offline fallback)
+            Scanner->>DB: Insert into movies with clean title & SVG placeholder
+        end
+        Scanner->>Scanner: Cooperative lock yield (runtime.Gosched)
     end
 ```
 
@@ -206,7 +211,7 @@ sequenceDiagram
     User->>Player: Watching video
     loop Every 5 seconds (throttled)
         Player->>API: POST /api/progress {video_type: "movie", video_id: 42, position_seconds: 1450, duration_seconds: 9600}
-        API->>API: Extract user_id from HMAC signed cookie
+        API->>API: Verify HMAC signature and token_version against in-memory cache
         API->>DB: Execute atomic UPSERT into video_progress
         DB-->>API: Row updated
         API-->>Player: HTTP 200 OK
@@ -230,20 +235,22 @@ sequenceDiagram
     autonumber
     actor Admin as Admin Browser
     participant UploadHandler as Upload API (Go)
-    participant OS as Linux System (statfs)
+    participant Storage as Storage Layer (statfs helper)
     participant Disk as Target Drive (/mnt/hdd1/...)
     participant DB as SQLite (flan.db)
 
     Admin->>UploadHandler: POST /api/upload (multipart: library_id, series_title, season_number, files)
-    UploadHandler->>UploadHandler: Verify admin role from signed cookie
+    UploadHandler->>UploadHandler: Verify admin role & token_version from signed cookie
     UploadHandler->>DB: Fetch library path and media_type for library_id
     DB-->>UploadHandler: Return /mnt/hdd1/tv (Type: tv)
-    UploadHandler->>OS: Query free space on destination filesystem via statfs
+    UploadHandler->>Storage: CheckFreeSpace on destination filesystem via statfs
+    Storage-->>UploadHandler: Return available free bytes
 
     alt Free space < 2 GB
         UploadHandler-->>Admin: HTTP 507 Insufficient Storage
     else Free space adequate
         loop For each file part in multipart stream
+            UploadHandler->>UploadHandler: Validate format (.mp4, .webm, web-safe .mkv)
             UploadHandler->>UploadHandler: Compute destination path: /mnt/hdd1/tv/<Series>/Season <NN>/<file>
             UploadHandler->>Disk: os.OpenFile(destinationPath, O_CREATE|O_WRONLY, 0644)
             UploadHandler->>Disk: io.Copy in 32kb buffers (Socket -> Disk)

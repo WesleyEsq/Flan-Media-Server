@@ -206,6 +206,7 @@ A distraction-free, blacked-out viewing screen where media playback takes center
 + **Auto-Resume Prompt:** If saved progress exists (`position_seconds > 10`), a flat modal overlay appears before playback starts asking whether to resume or start over.
 + **Player Controls (Plyr):** Custom lavender accent (`--plyr-color-main: #bb9af7`), skip 10s buttons, playback speed options (0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x), and fullscreen toggle.
 + **Progress Sync:** `player.js` emits a throttled `POST /api/progress` every 5 seconds. On video completion (`ended` event), marks `is_finished = 1`.
++ **Codec Compatibility Fallback:** If a video file (e.g. `.mkv` with DTS/AC3 audio) cannot be decoded natively by the browser HTML5 engine, the player detects playback failure (`error` event) and displays a non-blocking warning banner: *"Browser cannot decode this media stream directly without transcoding. [ ⬇ Download File ] to watch in an external app like VLC."*
 
 ---
 
@@ -362,6 +363,12 @@ The administrative control center for storage management, scanning, and user pro
 |  | [ ⟳ Scan All ]   [ + Add Library ]   [ ⬆ Upload Files/Folder ]     | |
 |  +--------------------------------------------------------------------+ |
 |                                                                         |
+|  Metadata & Scraping                                                    |
+|  +--------------------------------------------------------------------+ |
+|  | TMDB API Key: [ ******************************** ]   [ Save Key ]    | |
+|  | Status: Configured (Online TMDB Poster & Metadata Scraping Active)   | |
+|  +--------------------------------------------------------------------+ |
+|                                                                         |
 |  User Profiles                                                          |
 |  +--------------------------------------------------------------------+ |
 |  | [Avatar] Wesley (Admin)                 [ Edit PIN ] [ Change Icon]| |
@@ -381,7 +388,8 @@ The administrative control center for storage management, scanning, and user pro
   + Target **Library** is chosen from a dropdown.
   + For **TV Shows**, inputs for **Series Title** and **Season Number** are provided (or relative paths are parsed from folder uploads), saving files directly to `<library_path>/<Series Title>/Season <NN>/<file>`.
   + Pre-upload check queries `statfs` on the selected filesystem (requires > 2 GB free).
-+ **Profile Management:** Admin can add new household profiles (`POST /api/users`), change avatars (`PUT /api/users/{id}`), and reset user PINs (`PUT /api/users/{id}/pin`) without terminal access.
++ **Metadata Scraper Configuration:** Admin can enter or update the TMDB API Read Access Token or API Key. If left blank, Flan operates in offline local-first mode (relying on `poster.jpg` and embedded SVG mascots).
++ **Profile Management:** Admin can add new household profiles (`POST /api/users`), change avatars (`PUT /api/users/{id}`), and reset user PINs (`PUT /api/users/{id}/pin`) without terminal access. Resetting a PIN increments `token_version`, immediately invalidating old session cookies.
 
 ---
 

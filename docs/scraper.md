@@ -50,11 +50,12 @@ If no local metadata exists, raw filenames are sanitized using regular expressio
 
 ### Stage 3: External API Matchers
 
-When external metadata is needed, the scraper queries lightweight REST APIs over HTTPS using Go's standard library net/http:
+When external metadata is needed, the scraper queries lightweight REST APIs over HTTPS using Go's standard library `net/http`:
 
 + **The Movie Database (TMDB):**
-  + Endpoint: Search queries via TMDB REST API.
-  + Retrieved Fields: Canonical title, release year, community rating (e.g. 8.2), overview synopsis, poster image path, and genre array (e.g. ["Animation", "Sci-Fi"]).
+  + **Configuration:** The scraper loads `TMDB_API_KEY` from the environment or server settings. Requests use the standard TMDB API v3 (`https://api.themoviedb.org/3/search/movie` or `/search/tv`) with bearer token or API key authentication.
+  + **Missing API Key Behavior:** If `TMDB_API_KEY` is omitted or left blank in `.env`, the scraper cleanly skips outbound TMDB queries and immediately logs an informational message (`"TMDB_API_KEY not configured; using local-first fallback"`). No network requests are attempted, avoiding unneeded latency and network timeouts in offline homelabs.
+  + **Retrieved Fields:** Canonical title, release year, community rating (e.g. 8.2), overview synopsis, poster image path, and genre array (e.g. ["Animation", "Sci-Fi"]).
 + **Books:** For books lacking embedded covers, OpenLibrary is queried using the cleaned title.
 
 ### Stage 4: Streamed Cover Download & Metadata Storage
@@ -125,6 +126,7 @@ To protect the server's 15 to 20mb memory target and prevent network lockups:
 
 + **Concurrency Limits:** Only one scraping task runs at any time in a single background goroutine.
 + **Request Throttling:** A ticker enforces a 350ms delay between consecutive API calls to stay within free API rate limits, governed by [Zone E of the Rate Limiting Architecture](docs/rate-limiting.md).
++ **Database Connection Yielding:** Because Flan operates SQLite with `db.SetMaxOpenConns(1)` to limit memory consumption, the scraper avoids holding open transactions during disk or network I/O. Newly discovered items are persisted using granular per-item transactions or small batches (5–10 items). Between indexing items, the worker yields execution (`runtime.Gosched()`), allowing incoming video playback progress syncs (`POST /api/progress`) and catalog browsing queries to interleave without encountering `SQLITE_BUSY` contention.
 + **Timeout Protection:** Every outbound HTTP request uses a strict 10-second timeout via context.WithTimeout.
 + **Graceful Fallbacks:** If an item cannot be matched online or the server is running without an internet connection:
   + The display title defaults to the cleaned filename.
