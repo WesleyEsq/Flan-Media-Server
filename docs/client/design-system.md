@@ -1,209 +1,116 @@
 # Web Client Design System & Foundations
 
-This document details the visual foundations, color palette, typography scale, global navigation bar, and built-in e-manual for Flan Media Server's web client.
+Visual tokens, typography scale, global navigation bar, and built-in e-manual for Flan Media Server's web client.
 
 ---
 
-## 1. Core Design Philosophy
+## 1. Core Visual Principles
 
-The web interface is engineered for fast rendering and high readability across diverse display hardware, from low-brightness mobile screens in dark living rooms to low-powered smart TV web browsers:
-
-+ **Zero Animation & Zero Gradient Bloat:** No bouncy transforms, no hover scaling, and no CSS gradients. Surfaces are flat and matte, ensuring immediate browser painting without GPU rendering lag.
-+ **No Blur Filters:** CSS backdrop-filter (blur) is strictly avoided. It is notoriously CPU-heavy on low-power devices and older tablets.
-+ **High Contrast First:** Text and icons use high-contrast color values that exceed standard accessibility guidelines (WCAG AAA), avoiding the washed-out gray-on-gray look common in dark themes.
-+ **Zero Font Network Overhead:** Uses the device's native system font stack. The browser downloads zero font files, eliminating network delays and layout shifts.
+* **Zero Animation Bloat:** No bouncy transforms, hover scaling, or heavy CSS gradients. Surfaces are flat and matte, ensuring instant browser painting on low-power Smart TVs and older mobile devices.
+* **No Backdrop Blur:** CSS `backdrop-filter: blur(...)` is strictly avoided to prevent GPU and CPU rendering lag on constrained hardware.
+* **High Contrast (WCAG AAA):** Text and surfaces exceed 14:1 contrast ratios for effortless reading across a living room on low-brightness TV displays.
+* **System Font Stack:** Uses the device's native system font stack with zero web fonts, eliminating network latency and layout shifts (`font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`).
 
 ---
 
 ## 2. Color Palette & Design Tokens
 
-All colors are declared as CSS custom properties in the root stylesheet:
+All styles are consolidated in `web/static/css/style.css`:
 
 ```css
 :root {
-    /* Backgrounds & Surfaces */
-    --bg-base: #12131a;       /* Deep matte slate background */
-    --bg-surface: #1a1b24;    /* Flat card and shelf background */
-    --bg-elevated: #242633;   /* Modals, dropdowns, and hover states */
-    --bg-active: #2d2640;     /* Selected item background with lavender tint */
+    /* Surfaces */
+    --bg-base:        #12131a; /* Deep matte slate background */
+    --bg-surface:     #1a1b24; /* Flat card, shelf, and nav background */
+    --bg-elevated:    #242633; /* Modals, popups, and hover states */
+    --bg-active:      #2d2640; /* Selected item with lavender tint */
 
-    /* Borders & Dividers */
-    --border-subtle: #2c2e3e; /* Visible component and card borders */
-    --border-focus: #bb9af7;  /* High-visibility focus and active ring */
+    /* Borders */
+    --border-subtle:  #2c2e3e; /* Visible card and divider borders */
+    --border-focus:   #bb9af7; /* High-visibility keyboard/remote focus ring */
 
-    /* High-Contrast Typography */
-    --text-primary: #f0f2fc;   /* High-contrast off-white (14:1 contrast ratio) */
-    --text-secondary: #9ba1b8; /* Muted metadata (year, duration, author) */
-    --text-muted: #6b728d;     /* Inactive labels and placeholders */
+    /* Typography */
+    --text-primary:   #f0f2fc; /* High-contrast off-white (>14:1 ratio) */
+    --text-secondary: #9ba1b8; /* Muted metadata (year, runtime, author) */
+    --text-muted:     #6b728d; /* Inactive labels and placeholders */
 
-    /* Accents & Functional Colors */
-    --accent-lavender: #bb9af7; /* Primary buttons, active tabs, progress bars */
-    --accent-hover: #cbb0f9;    /* Button interaction state */
-    --color-danger: #f7768e;    /* Error states and delete confirmations */
-    --color-success: #9ece6a;   /* Completed indicators and status badges */
+    /* Accents & Functional */
+    --accent-lavender:#bb9af7; /* Primary buttons, active tabs, progress bars */
+    --accent-hover:   #cbb0f9; /* Button hover state */
+    --color-danger:   #f7768e; /* Lockout warnings, delete buttons */
+    --color-success:  #9ece6a; /* Completed checkmarks, health badges */
 }
 ```
-
-### Contrast and Readability
-
-+ **Primary Text (--text-primary: #f0f2fc) on Base (--bg-base: #12131a):** Delivers a contrast ratio of over 14:1, making text effortlessly readable from across a room on a television screen.
-+ **Lavender Accent (--accent-lavender: #bb9af7):** Used deliberately for actionable controls—active navigation tabs, playback scrub bars, and primary buttons.
 
 ---
 
 ## 3. Typography Scale
 
-The font family relies entirely on the system font stack to achieve instant rendering with zero network requests:
-
-```css
-body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 15px;
-    line-height: 1.5;
-    color: var(--text-primary);
-    background-color: var(--bg-base);
-}
-```
-
-### Type Scale (rem-based)
-
-+ **Display / Page Header:** 1.5rem (24px), bold, letter-spacing: -0.02em. Used for page titles and TV series headings.
-+ **Shelf / Section Title:** 1.25rem (20px), 600 weight. Used for row titles (e.g. "Continue Watching", "Movies").
-+ **Card Title:** 0.9375rem (15px), 500 weight. Used for movie, episode, and book titles. Truncates cleanly after 2 lines with text-overflow.
-+ **Metadata / Subtitle:** 0.8125rem (13px), 400 weight, color: var(--text-secondary). Used for release year, runtime, and author names.
-+ **Badges / Tags:** 0.75rem (12px), 600 weight, uppercase, letter-spacing: 0.05em. Used for format labels (4K, MP4, EPUB) and genre pills.
+| Level | Size | Weight | Line Height | Usage |
+| :--- | :--- | :--- | :--- | :--- |
+| **Display / Header** | 1.5rem (24px) | Bold (700) | 1.2 | Page titles, TV series detail heading |
+| **Shelf Title** | 1.25rem (20px)| 600 | 1.3 | Dashboard section headings ("Continue Watching") |
+| **Card Title** | 0.9375rem (15px)| 500 | 1.4 | Movie, episode, and book titles (truncated 2 lines) |
+| **Metadata / Subtitle**| 0.8125rem (13px)| 400 | 1.4 | Year, duration, episode numbers, authors (`--text-secondary`) |
+| **Badges & Pills** | 0.75rem (12px)| 600 | 1.0 | Format pills (`4K`, `EPUB`, `PDF`), genre filter tags |
 
 ---
 
-## 4. Global Navigation Bar Specification
+## 4. Global Navigation Bar
 
-The top navigation bar is fixed at the top of the viewport (`position: sticky; top: 0; z-index: 50`) across all pages except fullscreen video playback.
+Fixed at the top of the viewport (`sticky; top: 0; z-index: 50`) on all pages except fullscreen playback:
 
 ```text
 +-------------------------------------------------------------------------+
-| [Flan logo]   Home   Videos   Books                 [? Help] [⚙] [Avatar] |
+| [Flan Logo]   Home   Videos   Books                 [? Help] [⚙] [Avatar] |
 +-------------------------------------------------------------------------+
 ```
 
-### Layout Breakdown
-
-1. **Brand (Left):**
-   + Text logo: `Flan` linking directly to the dashboard (`/`).
-   + Distinct lavender highlight on hover/focus.
-2. **Primary Navigation Links (Center / Left):**
-   + **Home (`/`):** Dashboard with in-progress shelves and recent additions.
-   + **Videos (`/videos`):** Movie and TV catalog with genre filter bar.
-   + **Books (`/books`):** Document and book catalog.
-   + Active link is highlighted with an underline border (`border-bottom: 2px solid var(--accent-lavender)`) and bold text.
-3. **Utility Controls (Right):**
-   + **E-Manual Button (`? Help`):** Opens the built-in user guide modal.
-   + **Settings Button (`⚙`):** Opens library and server settings (visible to admin).
-   + **Profile Avatar Badge:** Displays the active user's chosen icon on their accent color tile. Clicking opens a dropdown with options to switch profiles or log out.
-
-### Responsive Mobile Behavior
-
-+ On screens narrower than 640px, navigation links remain compact in the header or sit cleanly below the brand in a horizontal scroll row, ensuring full accessibility on phones without requiring a heavy hamburger menu script.
+* **Brand (Left):** Text logo `Flan` linking to `/`.
+* **Nav Links (Center/Left):** `Home` (`/`), `Videos` (`/videos`), `Books` (`/books`). Active page indicated by a solid lavender bottom border (`border-bottom: 2px solid var(--accent-lavender)`).
+* **Utility Controls (Right):**
+  * `? Help`: Opens the built-in HTML `<dialog>` e-manual.
+  * `⚙ Settings`: Opens administrative settings (visible to admin).
+  * `Profile Avatar`: Chosen icon on user's accent color tile. Clicking opens dropdown to switch profiles or log out.
+* **Mobile Handling:** Links wrap cleanly or scroll horizontally without a heavy JavaScript hamburger menu.
 
 ---
 
-## 5. The Built-in E-Manual (User Guide)
+## 5. Built-in E-Manual (`<dialog id="manual-dialog">`)
 
-The e-manual is a self-contained, accessible user guide embedded directly in every page shell. It opens when the user clicks the `? Help` button in the navigation bar.
+Accessible on any page via `? Help`, built with native HTML `<dialog>` (zero JS libraries; traps focus, closes on `Escape`):
 
-### Implementation: Native HTML `<dialog>`
-
-The manual uses the standard HTML `<dialog id="manual-dialog">` element:
-
-+ **Zero External Libraries:** Standard browser dialog with native modal backdrop.
-+ **Accessible by Default:** Automatically traps keyboard focus, closes on pressing `Escape`, and restores focus to the trigger button when closed.
-
-### Content Structure of the E-Manual
-
-#### Section 1: Keyboard Shortcuts (Video Player)
-
+### Keyboard Shortcuts (Video Player)
 | Key | Action |
 | :--- | :--- |
-| `Space` or `K` | Play / Pause video |
-| `F` | Toggle fullscreen mode |
+| `Space` / `K` | Play / Pause |
+| `F` | Toggle fullscreen |
 | `M` | Mute / Unmute audio |
 | `←` / `→` | Skip backward / forward 10 seconds |
 | `↑` / `↓` | Volume up / down (5% increments) |
-| `0` to `9` | Jump to 0% through 90% of duration |
+| `0`–`9` | Jump to 0% through 90% duration |
 
-#### Section 2: Supported Media Formats (Direct Play)
-
-The server delivers files directly without real-time transcoding to preserve low-power CPU and memory. The manual explains supported formats:
-
-+ **Native Direct Play (Browser Playable):**
-  + **MP4:** H.264 video with AAC audio (universal browser compatibility).
-  + **WebM:** VP9 or AV1 video with Opus audio.
-  + **MKV:** Playable in modern browsers only if the underlying streams are web-compatible (H.264/VP9 video + AAC/Opus audio).
-+ **Unsupported Formats (Download Only):**
-  + Files containing non-web codecs (e.g. DivX/XviD in `.avi`, or DTS/AC3 multi-channel audio tracks in `.mkv`) cannot be transcoded on-the-fly by the SBC. The web player will display a prompt allowing the user to download the original file for playback in external apps (such as VLC).
-+ **Documents & Books:** EPUB and PDF files.
-
-#### Section 3: Adding New Files
-
-+ Explains how to drop files into a configured library directory and click "Scan Libraries" in Settings, or use the Admin upload option.
-+ Notes standard file naming conventions: `Movie Title (Year).mp4` and `<Series>/Season <NN>/<Series> - S<NN>E<NN> - <Title>.mp4`.
+### Direct Play Codec Guidelines
+* **Native Web Video:** MP4 (H.264/AAC), WebM (VP9/Opus, AV1), and web-safe MKV.
+* **Unsupported Formats:** Non-web codecs (e.g. DivX in `.avi`, DTS/AC3 in `.mkv`) display a fallback prompt allowing direct file download for VLC playback.
+* **Reading Material:** EPUB (ePub.js reader) and PDF (native browser viewer).
 
 ---
 
-## 6. CSS Architecture & Coding Conventions
+## 6. Embedded Third-Party Vendor Assets
 
-All client styling is consolidated into `web/static/css/style.css`:
+All dependencies are vendored into `web/static/vendor/` and embedded into the binary via `embed.FS`:
 
-1. **No CSS Frameworks:** No Tailwind, Bootstrap, or utility bloat. Plain, highly optimized CSS.
-2. **Semantic Class Naming:** Components use simple, self-explanatory class names:
-   + `.navbar`, `.navbar__brand`, `.navbar__link`
-   + `.shelf`, `.shelf__title`, `.shelf__grid`, `.shelf__scroll`
-   + `.card`, `.card__poster`, `.card__title`, `.card__meta`, `.card__progress`
-   + `.btn`, `.btn--primary`, `.btn--secondary`
-3. **Box Sizing & Reset:**
-
-   ```css
-   *, *::before, *::after {
-       box-sizing: border-box;
-       margin: 0;
-       padding: 0;
-   }
-   ```
-
-4. **Accessible Focus Rings:**
-   Interactive elements (buttons, cards, links, inputs) have a clear focus ring for keyboard and remote control navigation:
-
-   ```css
-   :focus-visible {
-       outline: 2px solid var(--border-focus);
-       outline-offset: 2px;
-   }
-   ```
-
----
-
-## 7. Embedded Third-Party Vendor Assets
-
-To guarantee complete offline autonomy and eliminate external CDN dependencies, third-party frontend libraries are vendored into `web/static/vendor/` and compiled directly into the executable via `embed.FS`.
-
-### Vendor Inventory & Responsibilities
-
-| Package | Files | Version Target | License | Purpose |
+| Library | Directory | Version Target | License | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| **Plyr** | `plyr/plyr.min.js`<br>`plyr/plyr.css`<br>`plyr/plyr.svg` | v3.7+ | MIT | Lightweight HTML5 video player with custom CSS variable overrides (`--plyr-color-main`), responsive touch scrub bar, and keyboard accessibility. |
-| **ePub.js** | `epubjs/epub.min.js` | v0.3+ | BSD-2-Clause | Client-side EPUB unpacker and paginated reader for browser viewing. |
-| **JSZip** | `epubjs/jszip.min.js` | v3.10+ | MIT | In-browser zip archive decompression dependency required by ePub.js. |
-
-### Architectural Rules for Vendor Assets
-
-1. **Zero External CDN Links:** Templates must never reference public CDNs (e.g. `cdn.jsdelivr.net`, `cdnjs`, Google Fonts). All resources resolve locally through `/static/vendor/...`.
-2. **Deterministic Offline Operation:** The client renders identically on air-gapped homelab local networks without internet connectivity.
-3. **Non-Invasive Theme Integration:** Vendor components are adapted using CSS custom property overrides (e.g. `--plyr-color-main: var(--accent-lavender)`), preserving unmodified upstream minified sources.
+| **Plyr** | `web/static/vendor/plyr/` | v3.7+ | MIT | Lightweight HTML5 video player styled with lavender variables (`--plyr-color-main: #bb9af7`). |
+| **ePub.js** | `web/static/vendor/epubjs/` | v0.3+ | BSD-2-Clause | In-browser EPUB unpacker and paginated reader. |
+| **JSZip** | `web/static/vendor/epubjs/` | v3.10+ | MIT | Client-side ZIP decompression dependency for ePub.js. |
 
 ---
 
-### Related Documentation
+## 7. Related Documentation
 
-+ [Web Client Pages & Template Layouts](pages.md)
-+ [Web Client Component Specifications](components.md)
-+ [Master System Specifications](../design.md)
-+ [User Flows & Client Navigation Diagrams](../diagrams/user-flows.md)
+* [Web Client Components](components.md)
+* [Page Templates & Wireframes](pages.md)
+* [Master System Architecture](../design.md)

@@ -1,135 +1,49 @@
-# Threat Model and Security Specification
+# Security Threat Model & Defensive Mitigations
 
-This document details the threat landscape, security boundaries, and defensive mitigations for Flan Media Server.
-
----
-
-## 1. Operating Context and Security Posture
-
-Flan Media Server is designed to run on low-power Linux computers and single-board computers (SBCs). In a typical homelab setup, the server operates in one of three environments:
-
-1. **Isolated Local Network (LAN):** Accessible only to household devices and Wi-Fi guests.
-2. **Overlay Mesh VPN (Tailscale, WireGuard):** Accessible remotely by authenticated personal devices.
-3. **Public Port Forward or Reverse Proxy:** Accessible over the public internet, usually behind Cloudflare or Nginx.
-
-### Potential Threat Actors
-
-+ Untrusted devices on the local Wi-Fi network (compromised IoT devices, guests).
-+ Internal household users attempting unauthorized access to administrative settings or other user profiles.
-+ Remote automated scanners if the port is exposed directly to the internet.
+Security boundaries, attack vectors, and defensive postures for Flan Media Server running in homelabs, VPN overlays, and local networks.
 
 ---
 
-## 2. Attack Vectors and Mitigations
+## 1. Operating Environment & Threat Actors
 
-### Vector 1: Path Traversal and Arbitrary File Access
-
-+ **Threat:** The server streams files from the host filesystem. If user input directly determines file paths, an attacker could request sensitive host files such as /etc/shadow or SSH keys.
-
-+ **Impact:** Critical. Complete exposure of the host operating system.
-+ **Mitigations:**
-  + **Opaque Numeric Identifiers:** The web client and streaming endpoints never accept file paths. All media requests use typed endpoints and integer IDs (e.g. `/stream/movie/42` or `/stream/episode/42`).
-  + **Canonical Path Verification:** When looking up a media file from the database, the server resolves all symbolic links using `filepath.EvalSymlinks` and verifies that the resulting absolute path starts with the verified root path of the library it belongs to (from the `libraries` table).
-  + **Static Asset Isolation:** Static files (HTML, CSS, JS) are embedded into the Go binary using embed.FS. The file server never serves from the operating system root.
+* **Operating Context:** Isolated LANs, overlay mesh networks (Tailscale, WireGuard), or behind reverse proxies (Nginx, Cloudflare).
+* **Threat Actors:** Compromised IoT devices or guests on local Wi-Fi, untrusted household users seeking elevated permissions, or automated internet scanners.
 
 ---
 
-## Vector 2: PIN Brute-Forcing
+## 2. Threat Vector Matrix
 
-+ **Threat:** Profiles are authenticated using 4 or 6-digit numeric PINs for usability on TVs and mobile devices. A 4-digit PIN has only 10,000 combinations (0000 to 9999), which an automated script could test within seconds over a local network.
-
-+ **Impact:** High. Unauthorized profile takeover.
-+ **Mitigations:**
-  + **Progressive Rate Limiting:** Track failed PIN attempts per profile and per client IP address. Detailed rules are in [docs/rate-limiting.md](file:///home/wess/Documents/MechanicalSpeak/Flan-Media-Server/docs/rate-limiting.md).
-  + **Lockout Schedule:** After 5 consecutive failed attempts, enforce a 5-minute lockout. Each subsequent failure doubles the delay.
-  + **Bcrypt Storage:** PINs are never stored in plaintext. They are salted and hashed using bcrypt before being saved to SQLite.
-
----
-
-## Vector 3: Disk Space Exhaustion (Denial of Service)
-
-+ **Threat:** SBCs typically run on small micro-SD cards or flash drives (16gb to 64gb). An attacker or runaway upload could fill the storage partition, causing the Linux kernel to panic or system services to crash.
-
-+ **Impact:** High. System unavailability.
-+ **Mitigations:**
-  + **Admin-Only Upload Permissions:** File and folder upload endpoints are strictly restricted to the admin profile. Standard profiles cannot upload files.
-  + **Pre-Upload Disk Check:** Before accepting an upload, query available disk space via `statfs`. If free space is below a safety threshold (e.g. 2gb), the upload is rejected immediately with HTTP 507 Insufficient Storage. Filesystem space checks are abstracted behind a portable storage helper with Go build tags (`//go:build linux` via `unix.Statfs` / `syscall.Statfs`, and `//go:build !linux` fallback for developer workstations).
-  + **Streaming Directly to Disk:** File uploads are streamed straight from the network socket to disk in 32kb chunks via r.MultipartReader and io.Copy. This ensures memory usage remains near zero and prevents Out-Of-Memory (OOM) crashes during large file transfers.
+| # | Attack Vector | Threat & Impact | Defensive Mitigation |
+| :- | :--- | :--- | :--- |
+| **1** | **Path Traversal** | Attacker accesses sensitive host files (`/etc/shadow`, SSH keys) via file parameters. *(Critical)* | • **Opaque IDs:** Endpoints accept typed numeric IDs (`/stream/movie/42`), never file paths.<br>• **Canonical Path Check:** Resolves symlinks via `filepath.EvalSymlinks` and asserts that the target resides inside the verified library root path.<br>• **Embedded Static Files:** Web assets are served from `embed.FS`, completely isolated from the host root filesystem. |
+| **2** | **PIN Brute-Forcing** | 4–6 digit numeric PINs (10,000 combinations) are automated over the local network. *(High)* | • **Bcrypt Hashing:** PINs are salted and hashed with bcrypt.<br>• **Progressive Lockout:** 5 failed attempts trigger a 5-minute lockout with exponential backoff on subsequent failures. Tracked by both client IP and user ID (Zone B). |
+| **3** | **Disk Space Exhaustion** | Runaway uploads fill the flash boot drive, causing kernel panics or crashes. *(High)* | • **Admin-Only Uploads:** Upload endpoints are restricted strictly to the admin role.<br>• **Pre-Flight Disk Check:** Before accepting bytes, `statfs` verifies >2 GB free space on the destination mount. Returns `HTTP 507 Insufficient Storage` if low.<br>• **Zero-Memory Streaming:** Bytes stream straight from socket to disk via `io.Copy` in 32 KB chunks (<1 MB RAM). |
+| **4** | **File Type Confusion / XSS** | Attacker uploads malicious HTML/scripts disguised as media, or uploads unplayable video formats. *(High)* | • **Strict Whitelist:** Direct-play video (`.mp4`, `.webm`, web-safe `.mkv`), books (`.epub`, `.pdf`), images (`.jpg`, `.jpeg`, `.png`, `.webp`). Rejects `.avi` or non-web containers.<br>• **MIME & Headers:** Strict `Content-Type` headers with `X-Content-Type-Options: nosniff`.<br>• **Permissions:** Files are saved with `0644` (non-executable). |
+| **5** | **SSRF in Metadata Scraper** | Scraper is coerced into querying internal network resources (e.g. router admin at `192.168.1.1`). *(Medium)* | • **Domain Whitelist:** Outbound queries are hardcoded strictly to TMDB and OpenLibrary.<br>• **Private IP Blocking:** Custom HTTP client rejects redirects or destinations resolving to private, loopback, or link-local ranges (`127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). |
+| **6** | **Session Tampering & Privilege Escalation** | Attacker tampers with cookies to elevate role or access deleted accounts. *(High)* | • **HMAC-SHA256 Signing:** Cookie payload formatted as `userID:role:tokenVersion:issuedAt:signature`, verified in constant time (`hmac.Equal`).<br>• **Instant In-Memory Revocation:** Server caches `token_version` in RAM (`map[int]int`). Resetting a PIN increments the version, revoking old sessions instantly without DB queries.<br>• **Key Security:** 32-byte secret loaded from `SESSION_SECRET` or `data/.session_secret` (`0600` permissions).<br>• **Cookie Flags:** `HttpOnly`, `SameSite=Lax`, and `Secure` when TLS is active. |
+| **7** | **Ghost Database Hijacking** | External media/DB mount fails on boot; server initializes on root flash card, causing split-brain. *(High)* | • **Marker File (`.flan-keep`):** Startup halts if the DB path lacks `.flan-keep`.<br>• **Scanner Mount Check:** Scans abort safely without purging database records if a library folder is empty or absent. |
 
 ---
 
-## Vector 4: File Type Confusion and Stored Script Execution
+## 3. Account Recovery & Failsafes
 
-+ **Threat:** An attacker uploads malicious HTML, SVG, or executable scripts disguised as media files, attempting to execute cross-site scripting (XSS) in an admin's browser session, or uploads legacy video formats that freeze or fail during streaming.
+Because Flan runs in self-contained homelabs without email infrastructure, recovery uses a two-tier model:
 
-+ **Impact:** High. Session hijacking, administrative takeover, or broken client playback.
-+ **Mitigations:**
-  + **Strict Extension Whitelist & Codec Policy:**
-    + **Direct Play Native:** `.mp4` (H.264/AAC), `.webm` (VP9/Opus, AV1). These stream natively with zero transcoding.
-    + **Container Support (`.mkv`):** Allowed only when encoded with web-compatible audio/video streams (H.264/VP9 and AAC/Opus). Files containing incompatible codecs (e.g. DTS/AC3 or DivX) will trigger a client-side warning banner advising users to download the file or play via external apps (like VLC), since real-time transcoding is not supported. Legacy non-web containers like `.avi` are disallowed during upload.
-    + **Books:** `.epub`, `.pdf`.
-    + **Images:** `.jpg`, `.jpeg`, `.png`, `.webp`.
-  + **Explicit MIME Headers:** When serving media, the server explicitly sets the Content-Type header (such as `video/mp4`, `video/webm`, `application/pdf`, `application/epub+zip`) and adds `X-Content-Type-Options: nosniff`. This prevents the browser from interpreting video files as executable HTML or script content.
-  + **File Permissions:** Uploaded files are written with 0644 permissions (read and write only, no execution flag).
-
----
-
-## Vector 5: Server-Side Request Forgery (SSRF) in Scraper
-
-+ **Threat:** If the cover and metadata scraper accepts arbitrary URLs from users, an attacker could instruct the server to make requests to internal network services (for example, hitting a router admin page at <http://192.168.1.1>).
-
-+ **Impact:** Medium to High. Internal network reconnaissance.
-+ **Mitigations:**
-  + **Hardcoded External Domains:** The scraper only queries trusted, hardcoded public API domains (The Movie Database and OpenLibrary).
-  + **Private IP Blocking:** The HTTP client used for scraping rejects any redirects or targets resolving to private, loopback, or link-local IP ranges (127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16).
-
----
-
-## Vector 6: Privilege Escalation & Session Tampering
-
-+ **Threat:** A standard household user attempts to call administrative endpoints to initiate scans or alter other user accounts, or attempts to forge/tamper with session cookies to elevate their role from `user` to `admin`, or continues using a compromised session cookie after a PIN reset or user deletion.
-
-+ **Impact:** High. Unauthorized administrative takeover or unauthorized persistent access.
-+ **Mitigations:**
-  + **Role Verification Middleware:** Endpoints that initiate scans, upload files, or manage users strictly verify that the active session's authenticated user record carries the `admin` role.
-  + **HMAC-SHA256 Cryptographic Signing with Token Versioning:** Session cookies use a tamper-proof payload formatted as `userID:role:tokenVersion:issuedAt:signature`. Changing any token component invalidates the signature immediately.
-  + **Instant Session Revocation via In-Memory Version Cache:** The server tracks each user's current `token_version` in an in-memory map (`map[int]int`, consuming less than 50 bytes of RAM for 1–5 users) loaded on startup. When a PIN is changed or user deleted, the in-memory version is immediately incremented/removed and persisted to SQLite. The authentication middleware validates `cookie.tokenVersion == userVersion[cookie.userID]` in $O(1)$ memory without database queries. All existing cookies are invalidated instantly with zero database query overhead on normal page loads.
-  + **Constant-Time Verification:** Cookie signatures are verified using Go's standard `crypto/hmac.Equal` to eliminate side-channel timing attacks during authentication verification.
-  + **Hardened Key Storage:** The 32-byte signing secret is loaded from `SESSION_SECRET` or read from a local `.session_secret` keyfile stored in the database folder. The keyfile is created with restrictive `0600` permissions (readable only by the daemon process user), preventing unauthorized local disclosure.
-  + **Cookie Security Flags:** Session cookies are strictly configured with `HttpOnly` (blocking JavaScript access), `SameSite=Lax` (preventing CSRF during cross-origin navigation), and `Secure` when TLS/HTTPS is active.
-
----
-
-## Vector 7: Unmounted Storage Path Hijacking & Ghost Database Initialization
-
-+ **Threat:** When external NVMe or USB drives fail to mount on boot, the target directory remains as an empty folder on the root micro-SD card. A server that blindly initializes databases or accepts uploads will write to the root filesystem, exhausting flash storage, causing split-brain database corruption, or exposing the setup wizard to users.
-+ **Impact:** High. Data corruption and system crash.
-+ **Mitigations:**
-  + **Marker File Verification (.flan-keep):** Before opening an external database path, verify the presence of the hidden marker file. If absent, immediately abort startup with a fatal log error.
-  + **Scanner Mount Liveness:** Check that the media root exists and is not empty before pruning any catalog items.
-  + **Destination statfs Validation:** Ensure upload destination filesystems match the expected external mount points and possess adequate free space before writing bytes.
-
----
-
-## 3. Account Recovery and Failsafes
-
-Because the server runs locally without external email dependencies, account recovery uses two straightforward mechanisms:
-
-1. **Standard Profile Recovery:** The admin can reset or change any standard user's PIN directly from the settings page.
-2. **Command-Line Failsafe:** If the admin forgets their PIN, physical or SSH access to the host allows running:
+1. **Standard Users:** The administrator can change or reset any user's PIN from `/settings`.
+2. **Administrator CLI Failsafe:** If the admin forgets their PIN, host shell access allows resetting it directly:
 
    ```bash
    ./flan --reset-admin
    ```
 
-   This interactive command resets the admin account directly in the local SQLite database.
+   This interactive CLI command prompts for a new PIN, hashes it with bcrypt, updates SQLite, and increments `token_version` to invalidate any compromised sessions.
+
+Also, don't even dare to have a local email server, that's just insane.
 
 ---
 
-### Related Documentation
+## 4. Related Documentation
 
-+ [Master System Specifications](docs/design.md)
-+ [Five-Zone Rate Limiting Architecture](docs/rate-limiting.md)
-+ [Storage Architecture & Mount Resiliency](docs/storage.md)
-+ [Database Schema & Hardened Session Storage](docs/database.md)
-+ [Admin File Upload Sequence Diagram](docs/diagrams/data-flow.md#6-admin-zero-memory-file-upload-data-flow)
+* [Rate Limiting Architecture](rate-limiting.md)
+* [Storage Architecture](storage.md)
+* [Database Schema & Hardening](database.md)

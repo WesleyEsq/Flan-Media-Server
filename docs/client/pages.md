@@ -1,38 +1,32 @@
 # Web Client Pages & Template Specifications
 
-This document defines the layout, wireframe hierarchy, and interaction behaviors for all server-rendered Go HTML templates in Flan Media Server.
+Layouts, wireframes, and interaction behaviors for the 9 server-rendered Go HTML templates in Flan Media Server.
 
 ---
 
-## 1. Page Template Inventory
+## 1. Template Inventory
 
-To prevent scope creep, the web client is strictly bounded to nine server-rendered templates:
-
-1. `index.html`: Dashboard with in-progress continue shelves and recently added media.
-2. `videos.html`: Video catalog with Movies and TV Series tabs and genre filtering.
-3. `show.html`: TV Series detail view with season tabs and episode lists.
-4. `books.html`: Document and book catalog with author and genre filters.
-5. `watch.html`: Distraction-free video player embedding Plyr with auto-resume.
-6. `read.html`: Dual-mode document viewer (native PDF embed and ePub.js reader).
-7. `login.html`: Profile selector ("Who is watching?") and numeric PIN keypad.
-8. `setup.html`: First-time onboarding wizard for initial server bootstrapping.
-9. `settings.html`: Server status, storage health, library scans, and user management.
+| Template | Route | Primary Purpose | Key Features |
+| :--- | :--- | :--- | :--- |
+| **`index.html`** | `GET /` | Dashboard | "Continue Watching" & "Continue Reading" shelves, "Recently Added" grid. |
+| **`videos.html`** | `GET /videos` | Video Catalog | Sub-tabs for Movies vs. TV Series, genre filter pills. |
+| **`show.html`** | `GET /show/{id}` | TV Series View | Season selector tabs, episode rows with watch progress and checkmarks. |
+| **`books.html`** | `GET /books` | Reading Catalog | Book and document grid with format badges (`EPUB`, `PDF`) and genre pills. |
+| **`watch.html`** | `GET /watch/{type}/{id}`| Video Player | Blacked-out player with Plyr, auto-resume prompt, and 5s progress sync. |
+| **`read.html`** | `GET /read/{id}` | Document Reader | Dual-mode viewer: native PDF iframe and paginated in-browser ePub.js. |
+| **`login.html`** | `GET /login` | Profile Selector | "Who is watching?" avatar tiles and touch/keyboard PIN keypad. |
+| **`setup.html`** | `GET /setup` | First-Time Wizard | Admin setup and initial library path (permanently locked once complete). |
+| **`settings.html`**| `GET /settings` | Admin Console | Hardware stats, library roots, manual scan triggers, uploads, and users. |
 
 ---
 
-## 2. Page Specifications & Wireframes
+## 2. Template Specifications & Wireframes
 
-### Page 1: Dashboard (`index.html` - Route: `GET /`)
-
-The home screen presents currently active media before general catalog items, allowing users to immediately resume watching or reading.
-
-#### Wireframe Layout
-
-``` text
+### Page 1: Dashboard (`index.html` - `GET /`)
+```text
 +-------------------------------------------------------------------------+
-| [  Flan]   Home   Videos   Books                 [? Help] [⚙] [Avatar] |
+| [Flan]   Home   Videos   Books                   [? Help] [⚙] [Avatar]  |
 +-------------------------------------------------------------------------+
-|                                                                         |
 |  CONTINUE WATCHING                                                      |
 |  +----------------+  +----------------+  +----------------+             |
 |  | [Poster]       |  | [Poster]       |  | [Poster]       |   [ > ]     |
@@ -48,115 +42,72 @@ The home screen presents currently active media before general catalog items, al
 |  +----------------+  +----------------+                                 |
 |                                                                         |
 |  RECENTLY ADDED                                                         |
-|  +--------+  +--------+  +--------+  +--------+  +--------+             |
-|  | Card 1 |  | Card 2 |  | Card 3 |  | Card 4 |  | Card 5 |             |
-|  +--------+  +--------+  +--------+  +--------+  +--------+             |
-|                                                                         |
+|  [ Card 1 ] [ Card 2 ] [ Card 3 ] [ Card 4 ] [ Card 5 ]                 |
 +-------------------------------------------------------------------------+
 ```
-
-#### Behavior & Interactions
-
-+ **Conditional Shelves:** The Continue Watching and Continue Reading shelves only render if the active user has items with `position_seconds > 10` and `is_finished = 0`. If none exist, these shelves are hidden.
-+ **Horizontal Scroll with Snap:** Shelves scroll horizontally via native CSS (`scroll-snap-type: x mandatory`). On desktop, chevron buttons allow advancing by one viewport width.
-+ **Empty Library State:** If the database contains zero media items, the dashboard displays an approachable empty state:
-  *"No media found. Go to Settings to scan your media folder or upload files."* with a button linking to `/settings`.
+* **Conditional Shelves:** Continue shelves render only if the user has items with `position_seconds > 10` and `is_finished = 0`.
+* **CSS Snapping:** Shelves scroll horizontally via `scroll-snap-type: x mandatory`.
+* **Empty State:** Shows a helpful prompt linking to `/settings` if the catalog contains zero items.
 
 ---
 
-### Page 2: Videos Catalog (`videos.html` - Route: `GET /videos`)
-
-The primary video browsing view supporting tabbed filtering between standalone movies and TV series.
-
-#### Wireframe
-
-``` text
-+-------------------------------------------------------------------------+
-| [  Flan]   Home   Videos   Books                 [? Help] [⚙] [Avatar] |
-+-------------------------------------------------------------------------+
-|                                                                         |
-|  VIDEOS                                                                 |
-|  [ ALL ]  [ MOVIES ]  [ TV SERIES ]                                     |
-|                                                                         |
-|  Genres: ( All ) ( Animation ) ( Comedy ) ( Sci-Fi ) ( Drama ) ( Action )|
-|                                                                         |
-|  +----------------+  +----------------+  +----------------+  +--------+ |
-|  | [2:3 Poster]   |  | [2:3 Poster]   |  | [2:3 Poster]   |  | ...    | |
-|  | Movie Title    |  | Series Title   |  | Movie Title    |  |        | |
-|  | 2024 • 1h 45m  |  | 2022 • 3 Seasons| 1999 • 2h 16m  |  |        | |
-|  | ★ 8.2          |  | ★ 8.9          |  | ★ 8.7          |  |        | |
-|  +----------------+  +----------------+  +----------------+  +--------+ |
-|                                                                         |
-+-------------------------------------------------------------------------+
-```
-
-#### Behavior & Interactions
-
-+ **Sub-Tabs:** Clicking Movies queries the `movies` table. Clicking TV Series queries the `series` table, displaying one card per show.
-+ **Genre Pills:** Clicking a genre pill appends `?genre=Animation` to the URL. The active genre pill displays with a solid lavender background (`--accent-lavender`).
-+ **Responsive CSS Grid:** Cards wrap automatically across rows (`grid-template-columns: repeat(auto-fill, minmax(160px, 1fr))`), accommodating screens from 320px smartphones to 4K TVs.
-+ **Click Targets:** Clicking a movie card navigates to `/watch/movie/{id}`. Clicking a TV series card navigates to `/show/{id}`.
-
----
-
-### Page 3: TV Series Detail View (`show.html` - Route: `GET /show/{id}`)
-
-A dedicated view for television shows that organizes multiple seasons and episodes without cluttering the main catalog.
-
-#### Wireframe Layout
-
+### Page 2: Videos Catalog (`videos.html` - `GET /videos`)
 ```text
 +-------------------------------------------------------------------------+
-| [  Flan]   Home   Videos   Books                 [? Help] [⚙] [Avatar] |
+| [Flan]   Home   Videos   Books                   [? Help] [⚙] [Avatar]  |
++-------------------------------------------------------------------------+
+|  VIDEOS                                                                 |
+|  [ ALL ]  [ MOVIES ]  [ TV SERIES ]                                     |
+|  Genres: ( All ) ( Animation ) ( Comedy ) ( Sci-Fi ) ( Drama ) ( Action)|
+|                                                                         |
+|  +----------------+  +----------------+  +----------------+             |
+|  | [2:3 Poster]   |  | [2:3 Poster]   |  | [2:3 Poster]   |             |
+|  | Movie Title    |  | Series Title   |  | Movie Title    |             |
+|  | 2024 • 1h 45m  |  | 2022 • 3 Seasons| 1999 • 2h 16m  |             |
+|  | ★ 8.2          |  | ★ 8.9          |  | ★ 8.7          |             |
+|  +----------------+  +----------------+  +----------------+             |
++-------------------------------------------------------------------------+
+```
+* **Catalog Grid:** Auto-wrapping grid (`repeat(auto-fill, minmax(160px, 1fr))`).
+* **Sub-Tabs & Filtering:** Filters between movies and TV series; clicking genre pills appends `?genre=Name`.
+* **Navigation:** Movie cards link to `/watch/movie/{id}`; series cards link to `/show/{id}`.
+
+---
+
+### Page 3: TV Series Detail View (`show.html` - `GET /show/{id}`)
+```text
++-------------------------------------------------------------------------+
+| [Flan]   Home   Videos   Books                   [? Help] [⚙] [Avatar]  |
 +-------------------------------------------------------------------------+
 |  ← Back to Videos                                                       |
-|                                                                         |
 |  +--------------+   BREAKING BAD (2008)                                 |
 |  | [Poster]     |   ★ 9.5 • 5 Seasons • Crime, Drama                    |
-|  |              |   A high school chemistry teacher diagnosed with      |
-|  |              |   inoperable lung cancer turns to manufacturing...    |
+|  |              |   Synopsis description...                             |
 |  +--------------+                                                       |
 |                                                                         |
 |  [ Season 1 ]  [ Season 2 ]  [ Season 3 ]  [ Season 4 ]  [ Season 5 ]   |
 |                                                                         |
 |  EPISODES                                                               |
 |  +--------------------------------------------------------------------+ |
-|  | [Thumb]  1. Pilot                                            48m   | |
-|  |          Diagnosed with terminal cancer, Walter White teams up...   | |
-|  |          [================== Watched ====================]  [ ✓ ]  | |
+|  | [Thumb] 1. Pilot (48m)                  [== Watched ==]  [ ✓ ]     | |
 |  +--------------------------------------------------------------------+ |
-|  | [Thumb]  2. Cat's in the Bag...                              48m   | |
-|  |          Walt and Jesse attempt to dispose of two bodies...         | |
-|  |          [====== 18m left =======]                           [ ► ]  | |
-|  +--------------------------------------------------------------------+ |
-|  | [Thumb]  3. ...And the Bag's in the River                    48m   | |
-|  |          Walt grapples with a life-or-death decision...             | |
-|  |                                                              [ ► ]  | |
+|  | [Thumb] 2. Cat's in the Bag (48m)       [== 18m left ==] [ ► ]     | |
 |  +--------------------------------------------------------------------+ |
 +-------------------------------------------------------------------------+
 ```
-
-#### Behavior & Interactions
-
-+ **Season Switcher:** Clicking a season tab filters the episode list in place. The active season tab is highlighted in lavender.
-+ **Progress Badges:** Each episode displays an inline watch progress bar. Completed episodes show a subtle green checkmark badge (`[ ✓ ]`).
-+ **Direct Play:** Clicking anywhere on an episode row immediately launches `/watch/episode/{episode_id}`.
+* **Season Tabs:** Switches visible episodes in-place without full page reloads.
+* **Progress Badges:** Displays watch progress bar per episode; completed items show checkmarks (`[ ✓ ]`).
+* **Playback:** Clicking any episode row opens `/watch/episode/{id}`.
 
 ---
 
-### Page 4: Books Catalog (`books.html` - Route: `GET /books`)
-
-The catalog view for PDF documents and EPUB books.
-
-#### Wireframe Layout
-
+### Page 4: Books Catalog (`books.html` - `GET /books`)
 ```text
 +-------------------------------------------------------------------------+
-| [  Flan]   Home   Videos   Books                 [? Help] [⚙] [Avatar]  |
+| [Flan]   Home   Videos   Books                   [? Help] [⚙] [Avatar]  |
 +-------------------------------------------------------------------------+
-|                                                                         |
 |  BOOKS & DOCUMENTS                                                      |
-|  Genres: ( All ) ( Sci-Fi ) ( Fantasy ) ( Technology ) ( Documentation )|
+|  Genres: ( All ) ( Sci-Fi ) ( Technology ) ( Documentation )            |
 |                                                                         |
 |  +----------------+  +----------------+  +----------------+             |
 |  | [1:1.4 Cover]  |  | [1:1.4 Cover]  |  | [1:1.4 Cover]  |             |
@@ -164,111 +115,45 @@ The catalog view for PDF documents and EPUB books.
 |  | Frank Herbert  |  | William Kennedy|  | Robert Love    |             |
 |  | [ EPUB ]       |  | [ PDF ]        |  | [ PDF ]        |             |
 |  +----------------+  +----------------+  +----------------+             |
-|                                                                         |
 +-------------------------------------------------------------------------+
 ```
-
-#### Behavior & Interactions
-
-+ **Card Ratio:** Book cards use a 1:1.4 aspect ratio with a subtle vertical faux spine shadow along the left border.
-+ **Format Badges:** Each card displays a small format pill (`[ EPUB ]` or `[ PDF ]`).
-+ **Click Actions:** Clicking a card navigates to `/read/{id}`.
+* **Cover Styling:** 1:1.4 aspect ratio with faux book spine shadow on the left edge.
+* **Format Badges:** Clear format indicators (`EPUB` / `PDF`). Cards link to `/read/{id}`.
 
 ---
 
-### Page 5: Video Player View (`watch.html` - Route: `GET /watch/{type}/{id}`)
-
-A distraction-free, blacked-out viewing screen where media playback takes center stage (`type`: `movie` or `episode`).
-
-#### Wireframe Layout
-
-```
+### Page 5: Video Player View (`watch.html` - `GET /watch/{type}/{id}`)
+```text
 +-------------------------------------------------------------------------+
 | [← Back]  Dune: Part Two (2024)                                         |
 +-------------------------------------------------------------------------+
 |                                                                         |
-|  +-------------------------------------------------------------------+  |
-|  |                                                                   |  |
-|  |   [ RESUME PLAYBACK ]                                             |  |
-|  |   You were watching at 24:12.                                     |  |
-|  |   [ ▶ Resume from 24:12 ]      [ ↺ Start from Beginning ]       |  |
-|  |                                                                   |  |
-|  |-------------------------------------------------------------------|  |
-|  |  [▶] [10s↺] [10s↻]  00:24:12 / 02:46:00          [1.0x] [🔊] [⛶] |  |
-|  +-------------------------------------------------------------------+  |
-|                                                                         |
-+-------------------------------------------------------------------------+
-```
-
-#### Behavior & Interactions
-
-+ **Header Overlay:** A minimalist top bar containing a `[← Back]` button and the media title. Auto-hides after 3 seconds of mouse inactivity during playback.
-+ **Auto-Resume Prompt:** If saved progress exists (`position_seconds > 10`), a flat modal overlay appears before playback starts asking whether to resume or start over.
-+ **Player Controls (Plyr):** Custom lavender accent (`--plyr-color-main: #bb9af7`), skip 10s buttons, playback speed options (0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x), and fullscreen toggle.
-+ **Progress Sync:** `player.js` emits a throttled `POST /api/progress` every 5 seconds. On video completion (`ended` event), marks `is_finished = 1`.
-+ **Codec Compatibility Fallback:** If a video file (e.g. `.mkv` with DTS/AC3 audio) cannot be decoded natively by the browser HTML5 engine, the player detects playback failure (`error` event) and displays a non-blocking warning banner: *"Browser cannot decode this media stream directly without transcoding. [ ⬇ Download File ] to watch in an external app like VLC."*
-
----
-
-### Page 6: Document Reader View (`read.html` - Route: `GET /read/{id}`)
-
-Provides dedicated reading interfaces tailored to the file format (PDF vs. EPUB).
-
-#### A. PDF Mode Layout (Native Embed)
-
-```
-+-------------------------------------------------------------------------+
-| [← Back]  Go Programming Language.pdf                 [ ⬇ Download PDF ]|
-+-------------------------------------------------------------------------+
-|                                                                         |
-|  +-------------------------------------------------------------------+  |
-|  |                                                                   |  |
-|  |               [ Native Browser PDF Viewing Engine ]               |  |
-|  |            (Embedded via <iframe src="/stream/book/{id}">)        |  |
-|  |                                                                   |  |
-|  +-------------------------------------------------------------------+  |
-|                                                                         |
-+-------------------------------------------------------------------------+
-```
-
-#### B. EPUB Mode Layout (ePub.js Reader)
-
-```
-+-------------------------------------------------------------------------+
-| [← Back]  Dune - Frank Herbert       [ A- ] [ A+ ]   [ ⬇ Download EPUB ]|
-+-------------------------------------------------------------------------+
-|                                                                         |
-|  [ < Prev ]                                                  [ Next > ] |
-|                                                                         |
-|             CHAPTER 1                                                   |
-|                                                                         |
-|             A beginning is the time for taking the                      |
-|             most delicate care that the balances are correct.           |
-|             This every sister of the Bene Gesserit knows...             |
+|   [ RESUME PLAYBACK ]                                                   |
+|   You were watching at 24:12.                                           |
+|   [ ▶ Resume from 24:12 ]        [ ↺ Start from Beginning ]             |
 |                                                                         |
 |-------------------------------------------------------------------------|
-|  Chapter 1: Arrakis                                        Page 12 / 620|
+|  [▶] [10s↺] [10s↻]  00:24:12 / 02:46:00          [1.0x] [🔊] [⛶]        |
 +-------------------------------------------------------------------------+
 ```
-
-#### Behavior & Interactions
-
-+ **PDF:** Uses native browser PDF rendering via an iframe, eliminating heavy JavaScript reader bundles.
-+ **EPUB:** ePub.js renders chapters with font scaling controls (`A-` and `A+`) and left/right click or keyboard arrow page turning.
-+ **Download Action:** Both modes provide a prominent `[ ⬇ Download ]` button for users who prefer opening files in native e-readers or PDF apps on tablets.
+* **Distraction-Free:** Header bar auto-hides after 3 seconds of mouse inactivity.
+* **Auto-Resume Prompt:** Prompts to resume if `position_seconds > 10`.
+* **Sync Loop:** `player.js` syncs position to `POST /api/progress` every 5 seconds.
+* **Codec Fallback:** Displays a download banner if the browser cannot decode stream streams directly.
 
 ---
 
-### Page 7: Profile Selector & Login (`login.html` - Route: `GET /login`)
+### Page 6: Document Reader (`read.html` - `GET /read/{id}`)
+* **PDF Mode:** Embedded directly using the native browser PDF engine via `<iframe src="/stream/book/{id}">` (zero JS bundle bloat).
+* **EPUB Mode:** In-browser pagination via ePub.js with font scaling (`[ A- ] [ A+ ]`) and chapter navigation.
+* **Download Button:** Prominent `[ ⬇ Download ]` button in the header across both modes for reading on external apps.
 
-The landing screen for returning users. Focuses on rapid profile switching via friendly avatar tiles.
+---
 
-#### Wireframe Layout
-
-```
+### Page 7: Profile Selector & Login (`login.html` - `GET /login`)
+```text
 +-------------------------------------------------------------------------+
-|                                                                         |
-|                                  Flan                                  |
+|                                  Flan                                   |
 |                           Who is watching?                              |
 |                                                                         |
 |         +-----------+          +-----------+          +-----------+     |
@@ -280,122 +165,72 @@ The landing screen for returning users. Focuses on rapid profile switching via f
 |                     +---------------------------+                       |
 |                     | Enter PIN for Wesley      |                       |
 |                     |        ●  ●  ○  ○         |                       |
-|                     |                           |                       |
 |                     |    [ 1 ]   [ 2 ]   [ 3 ]  |                       |
 |                     |    [ 4 ]   [ 5 ]   [ 6 ]  |                       |
 |                     |    [ 7 ]   [ 8 ]   [ 9 ]  |                       |
 |                     |    [ ⌫ ]   [ 0 ]   [ ↵ ]  |                       |
 |                     +---------------------------+                       |
-|                                                                         |
 +-------------------------------------------------------------------------+
 ```
-
-#### Behavior & Interactions
-
-+ **Profile Selection:** Clicking a profile tile activates the numeric PIN keypad modal for that user.
-+ **Keypad Input:** Supports both physical keyboard number keys and on-screen touch keypad clicks.
-+ **Lockout Feedback:** If an account is rate-limited, the keypad disables and displays:
-  *"Account locked due to failed attempts. Try again in 4:32."*
+* **Avatar Grid:** Renders household profile tiles. Clicking a tile activates the numeric PIN keypad modal.
+* **Keypad:** Accepts on-screen clicks or keyboard number keys.
+* **Lockout:** Shows countdown timer if account is locked by Zone B rate limiting.
 
 ---
 
-### Page 8: First-Time Setup Wizard (`setup.html` - Route: `GET /setup`)
-
-Displayed only when the database contains zero users. Automatically locked once completed.
-
-#### Wireframe Layout
-
-```
+### Page 8: First-Time Setup Wizard (`setup.html` - `GET /setup`)
+```text
 +-------------------------------------------------------------------------+
-|                                                                         |
-|                                Welcome to Flan                         |
-|                         Initial Server Setup                            |
+|                                Welcome to Flan                          |
+|                             Initial Server Setup                        |
 |                                                                         |
 |         +-----------------------------------------------------+         |
-|         | 1. Administrator Profile                            |         |
-|         |    Username: [ Wesley                            ]  |         |
-|         |                                                     |         |
-|         | 2. Security PIN                                     |         |
-|         |    Create 4 to 6-Digit PIN: [ ****               ]  |         |
-|         |                                                     |         |
-|         | 3. Primary Media Folder                             |         |
-|         |    Path on host: [ /mnt/storage/media            ]  |         |
+|         | 1. Admin Username:   [ Wesley                     ] |         |
+|         | 2. Create PIN:       [ ****                       ] |         |
+|         | 3. Media Directory:  [ /mnt/storage/media         ] |         |
 |         |                                                     |         |
 |         |    [ Complete Setup & Launch Catalog ]              |         |
 |         +-----------------------------------------------------+         |
-|                                                                         |
 +-------------------------------------------------------------------------+
 ```
-
-#### Behavior & Interactions
-
-+ **Path Validation:** Submitting validates that the host directory exists and has read permissions.
-+ **Automatic Lockout:** Upon creating the admin account, `/setup` is permanently disabled.
+* **Bootstrapping:** Active only when `users` table is empty; permanently locked once complete.
+* **Validation:** Verifies host path accessibility, hashes PIN with bcrypt, initializes admin, and starts background scan.
 
 ---
 
-### Page 9: Server & Library Settings (`settings.html` - Route: `GET /settings`)
-
-The administrative control center for storage management, scanning, and user profiles.
-
-#### Wireframe Layout
-
-```
+### Page 9: Server & Library Settings (`settings.html` - `GET /settings`)
+```text
 +-------------------------------------------------------------------------+
-| [  Flan]   Home   Videos   Books                 [? Help] [⚙] [Avatar] |
+| [Flan]   Home   Videos   Books                   [? Help] [⚙] [Avatar]  |
 +-------------------------------------------------------------------------+
-|                                                                         |
 |  SETTINGS                                                               |
 |                                                                         |
-|  System Status & Storage                                                |
-|  +--------------------------------------------------------------------+ |
-|  | Host OS: Linux (ARM64)               Memory: 14.2 MB / 16 MB limit | |
-|  | Active Streams: 1 / 3 max            Database: data/flan.db (WAL)  | |
-|  | Root SD Free: 42.1 GB               Media USB Free: 1.4 TB         | |
-|  +--------------------------------------------------------------------+ |
+|  System Status: Memory: 14.2 MB / 16 MB  •  Streams: 1 / 3 max          |
+|  Storage:       Root SD: 42.1 GB Free    •  Media USB: 1.4 TB Free      |
 |                                                                         |
-|  Library Folders                                                        |
-|  +--------------------------------------------------------------------+ |
-|  | /mnt/hdd1/movies (Movies)    •  342 films                            | |
-|  | /mnt/hdd2/tv (TV Shows)      •  18 shows, 214 episodes               | |
-|  | /mnt/nvme/books (Books)      •  48 books                             | |
-|  |                                                                    | |
-|  | [ ⟳ Scan All ]   [ + Add Library ]   [ ⬆ Upload Files/Folder ]     | |
-|  +--------------------------------------------------------------------+ |
+|  Libraries:                                                             |
+|  • /mnt/hdd1/movies (Movies) - 342 films                                |
+|  • /mnt/hdd2/tv (TV Shows)   - 18 shows, 214 episodes                   |
+|  • /mnt/nvme/books (Books)   - 48 books                                 |
+|  [ ⟳ Scan All ]   [ + Add Library ]   [ ⬆ Upload Files/Folder ]         |
 |                                                                         |
-|  Metadata & Scraping                                                    |
-|  +--------------------------------------------------------------------+ |
-|  | TMDB API Key: [ ******************************** ]   [ Save Key ]    | |
-|  | Status: Configured (Online TMDB Poster & Metadata Scraping Active)   | |
-|  +--------------------------------------------------------------------+ |
+|  Metadata: TMDB API Key: [ ***************** ]  [ Save Key ]            |
 |                                                                         |
-|  User Profiles                                                          |
-|  +--------------------------------------------------------------------+ |
-|  | [Avatar] Wesley (Admin)                 [ Edit PIN ] [ Change Icon]| |
-|  | [Avatar] Guest (User)                   [ Reset PIN ] [ Delete ]   | |
-|  |                                                                    | |
-|  | [ + Add New Profile ]                                              | |
-|  +--------------------------------------------------------------------+ |
-|                                                                         |
+|  User Profiles:                                                         |
+|  • Wesley (Admin)  [ Edit PIN ]  [ Change Icon ]                        |
+|  • Guest (User)    [ Reset PIN ] [ Delete ]                             |
+|  [ + Add New Profile ]                                                  |
 +-------------------------------------------------------------------------+
 ```
-
-#### Behavior & Interactions
-
-+ **Scan Triggers:** Clicking `[ ⟳ Scan All ]` triggers `POST /api/scan` across all configured libraries (with single-flight mutex and 30s cooldown). Individual libraries can also be scanned via `POST /api/libraries/{id}/scan`.
-+ **Library Management:** Admin can click `[ + Add Library ]` to register an absolute host directory path, display name, and media type (`movies`, `tv`, or `books`) via `POST /api/libraries`. Libraries can be removed via `DELETE /api/libraries/{id}`.
-+ **Upload Trigger & Routing:** Clicking `[ ⬆ Upload Files/Folder ]` opens the streaming upload modal:
-  + Target **Library** is chosen from a dropdown.
-  + For **TV Shows**, inputs for **Series Title** and **Season Number** are provided (or relative paths are parsed from folder uploads), saving files directly to `<library_path>/<Series Title>/Season <NN>/<file>`.
-  + Pre-upload check queries `statfs` on the selected filesystem (requires > 2 GB free).
-+ **Metadata Scraper Configuration:** Admin can enter or update the TMDB API Read Access Token or API Key. If left blank, Flan operates in offline local-first mode (relying on `poster.jpg` and embedded SVG mascots).
-+ **Profile Management:** Admin can add new household profiles (`POST /api/users`), change avatars (`PUT /api/users/{id}`), and reset user PINs (`PUT /api/users/{id}/pin`) without terminal access. Resetting a PIN increments `token_version`, immediately invalidating old session cookies.
+* **System Metrics:** Displays live memory usage, stream semaphore status, and mount free space via `statfs`.
+* **Library Management:** Add/remove library roots and trigger scans (`POST /api/scan`).
+* **Upload Modal:** Direct browser uploads streamed to disk in 32 KB chunks (<1 MB RAM).
+* **Profiles:** Create users, change avatars, and reset PINs (which increments `token_version` to invalidate cookies).
 
 ---
 
-### Related Documentation
+## 3. Related Documentation
 
-+ [Web Client Design System & Foundations](design-system.md)
-+ [Web Client Component Specifications](components.md)
-+ [User Flows & Journey Diagrams](../diagrams/user-flows.md)
-+ [Master System Specifications](../design.md)
+* [Design System & Foundations](design-system.md)
+* [Component Specifications](components.md)
+* [User Flows & Journeys](../diagrams/user-flows.md)

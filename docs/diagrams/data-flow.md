@@ -1,12 +1,12 @@
 # Data Flow & Architecture Diagrams
 
-This document visualizes the internal and external data flows using standard UML sequence diagrams and Data Flow Diagrams (DFD) rendered with Mermaid.
+UML sequence diagrams and Data Flow Diagrams (DFD) illustrating system data flows.
 
 ---
 
-## 1. Context Data Flow Architecture (Level 0 DFD)
+## 1. Context Data Flow (Level 0 DFD)
 
-Illustrates the high-level boundaries between external actors, upstream providers, host storage tiers, and the core Flan Media Server daemon process.
+High-level boundaries between external clients, upstream providers, host storage tiers, and the Flan daemon process.
 
 ```mermaid
 flowchart LR
@@ -30,39 +30,20 @@ flowchart LR
         BulkMedia["Bulk Storage (USB / SATA)<br/>• Configured Libraries<br/>• Movies, Shows, Books"]
     end
 
-    %% Client Interactions
     Browser -->|"1. HTTP Range & Progress"| Daemon
     Daemon -->|"2. 206 Partial (sendfile) & UI"| Browser
-
-    %% Admin Interactions
     Admin -->|"3. Setup & Multipart Uploads"| Daemon
     Daemon -->|"4. Admin Views & Status"| Admin
-
-    %% Upstream Metadata
-    Daemon <-->|"5. Throttled HTTPS Queries & Posters"| TMDB
-
-    %% Storage Interactions
+    Daemon <-->|"5. Throttled HTTPS Queries"| TMDB
     Daemon <-->|"6. Read/Write SQLite & Covers"| AppData
     Daemon <-->|"7. Zero-Copy Reads & Chunked Writes"| BulkMedia
 ```
 
-### Context Data Flow Specification
-
-| Ref | Channel | Direction | Protocol / Mechanism | Description & Payload |
-| :--- | :--- | :--- | :--- | :--- |
-| **1** | Client Inbound | Browser → Daemon | HTTP/1.1 (TCP :4907) | Page navigation, user PIN authentication, HTTP Range requests (`bytes=start-end`), and throttled watch/read progress (`POST /api/progress`). |
-| **2** | Client Outbound | Daemon → Browser | HTTP 200 / 206 Partial | Server-rendered HTML templates with embedded CSS/JS, and zero-copy byte ranges streamed via Linux `sendfile`. |
-| **3** | Admin Inbound | Admin → Daemon | HTTP/1.1 | Initial onboarding setup (`/setup`), library management (`/api/libraries`), and multipart file uploads streamed in 32kb chunks (`/api/upload`). |
-| **4** | Admin Outbound | Daemon → Admin | HTTP 200 / JSON | Server settings interface, hardware storage stats, scan task progress, and upload status responses. |
-| **5** | Upstream Scraper | Daemon ↔ TMDB | HTTPS (Throttled ~2.8 req/s) | Outbound cleaned title queries to TMDB/OpenLibrary; inbound JSON metadata (ratings, overviews, genres) and streamed cover images. |
-| **6** | App Persistence | Daemon ↔ App Storage | POSIX File I/O & SQLite WAL | Fast random I/O: SQLite transactions (`flan.db`) with 2mb page cache, `.flan-keep` mount verification, and local artwork storage (`data/covers/`). |
-| **7** | Media Storage | Daemon ↔ Bulk Storage | Linux VFS / Kernel `sendfile` | Sequential media reads via kernel zero-copy transfer to network sockets, and direct socket-to-disk 32kb writes during admin uploads. |
-
 ---
 
-## 2. Component Data Flow Diagram (Level 1 DFD)
+## 2. Component Data Flow (Level 1 DFD)
 
-Breaks down the server process into distinct internal modules, illustrating how data moves between network listeners, middlewares, handlers, and persistence stores.
+Internal data movement between router, middlewares, engines, and persistence layers.
 
 ```mermaid
 flowchart LR
@@ -91,23 +72,18 @@ flowchart LR
 
     Request --> Governor
     Governor --> Router
-
     Router -- "GET /stream/{type}/{id}" --> StreamEngine
     Router -- "GET / (Pages)" --> PageEngine
     Router -- "POST /api/upload" --> UploadEngine
-
     StreamEngine --> SQLite
     StreamEngine --> HostDrives
     StreamEngine --> Response
-
     PageEngine --> SQLite
     PageEngine --> Covers
     PageEngine --> Response
-
     UploadEngine --> HostDrives
     UploadEngine --> SQLite
     UploadEngine --> Response
-
     Scanner --> HostDrives
     Scanner --> SQLite
     Scanner --> Covers
@@ -115,9 +91,9 @@ flowchart LR
 
 ---
 
-## 3. Zero-Copy Video Streaming Data Flow (UML Sequence)
+## 3. Zero-Copy Video Streaming (UML Sequence)
 
-Shows the exact call path for a media stream request, highlighting why video data bypasses Go's garbage-collected application heap.
+Shows how byte range requests trigger Linux `sendfile`, moving data directly from kernel cache to socket buffers without touching Go heap RAM.
 
 ```mermaid
 sequenceDiagram
@@ -129,34 +105,28 @@ sequenceDiagram
     participant VFS as Linux Kernel VFS
     participant Socket as Network TCP Socket
 
-    Client->>Gov: GET /stream/movie/42 with Range: bytes=1048576-
-    Gov->>Gov: Acquire stream token (active <= 3)
+    Client->>Gov: GET /stream/movie/42 (Range: bytes=1048576-)
+    Gov->>Gov: Acquire semaphore token (active <= 3)
     Gov->>Handler: Forward request
-
     Handler->>DB: Query movie file path for movie_id = 42
-    DB-->>Handler: Return relative path & library root path
-    Handler->>Handler: Resolve canonical path (/mnt/hdd1/movies/Dune.mp4)
-
+    DB-->>Handler: Relative path & library root path
+    Handler->>Handler: Validate canonical path inside library
     Handler->>VFS: os.Open("/mnt/hdd1/movies/Dune.mp4")
-    VFS-->>Handler: Return file descriptor (fd_in)
-
-    Handler->>Handler: Calculate Content-Range and byte count
-    Handler->>VFS: Invoke sendfile(fd_out, fd_in, offset, count)
-
-    Note over VFS,Socket: Kernel transfers pages directly from<br/>filesystem cache to network socket.<br/>Zero bytes enter Go user-space RAM!
-
-    VFS-->>Socket: Stream raw bytes to client
+    VFS-->>Handler: File descriptor (fd_in)
+    Handler->>Handler: Calculate Content-Range header
+    Handler->>VFS: sendfile(fd_out, fd_in, offset, count)
+    Note over VFS,Socket: Kernel transfers pages directly from<br/>filesystem cache to socket. Zero bytes in Go RAM.
+    VFS-->>Socket: Stream raw bytes
     Socket-->>Client: HTTP 206 Partial Content
-
-    Client->>Handler: Connection closed or stream finished
-    Handler->>Gov: Release stream token
+    Client->>Handler: Connection closed / playback ends
+    Handler->>Gov: Release semaphore token
 ```
 
 ---
 
 ## 4. Ingestion & Scraping Data Flow (UML Sequence)
 
-Illustrates how newly added files in a library are discovered, checked for local artwork, matched online, and stored locally.
+Scanning discovered media, local artwork verification, and throttled online metadata enrichment.
 
 ```mermaid
 sequenceDiagram
@@ -167,28 +137,25 @@ sequenceDiagram
     participant Covers as Local Cover Dir (data/covers/)
     participant DB as SQLite (flan.db)
 
-    Scanner->>DB: Fetch libraries (id, path, media_type)
-    DB-->>Scanner: Return Library: Movies at /mnt/storage/movies
-
+    Scanner->>DB: Fetch configured libraries
+    DB-->>Scanner: Library: Movies at /mnt/storage/movies
     Scanner->>Disk: fs.WalkDir(libraryPath)
-    Disk-->>Scanner: File discovered: Dune.Part.Two.2024.1080p.mp4
-
-    Scanner->>DB: Check if relative_path exists in movies table
-    DB-->>Scanner: Not found (New movie)
-
-    Scanner->>Disk: Check for local poster.jpg in same folder
+    Disk-->>Scanner: Discovered: Dune.Part.Two.2024.1080p.mp4
+    Scanner->>DB: Check if relative_path exists
+    DB-->>Scanner: Not found (New item)
+    Scanner->>Disk: Check for local poster.jpg
     alt Local poster.jpg exists
         Disk-->>Scanner: Found local poster.jpg
         Scanner->>DB: Insert into movies with local cover path
     else No local poster found
         Scanner->>Scanner: Regex clean: Title="Dune Part Two", Year=2024
         alt TMDB_API_KEY configured
-            Scanner->>TMDB: Search query via HTTPS (throttled at 2.8 req/s)
-            TMDB-->>Scanner: Return canonical metadata, rating, genres, poster URL
-            Scanner->>Covers: Stream image bytes directly to disk (io.Copy)
+            Scanner->>TMDB: Search query HTTPS (~2.8 req/s)
+            TMDB-->>Scanner: Canonical metadata, rating, genres, poster URL
+            Scanner->>Covers: Stream image bytes to disk (io.Copy)
             Scanner->>DB: Insert into movies & item_genres with cached cover
-        else No API key configured (Offline fallback)
-            Scanner->>DB: Insert into movies with clean title & SVG placeholder
+        else Offline / No API Key
+            Scanner->>DB: Insert into movies with clean title & SVG mascot
         end
         Scanner->>Scanner: Cooperative lock yield (runtime.Gosched)
     end
@@ -196,29 +163,27 @@ sequenceDiagram
 
 ---
 
-## 5. Client Progress Tracking Data Flow
+## 5. Playback Progress Sync Loop
 
-Illustrates the state sync loop between client playback and the normalized SQLite database.
+Client playback synchronization with the normalized SQLite database.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as User Playing Video
+    actor User as User Watching Video
     participant Player as Plyr Video Player (JS)
     participant API as Progress API Handler (Go)
     participant DB as SQLite (flan.db)
 
-    User->>Player: Watching video
     loop Every 5 seconds (throttled)
-        Player->>API: POST /api/progress {video_type: "movie", video_id: 42, position_seconds: 1450, duration_seconds: 9600}
-        API->>API: Verify HMAC signature and token_version against in-memory cache
-        API->>DB: Execute atomic UPSERT into video_progress
+        Player->>API: POST /api/progress {video_type, video_id, position_seconds, duration_seconds}
+        API->>API: Verify HMAC cookie & token_version (in-memory)
+        API->>DB: Atomic UPSERT into video_progress
         DB-->>API: Row updated
         API-->>Player: HTTP 200 OK
     end
-
-    User->>Player: Reaches end of video (ended event)
-    Player->>API: POST /api/progress {video_type: "movie", video_id: 42, is_finished: 1}
+    User->>Player: Reaches end of video
+    Player->>API: POST /api/progress {video_type, video_id, is_finished: 1}
     API->>DB: Mark is_finished = 1 in video_progress
     DB-->>API: Row updated
     API-->>Player: HTTP 200 OK
@@ -228,44 +193,43 @@ sequenceDiagram
 
 ## 6. Admin Zero-Memory File Upload Data Flow
 
-Illustrates how media files are uploaded through the browser and streamed directly to disk into the correct library destination without bloating RAM.
+Browser-based media uploads streamed directly to disk into the appropriate season/movie directory.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Admin as Admin Browser
-    participant UploadHandler as Upload API (Go)
-    participant Storage as Storage Layer (statfs helper)
+    participant Handler as Upload API (Go)
+    participant Storage as Storage Layer (statfs)
     participant Disk as Target Drive (/mnt/hdd1/...)
     participant DB as SQLite (flan.db)
 
-    Admin->>UploadHandler: POST /api/upload (multipart: library_id, series_title, season_number, files)
-    UploadHandler->>UploadHandler: Verify admin role & token_version from signed cookie
-    UploadHandler->>DB: Fetch library path and media_type for library_id
-    DB-->>UploadHandler: Return /mnt/hdd1/tv (Type: tv)
-    UploadHandler->>Storage: CheckFreeSpace on destination filesystem via statfs
-    Storage-->>UploadHandler: Return available free bytes
-
+    Admin->>Handler: POST /api/upload (multipart: library_id, series_title, season_number, files)
+    Handler->>Handler: Verify admin role & token_version
+    Handler->>DB: Fetch library path and media_type
+    DB-->>Handler: Return /mnt/hdd1/tv (Type: tv)
+    Handler->>Storage: CheckFreeSpace on destination mount via statfs
+    Storage-->>Handler: Free space result
     alt Free space < 2 GB
-        UploadHandler-->>Admin: HTTP 507 Insufficient Storage
+        Handler-->>Admin: HTTP 507 Insufficient Storage
     else Free space adequate
         loop For each file part in multipart stream
-            UploadHandler->>UploadHandler: Validate format (.mp4, .webm, web-safe .mkv)
-            UploadHandler->>UploadHandler: Compute destination path: /mnt/hdd1/tv/<Series>/Season <NN>/<file>
-            UploadHandler->>Disk: os.OpenFile(destinationPath, O_CREATE|O_WRONLY, 0644)
-            UploadHandler->>Disk: io.Copy in 32kb buffers (Socket -> Disk)
-            Disk-->>UploadHandler: File write complete
-            UploadHandler->>DB: Index into series / episodes table
+            Handler->>Handler: Validate format (.mp4, .webm, web-safe .mkv)
+            Handler->>Handler: Compute destination path: /mnt/hdd1/tv/<Series>/Season <NN>/<file>
+            Handler->>Disk: os.OpenFile(destinationPath, O_CREATE|O_WRONLY, 0644)
+            Handler->>Disk: io.Copy in 32kb buffers (Socket -> Disk)
+            Disk-->>Handler: File write complete
+            Handler->>DB: Index into series / episodes table
         end
-        UploadHandler-->>Admin: HTTP 200 OK (Upload Successful)
+        Handler-->>Admin: HTTP 200 OK (Upload Successful)
     end
 ```
 
 ---
 
-### Related Documentation
+## 7. Related Documentation
 
-+ [User Flows & Journey Diagrams](user-flows.md)
-+ [Master System Specifications](../design.md)
-+ [Five-Zone Rate Limiting Architecture](../rate-limiting.md)
-+ [Storage Architecture & Drive Resiliency](../storage.md)
+* [User Flows](user-flows.md)
+* [Master System Architecture](../design.md)
+* [Rate Limiting Architecture](../rate-limiting.md)
+* [Storage Architecture](../storage.md)

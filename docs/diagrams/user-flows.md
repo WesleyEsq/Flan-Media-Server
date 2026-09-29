@@ -1,12 +1,12 @@
 # User Design & System Flow Diagrams
 
-This document illustrates the key user flows and technical workflows for Flan Media Server.
+Visual workflows and interaction journeys for key user tasks in Flan Media Server.
 
 ---
 
 ## 1. First-Time Setup Wizard
 
-When the server runs for the first time with an empty database, it guides the administrator through an onboarding screen before locking the setup route.
+On initial boot with an empty database, the server automatically routes requests to `/setup` and disables the route once complete.
 
 ```mermaid
 flowchart TD
@@ -29,9 +29,9 @@ flowchart TD
 
 ---
 
-## 2. Profile Selection and PIN Authentication
+## 2. Profile Selection & PIN Authentication
 
-Returning users see a friendly profile selection screen ("Who is watching?") and log in using their numeric PIN with brute-force protection and signed session cookies.
+Returning users select their profile tile and enter their numeric PIN, protected by Zone B brute-force lockouts.
 
 ```mermaid
 sequenceDiagram
@@ -43,37 +43,34 @@ sequenceDiagram
 
     User->>Browser: Opens app
     Browser->>Server: GET /login
-    Server->>DB: Query profile list (names, avatar icons, and colors)
+    Server->>DB: Query profiles (usernames, icons, colors)
     DB-->>Server: Return profiles
     Server-->>Browser: Render profile selector page
-
-    User->>Browser: Selects profile and enters PIN
+    User->>Browser: Selects profile & enters PIN
     Browser->>Server: POST /api/login (user_id, pin)
-
-    Server->>Server: Check rate limiting for this IP and profile
-    alt Rate limit exceeded (5+ failed attempts)
-        Server-->>Browser: HTTP 429 Too Many Requests (Lockout for 5 mins)
+    Server->>Server: Check Zone B lockout (IP & Profile ID)
+    alt Locked out (5+ failed attempts)
+        Server-->>Browser: HTTP 429 Too Many Requests (Lockout active)
     else Attempt allowed
-        Server->>DB: Fetch user password hash
+        Server->>DB: Fetch user pin_hash
         DB-->>Server: Return bcrypt hash
-        Server->>Server: Verify bcrypt hash against entered PIN
-
+        Server->>Server: Verify bcrypt hash against PIN
         alt PIN is incorrect
-            Server->>Server: Increment failed attempts counter in DB
-            Server-->>Browser: HTTP 401 Unauthorized (Invalid PIN)
+            Server->>Server: Increment failed attempts counter
+            Server-->>Browser: HTTP 401 Unauthorized
         else PIN is correct
-            Server->>Server: Reset failed attempts counter in DB
-            Server->>Server: Generate HMAC-signed cookie (userID:role:issuedAt:signature)
-            Server-->>Browser: Set HttpOnly signed session cookie & redirect to /
+            Server->>Server: Reset failed attempts counter
+            Server->>Server: Issue HMAC session cookie (userID:role:tokenVersion:issuedAt:signature)
+            Server-->>Browser: Set HttpOnly session cookie & redirect to /
         end
     end
 ```
 
 ---
 
-## 3. Media Streaming and Progress Tracking
+## 3. Media Streaming & Progress Sync
 
-Demonstrates zero-copy streaming using the Linux `sendfile` system call and how playback progress is automatically saved to allow resuming later.
+Zero-copy `sendfile` video delivery and automated 5-second watch progress syncing.
 
 ```mermaid
 sequenceDiagram
@@ -86,53 +83,45 @@ sequenceDiagram
 
     User->>Browser: Clicks on a video card
     Browser->>Server: GET /watch/movie/42
-    Server->>DB: Query movie details and saved position
-    DB-->>Server: Return title, duration, last position
+    Server->>DB: Query movie details & saved position
+    DB-->>Server: Title, duration, position_seconds
     Server-->>Browser: Render watch.html with Plyr player
-
-    Note over Browser,Server: Browser requests initial video chunk
-    Browser->>Server: GET /stream/movie/42 with Range: bytes=0-
-    Server->>DB: Lookup relative file path and library root
-    DB-->>Server: Return /mnt/storage/movies/flan.mp4
+    Browser->>Server: GET /stream/movie/42 (Range: bytes=0-)
     Server->>Kernel: Call sendfile from file descriptor to socket
     Kernel-->>Browser: HTTP 206 Partial Content (streams video bytes)
-
-    Note over Browser,Server: Playback progress syncs automatically
     loop Every 5 seconds during playback
-        Browser->>Server: POST /api/progress {video_type: "movie", video_id: 42, position_seconds: 1450, duration_seconds: 9600}
+        Browser->>Server: POST /api/progress {video_type, video_id, position_seconds, duration_seconds}
         Server->>DB: UPSERT video_progress
         DB-->>Server: Updated
         Server-->>Browser: HTTP 200 OK
     end
-
     User->>Browser: Stops video or closes tab
-    Note over User,Browser: Next time user visits, video resumes from saved position
 ```
 
 ---
 
-## 4. File Intake: Local In-Place Scan vs Admin Web Upload
+## 4. File Intake: Local Scan vs Admin Upload
 
-Flan Media Server supports both referencing existing media collections on the host and uploading new folders through the browser without memory bloat.
+Supports scanning existing folders in-place or streaming uploads directly to destination directories.
 
 ```mermaid
 flowchart TD
-    subgraph Local["Method A: Local Directory Scanning (Configured Libraries)"]
-        A1["Admin registers library in libraries table e.g. /mnt/hdd1/movies"] --> A2["Server validates directory existence and read permissions"]
+    subgraph Local["Method A: Local Directory Scanning"]
+        A1["Admin registers library path e.g. /mnt/hdd1/movies"] --> A2["Server validates directory existence"]
         A2 --> A3["Background worker walks directory tree recursively"]
         A3 --> A4["Check for local poster.jpg or cover art"]
         A4 --> A5["Extract file size, format, duration, and title"]
         A5 --> A6["Insert into movies / series / episodes / books tables"]
     end
 
-    subgraph Remote["Method B: Admin Web Upload (Streaming Intake)"]
-        B1["Admin selects Library (and enters Series/Season if TV)"] --> B2["Browser sends multipart stream via POST /api/upload"]
-        B2 --> B3["Server checks available disk space on library mount via statfs"]
-        B3 -- "Disk low (<2gb)" --> B4["Reject upload with HTTP 507 Insufficient Storage"]
-        B3 -- "Space OK" --> B5["r.MultipartReader reads incoming file parts"]
-        B5 --> B6["io.Copy streams directly to destination season/movie path in 32kb chunks"]
+    subgraph Remote["Method B: Admin Web Upload"]
+        B1["Admin selects Library (and Series/Season if TV)"] --> B2["Browser sends multipart stream via POST /api/upload"]
+        B2 --> B3["Check free space on target mount via statfs"]
+        B3 -- "Free space < 2 GB" --> B4["Reject with HTTP 507 Insufficient Storage"]
+        B3 -- "Space OK" --> B5["r.MultipartReader reads incoming file stream"]
+        B5 --> B6["io.Copy streams directly to destination in 32kb chunks"]
         B6 --> B7["Save file with 0644 permissions (non-executable)"]
-        B7 --> B8["Index new file into SQLite database & background scrape"]
+        B7 --> B8["Index new file into SQLite database"]
     end
 ```
 
@@ -140,22 +129,22 @@ flowchart TD
 
 ## 5. Admin Account Recovery Flow
 
-Demonstrates the straightforward host command-line failsafe for recovering the admin account if a PIN is forgotten.
+Failsafe CLI command to reset a forgotten admin PIN directly on the host shell.
 
 ```mermaid
 flowchart TD
-    Forgot["Admin forgot PIN"] --> Terminal["Access server shell via SSH or local terminal"]
+    Forgot["Admin forgot PIN"] --> Terminal["Access server shell via SSH or terminal"]
     Terminal --> RunCLI["Run command: ./flan --reset-admin"]
     RunCLI --> Interactive["CLI prompts for new Admin PIN"]
-    Interactive --> DirectDB["Updates admin record directly in flan.db"]
-    DirectDB --> Done["Admin logs in with the new PIN"]
+    Interactive --> DirectDB["Bcrypt hashes PIN, resets lockout & increments token_version in flan.db"]
+    DirectDB --> Done["Admin logs in with the new PIN; old sessions revoked"]
 ```
 
 ---
 
-### Related Documentation
+## 6. Related Documentation
 
-+ [Data Flow & Sequence Diagrams](data-flow.md)
-+ [Web Client Pages & Interaction Wireframes](../client/pages.md)
-+ [Master System Specifications](../design.md)
-+ [Security Threat Model & Account Recovery](../threat-model.md)
+* [Data Flow Diagrams](data-flow.md)
+* [Page Templates & Wireframes](../client/pages.md)
+* [Master System Architecture](../design.md)
+* [Threat Model & Recovery](../threat-model.md)

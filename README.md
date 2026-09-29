@@ -1,86 +1,83 @@
 # Flan Media Server
 
-Server for organizing and streaming videos and books. It is meant for very underpowered Linux computers and single-board computers, for 1 to 5 people at once. Can run on extremely constrained systems and targets around 15 to 20mb RAM.
+A lightweight personal media server for streaming videos and reading books, built specifically for resource-constrained single-board computers (Raspberry Pi Zero, 1–5, Orange Pi, Rock Pi) and low-power Linux systems.
 
-The goal is cramming a functional streaming server with a multi-page web client into an **extremely** constrained memory and CPU footprint.
-
-## How to use
-
-To access your catalog, visit the client in your browser by entering the IP of your device alongside the port. By default the port is 4907, but you can change that in the .env file.
-
-+ **First run:** On first boot, the server opens a setup wizard at /setup where you create your admin profile, set a numeric PIN, and point to your media folder.
-+ **Returning visits:** Shows a "Who is watching?" profile selector. Enter your PIN to access the catalog.
-+ **Account recovery:** If you forget your admin PIN, you can reset it directly from the host terminal using `./flan --reset-admin`. Regular profiles can be reset by the admin from the settings page.
-
-## How to install
-
-To compile the server locally, build with Go in your terminal:
-
-```bash
-go build -o flan ./cmd/flan
-```
-
-To run with memory limits tuned for low-memory devices:
-
-```bash
-GOMEMLIMIT=16MiB GOGC=30 ./flan
-```
-
-For cross-compiling to single-board computers (Raspberry Pi Zero, 1, 2, 3, 4, 5) and hardware deployment tips, see the [Cross-Compilation & Hardware Guide](docs/compilation.md).
-
-Eventually, I will also configure an Alpine Linux Docker image for containerized deployment.
-
-## Resource use and compromises
-
-The server does the bare minimum to deliver video directly to the client without on-the-fly transcoding. This means files must already be encoded in web-compatible formats such as MP4 (H.264/AAC), WebM (VP9/Opus), or AV1.
-
-+ Video delivery relies on the Linux sendfile system call via Go's standard library to transfer byte ranges directly from the filesystem to the network socket. This keeps media data off the application heap.
-+ The server handles Partial Content requests so media players can seek and stream individual parts of files.
-+ Tailored media players: Plyr for video direct streaming, native browser viewing for PDF documents, and an ePub.js web reader for EPUB books with direct download options.
-+ Multi-directory libraries: Organize media across separate folders and storage drives (Movies, TV Shows, Books) with deterministic file structure and automatic directory health checks.
-+ TV shows are organized hierarchically (Series → Seasons → Episodes) so multi-episode seasons do not flood the main catalog grid.
-+ Media intake supports both scanning existing folders in-place without moving files, and direct browser uploads for administrators that stream straight to disk without memory spikes.
-+ Requests are handled using lightweight goroutines. Each idle connection consumes only about 2kb of memory, easily handling 10 idle connections and 2 to 3 active streams.
-+ Go runtime limits like GOMEMLIMIT and GOGC keep the garbage collector disciplined so total memory stays within 15 to 20mb.
-
-## Database and other dependencies
-
-+ **SQLite3:** Powered by the pure-Go driver (`modernc.org/sqlite`) for effortless cross-compilation without CGo. Uses a normalized relational schema (users, libraries, movies, series, episodes, books, genres, and dedicated video/reading progress tables) running in WAL mode with a small 2mb page cache. Sessions use HMAC-signed cookies backed by a persistent secret key to avoid database hits on page visits.
-+ **Web Client:** Built with Go html/template for multi-page rendering, along with modular vanilla JavaScript and CSS styled in a soft dark slate theme with lavender accents. The templates and static assets are embedded directly into the single binary with embed.FS, so no external assets need to be deployed.
-+ **Metadata & covers:** Uses a local-first approach (checking for poster.jpg or embedded EPUB art first), falling back to TMDB for missing covers, ratings, and genre tags. Covers are stored locally for offline resilience. Administrators can also fix matches or upload custom covers manually.
-+ **Libraries:** This project uses Apache 2.0 and all external libraries should use a similar license like MIT or BSD.
-
-## Project background
-
-I'm making this for myself. I own an SBC that I currently use as a home server. The board is already running close to its memory and CPU limits, leaving very little room for traditional, proper media servers like Jellyfin or Plex.
-
-My home setup will rarely see more than 2 or 3 concurrent streams, with at most 10 idle connections at a time. This is explicitly designed for lightweight homelabs and personal single-board computers, not commercial or production-scale workloads.
-
-The name comes from my hamster, Flan (custard in Spanish).
-
-## MVP
-
-1. Basic HTTP server with port and directory configuration loaded from .env and SQLite database.
-2. First-time onboarding wizard (/setup) and PIN profile authentication with brute-force rate limiting.
-3. Embedded multi-page web client using Go templates and vanilla JavaScript with soft dark and lavender styling.
-4. Media streaming endpoint supporting HTTP Range and Partial Content transfers.
-5. In-place multi-directory library scanning and zero-memory admin file uploads.
-6. Local-first scraping engine with TMDB fallback and admin manual override.
-7. Tailored media players (Plyr for video, native PDF iframe, ePub.js for books).
-8. Normalized SQLite catalog tracking libraries, movies, TV series, books, genres, and independent watch/read progress.
-9. Unit and integration tests.
-
-## Documentation
-
-Full architectural and implementation specifications:
-
-+ [Master System Specifications](docs/design.md)
-+ [Directory Structure & Package Guide](docs/directories.md)
-+ [Database Schema & Wear-Leveling Pragmas](docs/database.md)
-+ [Cross-Compilation & SBC Deployment Guide](docs/compilation.md)
-+ [Storage Architecture & Drive Resiliency](docs/storage.md)
+Flan delivers direct streaming without on-the-fly transcoding, keeping its operational footprint strictly around **15 to 20 MB of RAM** for 1 to 5 household users.
 
 ---
 
-Last updated: 2026, September 19th  
-Author: Wesley Esquivel.
+## At a Glance
+
+| Feature | Specification |
+| :--- | :--- |
+| **Target Memory** | ~15–20 MB RAM (`GOMEMLIMIT=16MiB`, `GOGC=30`) |
+| **Concurrent Streams**| Max 3 active video streams (governed by semaphore) |
+| **Video Delivery** | Linux kernel `sendfile` zero-copy transfer (HTTP 206 Range requests) |
+| **Supported Video** | Direct-play web formats: MP4 (H.264/AAC), WebM (VP9/Opus/AV1), web-safe MKV |
+| **Reading Material**| Books & documents: EPUB (in-browser ePub.js) and PDF (native browser viewer) |
+| **Database** | Pure-Go SQLite3 (`modernc.org/sqlite`) running in WAL mode (~2 MB page cache) |
+| **Web Client** | Server-rendered Go `html/template` + vanilla JS & CSS embedded via `embed.FS` |
+| **Theme** | Soft dark slate (`#12131a` / `#1a1b24`) with lavender accents (`#bb9af7`) |
+| **Metadata** | Local-first (`poster.jpg` / embedded EPUB art) with optional TMDB fallback |
+
+---
+
+## Quickstart
+
+### Build & Run Locally
+
+```bash
+# Compile single standalone binary
+go build -o flan ./cmd/flan
+
+# Run with tuned memory bounds
+GOMEMLIMIT=16MiB GOGC=30 ./flan
+```
+
+Default access is at `http://localhost:4907` (configurable via `.env`).
+
+* **First Run:** Automatically opens the onboarding wizard at `/setup` to create an admin profile and register your first media library.
+* **Returning Users:** Presents a "Who is watching?" profile selector with numeric PIN authentication.
+* **CLI Account Recovery:** Reset a forgotten admin PIN directly from the terminal with `./flan --reset-admin`.
+
+For cross-compiling to Raspberry Pi boards (ARMv6, ARMv7, ARM64) and systemd deployment, see the [Deployment Guide](docs/compilation.md).
+
+---
+
+## Core Principles
+
+1. **Zero-Copy Streaming:** Video delivery uses Go's `http.ServeContent` and Linux `sendfile`. Bytes travel straight from the filesystem cache to the network socket, bypassing the Go garbage-collected heap.
+2. **No Transcoding:** Avoids CPU saturation on low-power ARM cores. Files must be pre-encoded in web-compatible formats.
+3. **Multi-Directory Libraries:** Dynamic libraries table in SQLite lets you map separate storage drives (e.g. fast NVMe for database/covers, spinning USB HDDs for bulk movies and TV shows).
+4. **Resilient to Disconnections:** External drives can spin down when idle or unplug safely without wiping catalog records in the database.
+5. **Completely Self-Contained:** Static assets, icons, and player libraries (Plyr, ePub.js) are baked into the single binary. Operates 100% offline with zero CDN dependencies.
+
+---
+
+## Documentation
+
+* **Architecture & System Design:**
+  * [Master System Architecture](docs/design.md)
+  * [Directory Structure & Package Anatomy](docs/directories.md)
+  * [Database Schema & Wear-Leveling](docs/database.md)
+  * [Storage Architecture & Multi-Drive Resilience](docs/storage.md)
+  * [Local-First Scraping Engine](docs/scraper.md)
+* **Security & Traffic Control:**
+  * [Five-Zone Rate Limiting](docs/rate-limiting.md)
+  * [Security Threat Model & Mitigations](docs/threat-model.md)
+* **Operations & Engineering:**
+  * [Cross-Compilation & SBC Deployment Guide](docs/compilation.md)
+  * [Testing Strategy & TDD Guidelines](docs/testing.md)
+* **Web Client & UX:**
+  * [Design System & Foundations](docs/client/design-system.md)
+  * [Component Specifications](docs/client/components.md)
+  * [Page Templates & Wireframes](docs/client/pages.md)
+* **Diagrams:**
+  * [Data Flow & Sequence Diagrams](docs/diagrams/data-flow.md)
+  * [User Journeys & Technical Flows](docs/diagrams/user-flows.md)
+
+---
+
+## License
+
+This project is licensed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.

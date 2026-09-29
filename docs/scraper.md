@@ -1,144 +1,68 @@
-# Scraping Engine Specification
+# Scraping Engine & Metadata Pipeline
 
-This document details the architecture, parsing pipeline, external metadata sources, and local storage strategy for Flan Media Server's scraping engine.
-
----
-
-## 1. Overview and Objectives
-
-The scraping engine is responsible for enriching raw video and document files with titles, summaries, ratings, genres, and cover artwork. To respect the strict 15 to 20mb operational memory ceiling of single-board computers, the scraper operates under the following constraints:
-
-+ **Local-First Priority:** The scanner always checks the local folder for existing artwork (poster.jpg, cover.jpg, folder.jpg) or embedded EPUB covers before making any network requests. If local art exists, it is indexed immediately without calling external APIs.
-+ **Offline Resilience:** All cover artwork, poster images, and metadata are saved locally on disk and in SQLite. The server never hotlinks remote image URLs in client templates, allowing the library to function seamlessly without internet access.
-+ **Streamed Image Storage:** Downloaded covers are streamed directly from the remote HTTPS connection to disk in 32kb chunks via io.Copy. Image bytes never linger in Go application memory.
-+ **Sequential Background Processing:** Scraping runs as a throttled, sequential background worker (2 to 3 requests per second) to prevent memory spikes and avoid triggering upstream HTTP 429 rate limits.
-+ **Manual Override ("Fix Match"):** Administrators can manually search for matches, upload custom covers, or edit tags directly from the web interface.
+The scraping engine enriches raw media files with metadata, ratings, genre tags, and cover artwork while respecting Flan's 15–20 MB operational memory ceiling.
 
 ---
 
-## 2. The Four-Stage Scraping Pipeline
+## 1. Core Principles
 
-``` text
+* **Local-First Priority:** Scans local folders for existing artwork (`poster.jpg`, `cover.jpg`, folder art, or embedded EPUB covers) before making any network requests.
+* **Offline Resilience:** All cover images and metadata are stored locally on disk (`data/covers/`) and in SQLite. The server never hotlinks remote URLs. If `TMDB_API_KEY` is absent or offline, Flan uses embedded SVG placeholders with zero network delays.
+* **Streamed Artwork Caching:** Remote images stream directly from the HTTPS connection to disk in 32 KB chunks via `io.Copy`. Image bytes never linger in Go heap memory.
+* **Sequential Paced Worker:** Scraping runs in a single background goroutine metered at ~2.8 requests/second (350 ms ticker, Zone E) to prevent memory spikes and upstream IP bans.
+
+---
+
+## 2. Four-Stage Scraping Pipeline
+
+```text
 [Raw File on Disk]
-       ↓
-Stage 1: Local Art Check (poster.jpg / cover.jpg / embedded EPUB)
-       ↓ (If not found locally)
-Stage 2: Clean Filename Parsing (Regex Sanitizer)
-       ↓
-Stage 3: External API Query (TMDB for Video)
-       ↓
-Stage 4: Streamed Cover Download & Metadata Insertion (SQLite)
+       │
+       ▼
+Stage 1: Local Art Check ──(Found)──► Index immediately with local art (Zero Network)
+       │ (Not found)
+       ▼
+Stage 2: Regex Filename Cleaner ──► Extracts Title, Year, Season, Episode tokens
+       │
+       ▼
+Stage 3: External API Match ────► Throttled TMDB / OpenLibrary HTTPS query (10s timeout)
+       │
+       ▼
+Stage 4: Streamed Cover Storage ─► Streams to data/covers/{type}/{id}.jpg & inserts SQLite rows
 ```
 
-### Stage 1: Local Art Check (Zero-Network Path)
+### Stage Details
 
-Before calling any external service, the scanner inspects the local directory:
-
-+ For **Movies & TV:** Looks for poster.jpg, cover.jpg, or folder.jpg in the same directory as the media file.
-+ For **EPUB Books:** Reads the internal EPUB zip directory to extract the embedded cover image (typically cover.jpeg or OEBPS/images/cover.jpg).
-+ If local art is found, it is copied or linked to the local covers directory, and the file is indexed immediately with zero network latency.
-
-### Stage 2: Clean Filename Parsing
-
-If no local metadata exists, raw filenames are sanitized using regular expressions to remove release artifacts, resolution tags, and encoding information:
-
-1. **Resolution & Source Stripping:** Removes 1080p, 720p, 4K, 2160p, WEBRip, BluRay, HDTV, and x264/x265 tags.
-2. **Audio & Group Stripping:** Removes AAC, DTS, DDP5.1, and bracketed release group names.
-3. **Token Extraction:**
-   + **Movie Pattern:** Extracts Title and Year (e.g. "Dune Part Two" and "2024").
-   + **TV Show Pattern:** Detects Show Title, Season, and Episode from standard patterns like S01E05 or 1x05.
-
-### Stage 3: External API Matchers
-
-When external metadata is needed, the scraper queries lightweight REST APIs over HTTPS using Go's standard library `net/http`:
-
-+ **The Movie Database (TMDB):**
-  + **Configuration:** The scraper loads `TMDB_API_KEY` from the environment or server settings. Requests use the standard TMDB API v3 (`https://api.themoviedb.org/3/search/movie` or `/search/tv`) with bearer token or API key authentication.
-  + **Missing API Key Behavior:** If `TMDB_API_KEY` is omitted or left blank in `.env`, the scraper cleanly skips outbound TMDB queries and immediately logs an informational message (`"TMDB_API_KEY not configured; using local-first fallback"`). No network requests are attempted, avoiding unneeded latency and network timeouts in offline homelabs.
-  + **Retrieved Fields:** Canonical title, release year, community rating (e.g. 8.2), overview synopsis, poster image path, and genre array (e.g. ["Animation", "Sci-Fi"]).
-+ **Books:** For books lacking embedded covers, OpenLibrary is queried using the cleaned title.
-
-### Stage 4: Streamed Cover Download & Metadata Storage
-
-When a remote cover image URL is identified:
-
-1. The server opens a destination file on local disk under the configured data directory: `data/covers/{type}/{id}.jpg`.
-2. The remote image is fetched via an HTTPS GET request.
-3. The response body is copied directly to disk using `io.Copy`.
-4. The local file path is recorded in SQLite.
-5. Genres are inserted into the normalized `genres` and `item_genres` tables, enabling fast index lookups and genre filtering without full-table string scanning.
-6. Client browsers fetch covers from the local endpoint `/covers/{type}/{id}`, which serves files with long-lived browser caching headers (`Cache-Control: public, max-age=31536000`).
+1. **Local Art Inspection:** Checks directory for `poster.jpg`, `cover.jpg`, or extracts embedded EPUB zip covers (`cover.jpeg` / `OEBPS/images/cover.jpg`).
+2. **Filename Sanitization:** Removes resolution tags (`1080p`, `4K`, `2160p`), sources (`BluRay`, `WEBRip`), codecs (`x264`, `x265`), and release group tags to parse clean title and year.
+3. **External API Queries:** Queries TMDB API v3 via HTTPS for canonical synopsis, rating, genres, and poster URLs. If no API key is set, it logs an informational note and uses the clean filename with an embedded SVG hamster mascot.
+4. **Cover Download & Indexing:** Streams poster bytes to disk, serves them locally at `/covers/{type}/{id}` with long-lived caching (`Cache-Control: public, max-age=31536000`), inserts normalized genres into `genres` and `item_genres`, and yields SQLite locks (`runtime.Gosched()`).
 
 ---
 
-## 3. Manual Override and "Fix Match"
+## 3. Supported File Naming Conventions
 
-Automatic scrapers occasionally make mistakes, such as confusing a 1984 film with a 2020 remake sharing the same name. Flan provides an administrator-only modal on every media card:
-
-+ **Manual Search:** Allows typing an alternative search title or directly pasting a TMDB ID (e.g. tmdb:12345) to force an exact re-fetch.
-+ **Custom Image Upload:** Allows dragging and dropping a local JPG, PNG, or WEBP file to immediately replace the cover art.
-+ **Direct Field Editing:** Allows manually adjusting the display title, release year, overview, and custom genres.
-
----
-
-## 4. Supported File Naming Conventions
-
-To ensure high match accuracy, media files should adhere to standard naming conventions within their respective libraries:
-
-### Movies
-
-``` text
-Movies/
-├── The Matrix (1999)/
-│   ├── The Matrix (1999).mp4
-│   └── poster.jpg                  # Optional local cover
-└── Spirited Away (2001).mp4
-```
-
-### TV Shows
-
-``` text
-TV Shows/
-└── Breaking Bad/
-    ├── poster.jpg                  # Optional show cover
-    ├── Season 01/
-    │   ├── Breaking Bad - S01E01 - Pilot.mp4
-    │   └── Breaking Bad - S01E02 - Cat's in the Bag.mp4
-    └── Season 02/
-        └── Breaking Bad - S02E01 - Seven Thirty-Seven.mp4
-```
-
-### Books
-
-``` text
-Books/
-├── Frank Herbert/
-│   └── Dune.epub                   # Embedded cover auto-extracted
-└── Documentation/
-    └── Go Programming Language.pdf
-```
+| Media Type | Recommended Folder Structure | Example |
+| :--- | :--- | :--- |
+| **Movies** | `<Library>/<Title> (<Year>)/<Title> (<Year>).mp4` (with optional `poster.jpg`)<br>or flat `<Library>/<Title> (<Year>).mp4` | `Movies/Dune (2021)/Dune (2021).mp4`<br>`Movies/Spirited Away (2001).mp4` |
+| **TV Shows** | `<Library>/<Series>/Season <NN>/<Series> - S<NN>E<NN> - <Title>.<ext>` | `TV/Breaking Bad/Season 01/Breaking Bad - S01E01 - Pilot.mp4` |
+| **Books** | `<Library>/<Author>/<Title>.<ext>` or flat `<Library>/<Title>.<ext>` | `Books/Frank Herbert/Dune.epub`<br>`Books/Linux Kernel Development.pdf` |
 
 ---
 
-## 5. Resource Guardrails & Error Handling
+## 4. Admin Manual Override ("Fix Match")
 
-To protect the server's 15 to 20mb memory target and prevent network lockups:
+When automatic scraping matches the wrong release or when custom metadata is desired, administrators can use the "Fix Match" modal on any media card:
 
-+ **Concurrency Limits:** Only one scraping task runs at any time in a single background goroutine.
-+ **Request Throttling:** A ticker enforces a 350ms delay between consecutive API calls to stay within free API rate limits, governed by [Zone E of the Rate Limiting Architecture](docs/rate-limiting.md).
-+ **Database Connection Yielding:** Because Flan operates SQLite with `db.SetMaxOpenConns(1)` to limit memory consumption, the scraper avoids holding open transactions during disk or network I/O. Newly discovered items are persisted using granular per-item transactions or small batches (5–10 items). Between indexing items, the worker yields execution (`runtime.Gosched()`), allowing incoming video playback progress syncs (`POST /api/progress`) and catalog browsing queries to interleave without encountering `SQLITE_BUSY` contention.
-+ **Timeout Protection:** Every outbound HTTP request uses a strict 10-second timeout via context.WithTimeout.
-+ **Graceful Fallbacks:** If an item cannot be matched online or the server is running without an internet connection:
-  + The display title defaults to the cleaned filename.
-  + The cover defaults to an embedded SVG placeholder or an embedded hamster mascot graphic.
-  + The item remains fully playable and can be manually edited later.
+* **Manual Search:** Search by custom title or paste a specific TMDB ID (e.g. `tmdb:12345`).
+* **Custom Artwork Upload:** Drag-and-drop a local JPG, PNG, or WEBP image to replace the cover art immediately.
+* **Direct Field Editing:** Manually edit display title, release year, overview synopsis, and genre tags.
 
 ---
 
-### Related Documentation
+## 5. Related Documentation
 
-+ [Master System Specifications](docs/design.md)
-+ [Five-Zone Rate Limiting Architecture](docs/rate-limiting.md)
-+ [Security Threat Model & SSRF Defense](docs/threat-model.md)
-+ [Database Schema & Catalog Queries](docs/database.md)
-+ [Ingestion & Scraping Sequence Diagram](docs/diagrams/data-flow.md#4-ingestion--scraping-data-flow-uml-sequence)
+* [Master System Architecture](design.md)
+* [Rate Limiting Architecture (Zone E)](rate-limiting.md)
+* [Database Schema & Genres](database.md)
+* [Ingestion Data Flow Diagram](diagrams/data-flow.md#4-ingestion--scraping-data-flow-uml-sequence)
