@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flan Media Server - Interactive Prototype</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- =========================================================================
+       TOP HEADER BAR (Visible across all views)
+       ========================================================================= -->
+  <header id="top-header" class="top-header">
+    <div id="brand-title" class="brand-title" title="Go to Catalog">
+      <span>Flan Media Server</span>
+    </div>
+
+    <div class="header-tools">
+      <!-- ( ? ) Help Button -->
+      <button id="help-btn" class="tool-circle-btn" title="Help / Manual">
+        ?
+      </button>
+
+      <!-- ( ⚙ ) Manage Shortcut Button -->
+      <button id="manage-shortcut-btn" class="tool-circle-btn" title="Manage Server">
+        <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; stroke: #000; fill: none; stroke-width: 2.2;">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      </button>
+
+      <!-- User Avatar Badge (Mascot from drawing with blue border) -->
+      <div id="user-avatar" class="avatar-badge" title="User Profile / Switch Account">
+        <img src="assets/avatar.svg" alt="User Avatar" />
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       APP CONTAINER (Sidebar + Main Content)
+       ========================================================================= -->
+  <div id="app-container" class="app-container">
+    <!-- Left Sidebar (Images 2 & 3) -->
+    <aside id="left-sidebar" class="left-sidebar">
+      <!-- Top Decorative Arrow pointing left -->
+      <div class="sidebar-arrow">
+        <svg viewBox="0 0 100 12" preserveAspectRatio="none">
+          <line x1="100" y1="6" x2="6" y2="6" stroke="#000" stroke-width="3.5" />
+          <polyline points="14,1 5,6 14,11" fill="none" stroke="#000" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+
+      <!-- Tactile Video Button -->
+      <button id="nav-video-btn" class="sidebar-nav-btn active">
+        Video
+      </button>
+
+      <!-- Tactile Books Button -->
+      <button id="nav-books-btn" class="sidebar-nav-btn">
+        Books
+      </button>
+
+      <!-- Bottom Decorative Arrow pointing right -->
+      <div class="sidebar-arrow">
+        <svg viewBox="0 0 100 12" preserveAspectRatio="none">
+          <line x1="0" y1="6" x2="94" y2="6" stroke="#000" stroke-width="3.5" />
+          <polyline points="86,1 95,6 86,11" fill="none" stroke="#000" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+
+      <!-- Pinned Bottom Manage Server Button -->
+      <div class="sidebar-bottom">
+        <button id="nav-manage-btn" class="sidebar-manage-btn">
+          Manage<br>Server
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Canvas (Dynamic View Injection) -->
+    <main id="main-content" class="main-content">
+      <!-- Injected by app.js router -->
+    </main>
+  </div>
+
+  <!-- =========================================================================
+       BUILT-IN HELP & MANUAL MODAL
+       ========================================================================= -->
+  <div id="help-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 style="font-size: 1.3rem; font-weight: 800;">Flan Media Server - Quick Help</h2>
+        <button id="close-help-btn" class="modal-close-btn">✕</button>
+      </div>
+      <div style="line-height: 1.5; font-size: 1rem; color: #222; display: flex; flex-direction: column; gap: 12px;">
+        <p><strong>100% Offline, Zero-Bloat Media Server:</strong></p>
+        <ul style="padding-left: 20px; display: flex; flex-direction: column; gap: 6px;">
+          <li><strong>Navigation:</strong> All browsing is handled strictly via the left sidebar (<em>Video</em> and <em>Books</em>).</li>
+          <li><strong>Fixed Directories:</strong> Drop video folders in <code>./media/video</code> and books in <code>./media/books</code>.</li>
+          <li><strong>Direct Playback:</strong> Videos stream with kernel zero-copy without transcoding to preserve SBC CPU and SD card life.</li>
+          <li><strong>Storage Guard:</strong> Maximum 3 concurrent streams allowed to prevent USB disk head thrashing.</li>
+        </ul>
+        <div style="margin-top: 8px; padding: 10px; background: #f4effa; border: 2px solid #000; border-radius: 6px; font-size: 0.85rem;">
+          <strong>Tip:</strong> Press <code>[ Manage Server ]</code> at the bottom of the sidebar to rescan files or check system metrics.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/mock-data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
