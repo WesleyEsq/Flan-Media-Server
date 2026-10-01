@@ -9,7 +9,7 @@ Flan Media Server enforces a fast, hermetic testing suite that runs in sub-100ms
 | Principle | Rule | Implementation |
 | :--- | :--- | :--- |
 | **Zero Disk I/O** | Unit tests must never touch the physical filesystem. | Scanners and parsers accept Go's standard `io/fs.FS` interface. Tests run against in-memory virtual filesystems via `testing/fstest.MapFS`. |
-| **Zero DB Coupling in Handlers** | HTTP controllers must never depend directly on `*sql.DB`. | Controllers accept narrow consumer-driven interfaces (e.g. `UserStore`, `MovieStore`). Unit tests mock these in memory. |
+| **Zero DB Coupling in Handlers** | HTTP controllers must never depend directly on `*sql.DB`. | Controllers accept narrow consumer-driven interfaces (e.g. `UserStore`, `VideoStore`, `BookStore`). Unit tests mock these in memory. |
 | **Network-Free Handlers** | Never spin up live TCP servers on port 4907 for testing. | Endpoints and middlewares are verified using standard `net/http/httptest`. |
 | **Sub-Second Execution** | The entire suite must execute in milliseconds. | Allows continuous test-driven development (`TDD`) without friction. |
 
@@ -21,18 +21,22 @@ Production code consumes `io/fs.FS`, while tests use `testing/fstest.MapFS`:
 
 ```go
 // internal/scraper/scanner_test.go
-func TestScanDirectory_DetectsMediaAndLocalArtwork(t *testing.T) {
+func TestScanDirectory_DetectsContainerAndFiles(t *testing.T) {
     mockFS := fstest.MapFS{
-        "The Matrix (1999).mp4": &fstest.MapFile{Data: []byte("fake video data")},
-        "poster.jpg":            &fstest.MapFile{Data: []byte("fake cover art")},
+        "Breaking Bad/S01E01.mp4": &fstest.MapFile{Data: []byte("fake video data")},
+        "Breaking Bad/S01E02.mp4": &fstest.MapFile{Data: []byte("fake video data")},
+        "Breaking Bad/poster.jpg": &fstest.MapFile{Data: []byte("fake cover art")},
     }
 
-    candidates, err := ScanDirectory(mockFS, "movies")
+    candidates, err := ScanDirectory(mockFS, "video")
     if err != nil {
         t.Fatalf("unexpected error: %v", err)
     }
-    if len(candidates) != 1 || candidates[0].Title != "The Matrix" {
+    if len(candidates) != 1 || candidates[0].Title != "Breaking Bad" {
         t.Errorf("unexpected candidates: %+v", candidates)
+    }
+    if len(candidates[0].Files) != 2 {
+        t.Errorf("expected 2 episodes, got %d", len(candidates[0].Files))
     }
 }
 ```
@@ -102,4 +106,4 @@ go test -race ./...
 
 * [Master System Architecture](design.md)
 * [Directory Structure](directories.md)
-* [Database Schema](database.md)
+* [Simplified Database Schema](database.md)

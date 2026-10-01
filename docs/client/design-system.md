@@ -1,84 +1,131 @@
 # Web Client Design System & Foundations
 
-Visual tokens, typography scale, global navigation bar, and built-in e-manual for Flan Media Server's web client.
+Visual tokens, typography scale, sidebar-only layout, and tactile interaction principles for Flan Media Server's web client.
 
 ---
 
 ## 1. Core Visual Principles
 
-* **Zero Animation Bloat:** No bouncy transforms, hover scaling, or heavy CSS gradients. Surfaces are flat and matte, ensuring instant browser painting on low-power Smart TVs and older mobile devices.
-* **No Backdrop Blur:** CSS `backdrop-filter: blur(...)` is strictly avoided to prevent GPU and CPU rendering lag on constrained hardware.
-* **High Contrast (WCAG AAA):** Text and surfaces exceed 14:1 contrast ratios for effortless reading across a living room on low-brightness TV displays.
-* **System Font Stack:** Uses the device's native system font stack with zero web fonts, eliminating network latency and layout shifts (`font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`).
+* **Sidebar-Only Navigation:** Platform navigation is strictly consolidated into the left sidebar (`Video`, `Books`, and `Manage Server`). The top header bar contains zero navigation links.
+* **High-Contrast Neo-Tactile Aesthetic:** Bold 2px/3px black borders (`#000000`), solid purple header and sidebar, and high-readability surfaces.
+* **No Random Hovers or Delayed Transitions:** Zero bouncy float transforms, no hover scale delays, and no blur filters (`backdrop-filter`). Controls give instant, crisp visual feedback.
+* **Clicks In Place:** Physical, tactile button feel. Buttons depress slightly on `:active` (`transform: translateY(2px)`), making interaction immediately obvious and accessible on touchscreens, mice, and TV remotes.
+* **Zero Emojis:** Pure SVG vector icons are used exclusively for all buttons, avatars, and indicators. No OS-dependent emoji rendering.
+* **System Font Stack:** Uses the device's native system font stack with zero external font network requests (`font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`).
 
 ---
 
 ## 2. Color Palette & Design Tokens
 
-All styles are consolidated in `web/static/css/style.css`:
+All styles are declared as CSS variables in `web/static/css/style.css`:
 
 ```css
 :root {
-    /* Surfaces */
-    --bg-base:        #12131a; /* Deep matte slate background */
-    --bg-surface:     #1a1b24; /* Flat card, shelf, and nav background */
-    --bg-elevated:    #242633; /* Modals, popups, and hover states */
-    --bg-active:      #2d2640; /* Selected item with lavender tint */
+    /* Brand & Structural Surfaces */
+    --brand-purple:     #9c7cd8; /* Header bar and left sidebar background */
+    --brand-active:     #6d52a8; /* Active/selected button background */
+    --bg-main:          #f4f0fa; /* Main content area (pale lavender) */
+    --surface-card:     #ffffff; /* Card background */
+    --surface-button:   #eae8f2; /* Inactive button background */
 
-    /* Borders */
-    --border-subtle:  #2c2e3e; /* Visible card and divider borders */
-    --border-focus:   #bb9af7; /* High-visibility keyboard/remote focus ring */
+    /* High-Contrast Borders */
+    --border-black:     #000000; /* Crisp 2px and 3px structural borders */
+    --border-subtle:    #2c2e3e; /* Inner divider borders */
+    --border-focus:     #000000; /* High-visibility keyboard/remote focus outline */
 
     /* Typography */
-    --text-primary:   #f0f2fc; /* High-contrast off-white (>14:1 ratio) */
-    --text-secondary: #9ba1b8; /* Muted metadata (year, runtime, author) */
-    --text-muted:     #6b728d; /* Inactive labels and placeholders */
+    --text-primary:     #12131a; /* Pitch dark off-black on light surfaces */
+    --text-header:      #ffffff; /* Pure white text on purple surfaces */
+    --text-muted:       #555869; /* Secondary metadata text */
 
-    /* Accents & Functional */
-    --accent-lavender:#bb9af7; /* Primary buttons, active tabs, progress bars */
-    --accent-hover:   #cbb0f9; /* Button hover state */
-    --color-danger:   #f7768e; /* Lockout warnings, delete buttons */
-    --color-success:  #9ece6a; /* Completed checkmarks, health badges */
+    /* Functional Accents */
+    --accent-lavender:  #9c7cd8; /* Primary action color, card title bands */
+    --color-danger:     #e5534b; /* Lockouts, delete actions */
+    --color-success:    #57ab5a; /* Completed indicators */
 }
 ```
 
 ---
 
-## 3. Typography Scale
+## 3. Sidebar-Only Global Layout
 
-| Level | Size | Weight | Line Height | Usage |
-| :--- | :--- | :--- | :--- | :--- |
-| **Display / Header** | 1.5rem (24px) | Bold (700) | 1.2 | Page titles, TV series detail heading |
-| **Shelf Title** | 1.25rem (20px)| 600 | 1.3 | Dashboard section headings ("Continue Watching") |
-| **Card Title** | 0.9375rem (15px)| 500 | 1.4 | Movie, episode, and book titles (truncated 2 lines) |
-| **Metadata / Subtitle**| 0.8125rem (13px)| 400 | 1.4 | Year, duration, episode numbers, authors (`--text-secondary`) |
-| **Badges & Pills** | 0.75rem (12px)| 600 | 1.0 | Format pills (`4K`, `EPUB`, `PDF`), genre filter tags |
-
----
-
-## 4. Global Navigation Bar
-
-Fixed at the top of the viewport (`sticky; top: 0; z-index: 50`) on all pages except fullscreen playback:
+All navigation across the entire platform occurs through the left sidebar. The top header is reserved exclusively for branding and utility tools.
 
 ```text
 +-------------------------------------------------------------------------+
-| [Flan Logo]   Home   Videos   Books                 [? Help] [⚙] [Avatar] |
-+-------------------------------------------------------------------------+
+| Flan Media Server                                   ( ? )   ( ⚙ )   [Avatar]|
++----------+--------------------------------------------------------------+
+| ←─────── |                                                              |
+| [ Video] |   +---------------------------------------------+  [ 🔍 ]    |
+|          |   | Search input...                             |            |
+| [ Books] |   +---------------------------------------------+            |
+| ────────►|                                                              |
+|          |   +---------------+  +---------------+  +---------------+    |
+|          |   | [Poster Area] |  | [Poster Area] |  | [Poster Area] |    |
+|          |   |---------------|  |---------------|  |---------------|    |
+|          |   | [Purple Band] |  | [Purple Band] |  | [Purple Band] |    |
+| [Manage] |   +---------------+  +---------------+  +---------------+    |
++----------+--------------------------------------------------------------+
 ```
 
-* **Brand (Left):** Text logo `Flan` linking to `/`.
-* **Nav Links (Center/Left):** `Home` (`/`), `Videos` (`/videos`), `Books` (`/books`). Active page indicated by a solid lavender bottom border (`border-bottom: 2px solid var(--accent-lavender)`).
-* **Utility Controls (Right):**
-  * `? Help`: Opens the built-in HTML `<dialog>` e-manual.
-  * `⚙ Settings`: Opens administrative settings (visible to admin).
-  * `Profile Avatar`: Chosen icon on user's accent color tile. Clicking opens dropdown to switch profiles or log out.
-* **Mobile Handling:** Links wrap cleanly or scroll horizontally without a heavy JavaScript hamburger menu.
+### 1. Top Header Bar (`header.top-bar`)
+* **Background:** Solid purple (`--brand-purple: #9c7cd8`). Height: 60px.
+* **Left Title:** Bold text `Flan Media Server` (white, high-contrast, ~1.5rem).
+* **Right Utility Controls (No navigation links):**
+  * `( ? )` **Help Button:** White circle, 36px diameter, thick 2px black border. Opens built-in e-manual `<dialog>`.
+  * `( ⚙ )` **Manage Shortcut:** White circle, 36px diameter, thick 2px black border. Quick link to `/manage`.
+  * `[Avatar]` **User Profile Badge:** 36px rounded square with thick 2px black border, displaying user's selected SVG avatar or custom image.
+
+### 2. Exclusive Left Navigation Sidebar (`aside.sidebar`)
+* **Background:** Solid purple (`--brand-purple: #9c7cd8`). Width: ~200px.
+* **Divider:** `3px solid #000000` vertical border separating sidebar from main content.
+* **Tactile Navigation Buttons:**
+  * **`Video`**: Navigates to `/video`. When active, fills with solid darker purple (`#6d52a8`) and white text. When inactive, light gray (`#eae8f2`) with black text.
+  * **`Books`**: Navigates to `/books`. Same active/inactive tactile states.
+  * **`Manage Server`** *(bottom)*: Navigates to `/manage`.
+* All buttons have a thick `2px solid #000000` border and `8px` rounded corners.
+
+### 3. Main Content Area (`main.content`)
+* **Background:** Pale lavender (`--bg-main: #f4f0fa`).
+* **Search Bar:** Large white input field with `2px solid #000000` border, followed by a square `🔍` search button.
+* **Media Grid:** Direct grid of high-contrast cards. Each card has a white poster area and a **solid purple footer band** (`#6d52a8`) at the bottom.
+
+---
+
+## 4. Split-Screen Start & Login (`login.html` - Image 1)
+
+Unauthenticated users see a split-panel screen with zero on-screen keypad bloat:
+
+```text
++-------------------------------------------------------------------------+
+| Flan Media Server                                                       |
++------------------------------------------+------------------------------+
+|                                          | User:                        |
+|   ←───────────────────────────           | +--------------------------+ |
+|                                          | | mike                   v | |
+|        Welcome                           | +--------------------------+ |
+|                                          | Pin:                         |
+|   ───────────────────────────►           | +--------------------------+ |
+|                                          | |                          | |
+|                                          | +--------------------------+ |
+|                                          |                              |
+|                                          | +--------------------------+ |
+|                                          | | Access                   | |
+|                                          | +--------------------------+ |
++------------------------------------------+------------------------------+
+```
+
+* **Left Panel:** Light lavender background with bold slanted *"Welcome"* between arrows.
+* **Right Panel:** Solid purple background with thick 3px black divider border, containing:
+  * `User:` dropdown `<select>` of existing user profiles.
+  * `Pin:` input `<input type="password">`.
+  * `[ Access ]` purple button with white text and thick 2px black border.
 
 ---
 
 ## 5. Built-in E-Manual (`<dialog id="manual-dialog">`)
 
-Accessible on any page via `? Help`, built with native HTML `<dialog>` (zero JS libraries; traps focus, closes on `Escape`):
+Accessible via the `( ? )` button, built with native HTML `<dialog>` (focus trapping, closes on `Escape`):
 
 ### Keyboard Shortcuts (Video Player)
 | Key | Action |
@@ -88,29 +135,28 @@ Accessible on any page via `? Help`, built with native HTML `<dialog>` (zero JS 
 | `M` | Mute / Unmute audio |
 | `←` / `→` | Skip backward / forward 10 seconds |
 | `↑` / `↓` | Volume up / down (5% increments) |
-| `0`–`9` | Jump to 0% through 90% duration |
 
-### Direct Play Codec Guidelines
-* **Native Web Video:** MP4 (H.264/AAC), WebM (VP9/Opus, AV1), and web-safe MKV.
-* **Unsupported Formats:** Non-web codecs (e.g. DivX in `.avi`, DTS/AC3 in `.mkv`) display a fallback prompt allowing direct file download for VLC playback.
-* **Reading Material:** EPUB (ePub.js reader) and PDF (native browser viewer).
+### Direct Play Media Guidelines
+* **Video:** MP4 (H.264/AAC), WebM (VP9/Opus, AV1), and web-safe MKV.
+* **Books:** EPUB (ePub.js viewer) and PDF (native browser viewer).
 
 ---
 
-## 6. Embedded Third-Party Vendor Assets
+## 6. Sample & Custom Avatars
 
-All dependencies are vendored into `web/static/vendor/` and embedded into the binary via `embed.FS`:
-
-| Library | Directory | Version Target | License | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| **Plyr** | `web/static/vendor/plyr/` | v3.7+ | MIT | Lightweight HTML5 video player styled with lavender variables (`--plyr-color-main: #bb9af7`). |
-| **ePub.js** | `web/static/vendor/epubjs/` | v0.3+ | BSD-2-Clause | In-browser EPUB unpacker and paginated reader. |
-| **JSZip** | `web/static/vendor/epubjs/` | v3.10+ | MIT | Client-side ZIP decompression dependency for ePub.js. |
+* **Bundled Sample Icons:** Shipped directly inside `web/static/assets/avatars/` as clean high-contrast SVGs:
+  * Hamster mascot (Flan)
+  * Cat
+  * Popcorn bowl
+  * Retro TV
+  * Book
+  * Cassette tape
+* **Custom Avatar Uploads:** Users can upload a personalized avatar image via `/manage`, saved to `data/avatars/{user_id}.png`.
 
 ---
 
 ## 7. Related Documentation
 
-* [Web Client Components](components.md)
+* [Tactile Components](components.md)
 * [Page Templates & Wireframes](pages.md)
 * [Master System Architecture](../design.md)

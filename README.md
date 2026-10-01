@@ -1,8 +1,8 @@
 # Flan Media Server
 
-A lightweight personal media server for streaming videos and reading books, built specifically for resource-constrained single-board computers (Raspberry Pi Zero, 1–5, Orange Pi, Rock Pi) and low-power Linux systems.
+An ultra-simple, lightweight personal media server for streaming videos and reading books. Designed specifically for low-power single-board computers (Raspberry Pi Zero, 1–5, Orange Pi, Rock Pi) and Linux homelabs.
 
-Flan delivers direct streaming without on-the-fly transcoding, keeping its operational footprint strictly around **15 to 20 MB of RAM** for 1 to 5 household users.
+Flan eliminates complexity: 100% offline, zero external APIs, fixed storage directories, a 6-table database, and a tactile high-contrast UI with a **sidebar-only navigation system**. It operates strictly within a **15 to 20 MB RAM** footprint for 1 to 5 household users.
 
 ---
 
@@ -11,14 +11,15 @@ Flan delivers direct streaming without on-the-fly transcoding, keeping its opera
 | Feature | Specification |
 | :--- | :--- |
 | **Target Memory** | ~15–20 MB RAM (`GOMEMLIMIT=16MiB`, `GOGC=30`) |
+| **Navigation System** | **Sidebar-Only:** All platform navigation is consolidated strictly into the left sidebar (`Video`, `Books`, and `Manage Server`). The top header contains zero navigation links. |
+| **Interface Style** | High-contrast neo-tactile layout with thick black borders, split Start screen, purple card footers, and no emojis |
+| **Media Architecture** | **Unified Containers (100% Local-First):**<br>• **Video (`./media/video`):** Series with episode lists, or movies with version lists<br>• **Books (`./media/books`):** Multi-volume series or single books (EPUB/PDF) |
+| **Metadata Engine** | Zero-network, 100% offline (Folder name = title; `poster.jpg` = cover; no TMDB dependencies) |
 | **Concurrent Streams**| Max 3 active video streams (governed by semaphore) |
 | **Video Delivery** | Linux kernel `sendfile` zero-copy transfer (HTTP 206 Range requests) |
-| **Supported Video** | Direct-play web formats: MP4 (H.264/AAC), WebM (VP9/Opus/AV1), web-safe MKV |
-| **Reading Material**| Books & documents: EPUB (in-browser ePub.js) and PDF (native browser viewer) |
-| **Database** | Pure-Go SQLite3 (`modernc.org/sqlite`) running in WAL mode (~2 MB page cache) |
-| **Web Client** | Server-rendered Go `html/template` + vanilla JS & CSS embedded via `embed.FS` |
-| **Theme** | Soft dark slate (`#12131a` / `#1a1b24`) with lavender accents (`#bb9af7`) |
-| **Metadata** | Local-first (`poster.jpg` / embedded EPUB art) with optional TMDB fallback |
+| **Supported Formats** | Direct-play: MP4 (H.264/AAC), WebM (VP9/Opus/AV1), web-safe MKV, EPUB, PDF |
+| **Database** | Pure-Go SQLite3 (`modernc.org/sqlite`) running in WAL mode (~2 MB cache, 6 tables) |
+| **Web Client** | Server-rendered Go `html/template` (8 templates) + vanilla JS/CSS embedded via `embed.FS` |
 
 ---
 
@@ -36,9 +37,9 @@ GOMEMLIMIT=16MiB GOGC=30 ./flan
 
 Default access is at `http://localhost:4907` (configurable via `.env`).
 
-* **First Run:** Automatically opens the onboarding wizard at `/setup` to create an admin profile and register your first media library.
-* **Returning Users:** Presents a "Who is watching?" profile selector with numeric PIN authentication.
-* **CLI Account Recovery:** Reset a forgotten admin PIN directly from the terminal with `./flan --reset-admin`.
+* **Start / Login Screen:** Split screen with a "Welcome" graphic on the left and a dropdown user selector + numeric PIN field + `[ Access ]` button on the right.
+* **First Run:** If no users exist, automatically prompts to create the initial admin account.
+* **CLI Account Recovery:** Reset a forgotten admin PIN directly from the host terminal with `./flan --reset-admin`.
 
 For cross-compiling to Raspberry Pi boards (ARMv6, ARMv7, ARM64) and systemd deployment, see the [Deployment Guide](docs/compilation.md).
 
@@ -46,11 +47,12 @@ For cross-compiling to Raspberry Pi boards (ARMv6, ARMv7, ARM64) and systemd dep
 
 ## Core Principles
 
-1. **Zero-Copy Streaming:** Video delivery uses Go's `http.ServeContent` and Linux `sendfile`. Bytes travel straight from the filesystem cache to the network socket, bypassing the Go garbage-collected heap.
-2. **No Transcoding:** Avoids CPU saturation on low-power ARM cores. Files must be pre-encoded in web-compatible formats.
-3. **Multi-Directory Libraries:** Dynamic libraries table in SQLite lets you map separate storage drives (e.g. fast NVMe for database/covers, spinning USB HDDs for bulk movies and TV shows).
-4. **Resilient to Disconnections:** External drives can spin down when idle or unplug safely without wiping catalog records in the database.
-5. **Completely Self-Contained:** Static assets, icons, and player libraries (Plyr, ePub.js) are baked into the single binary. Operates 100% offline with zero CDN dependencies.
+1. **Sidebar-Only Platform Navigation:** Every page inside the platform uses a unified left sidebar containing only **`Video`**, **`Books`**, and **`Manage Server`** (at the bottom).
+2. **Unified Container + List Model:** Everything is either a **Video** (series with episodes, or movie with cut versions) or a **Book** (series with volumes, or single title).
+3. **100% Offline & Zero-Network:** No external metadata APIs (no TMDB), no API keys, no network timeouts. Folder name is the title; `poster.jpg` is the cover.
+4. **Fixed Storage Paths:** Fixed directories at `./media/video` and `./media/books`. No complex `libraries` database table or dynamic mount management.
+5. **High-Contrast Tactile UI:** Thick 2px black borders, purple footer card bands, instant button clicks (`translateY(2px)`), zero emojis, and zero hover float delays.
+6. **Zero-Copy Streaming:** Video delivery uses Go's `http.ServeContent` and Linux `sendfile`. Bytes travel directly from the filesystem cache to the network socket, bypassing the Go heap.
 
 ---
 
@@ -59,21 +61,21 @@ For cross-compiling to Raspberry Pi boards (ARMv6, ARMv7, ARM64) and systemd dep
 * **Architecture & System Design:**
   * [Master System Architecture](docs/design.md)
   * [Directory Structure & Package Anatomy](docs/directories.md)
-  * [Database Schema & Wear-Leveling](docs/database.md)
-  * [Storage Architecture & Multi-Drive Resilience](docs/storage.md)
-  * [Local-First Scraping Engine](docs/scraper.md)
+  * [Streamlined 6-Table Database Schema](docs/database.md)
+  * [Storage Architecture & Resilience](docs/storage.md)
+  * [Local-First Metadata Engine](docs/scraper.md)
 * **Security & Traffic Control:**
-  * [Five-Zone Rate Limiting](docs/rate-limiting.md)
+  * [Two-Safeguard Rate Limiting](docs/rate-limiting.md)
   * [Security Threat Model & Mitigations](docs/threat-model.md)
 * **Operations & Engineering:**
   * [Cross-Compilation & SBC Deployment Guide](docs/compilation.md)
   * [Testing Strategy & TDD Guidelines](docs/testing.md)
 * **Web Client & UX:**
-  * [Design System & Foundations](docs/client/design-system.md)
-  * [Component Specifications](docs/client/components.md)
-  * [Page Templates & Wireframes](docs/client/pages.md)
+  * [Design System & High-Contrast Foundations](docs/client/design-system.md)
+  * [Tactile Component Specifications](docs/client/components.md)
+  * [Page Templates & Wireframes (7 Templates)](docs/client/pages.md)
 * **Diagrams:**
-  * [Data Flow & Sequence Diagrams](docs/diagrams/data-flow.md)
+  * [Data Flow & Architecture](docs/diagrams/data-flow.md)
   * [User Journeys & Technical Flows](docs/diagrams/user-flows.md)
 
 ---

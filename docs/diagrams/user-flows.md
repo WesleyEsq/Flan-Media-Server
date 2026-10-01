@@ -4,34 +4,30 @@ Visual workflows and interaction journeys for key user tasks in Flan Media Serve
 
 ---
 
-## 1. First-Time Setup Wizard
+## 1. First-Time Setup & Onboarding Flow
 
-On initial boot with an empty database, the server automatically routes requests to `/setup` and disables the route once complete.
+On initial boot with an empty database, the server routes to the onboarding form on the Start screen to create the primary administrator.
 
 ```mermaid
 flowchart TD
     Start["User visits server at http://<ip>:4907"] --> CheckDB{"Are there any users in database?"}
-    CheckDB -- "No (Initial Boot)" --> RedirectSetup["Redirect to /setup"]
-    CheckDB -- "Yes" --> ShowLogin["Redirect to Profile Selector /login"]
+    CheckDB -- "No (Initial Boot)" --> ShowSetup["Display Admin Account Creation on Start Screen"]
+    CheckDB -- "Yes" --> ShowLogin["Display Split Start Screen /login"]
 
-    RedirectSetup --> Form["Admin fills in username, PIN, and initial media library path"]
-    Form --> Submit["Submit Setup Form"]
+    ShowSetup --> Form["Admin enters username and 4 to 6-digit numeric PIN"]
+    Form --> Submit["Submit Account Creation"]
 
-    Submit --> ValidatePath{"Does media path exist or can be created?"}
-    ValidatePath -- "No" --> Error["Show error message on setup page"]
-    Error --> Form
-
-    ValidatePath -- "Yes" --> CreateAdmin["1. Hash PIN with bcrypt<br/>2. Create Admin user in SQLite<br/>3. Register initial library in libraries table"]
-    CreateAdmin --> StartScan["Start background library scan"]
+    Submit --> CreateAdmin["1. Hash PIN with bcrypt<br/>2. Create Admin user in SQLite<br/>3. Verify or create ./media/video and ./media/books"]
+    CreateAdmin --> StartScan["Trigger initial scan of ./media/"]
     StartScan --> IssueSession["Issue HMAC-signed session cookie"]
-    IssueSession --> Catalog["Redirect to Catalog /"]
+    IssueSession --> Catalog["Redirect to Video Catalog /video"]
 ```
 
 ---
 
-## 2. Profile Selection & PIN Authentication
+## 2. Split-Screen Start & PIN Authentication (Image 1)
 
-Returning users select their profile tile and enter their numeric PIN, protected by Zone B brute-force lockouts.
+Returning users select their name from the dropdown and enter their numeric PIN, protected by PIN lockout (Safeguard 2).
 
 ```mermaid
 sequenceDiagram
@@ -41,14 +37,14 @@ sequenceDiagram
     participant Server as Flan Media Server
     participant DB as SQLite Database
 
-    User->>Browser: Opens app
+    User->>Browser: Opens app at http://<ip>:4907
     Browser->>Server: GET /login
-    Server->>DB: Query profiles (usernames, icons, colors)
-    DB-->>Server: Return profiles
-    Server-->>Browser: Render profile selector page
-    User->>Browser: Selects profile & enters PIN
+    Server->>DB: Query user list (usernames, IDs)
+    DB-->>Server: Return users
+    Server-->>Browser: Render Split Start Screen (Welcome + User Dropdown & PIN Input)
+    User->>Browser: Selects User from dropdown, enters PIN, clicks [ Access ]
     Browser->>Server: POST /api/login (user_id, pin)
-    Server->>Server: Check Zone B lockout (IP & Profile ID)
+    Server->>Server: Check PIN lockout (IP & User ID)
     alt Locked out (5+ failed attempts)
         Server-->>Browser: HTTP 429 Too Many Requests (Lockout active)
     else Attempt allowed
@@ -61,7 +57,7 @@ sequenceDiagram
         else PIN is correct
             Server->>Server: Reset failed attempts counter
             Server->>Server: Issue HMAC session cookie (userID:role:tokenVersion:issuedAt:signature)
-            Server-->>Browser: Set HttpOnly session cookie & redirect to /
+            Server-->>Browser: Set HttpOnly session cookie & redirect to /video
         end
     end
 ```
@@ -81,17 +77,17 @@ sequenceDiagram
     participant DB as SQLite Database
     participant Kernel as Linux Kernel / VFS
 
-    User->>Browser: Clicks on a video card
-    Browser->>Server: GET /watch/movie/42
-    Server->>DB: Query movie details & saved position
-    DB-->>Server: Title, duration, position_seconds
+    User->>Browser: Clicks on a playable file in video detail
+    Browser->>Server: GET /watch/{file_id}
+    Server->>DB: Query file details & saved position
+    DB-->>Server: Title, duration, position_data
     Server-->>Browser: Render watch.html with Plyr player
-    Browser->>Server: GET /stream/movie/42 (Range: bytes=0-)
+    Browser->>Server: GET /stream/video/{file_id} (Range: bytes=0-)
     Server->>Kernel: Call sendfile from file descriptor to socket
     Kernel-->>Browser: HTTP 206 Partial Content (streams video bytes)
     loop Every 5 seconds during playback
-        Browser->>Server: POST /api/progress {video_type, video_id, position_seconds, duration_seconds}
-        Server->>DB: UPSERT video_progress
+        Browser->>Server: POST /api/progress {media_type: "video", file_id, position_data}
+        Server->>DB: UPSERT progress
         DB-->>Server: Updated
         Server-->>Browser: HTTP 200 OK
     end
@@ -102,26 +98,26 @@ sequenceDiagram
 
 ## 4. File Intake: Local Scan vs Admin Upload
 
-Supports scanning existing folders in-place or streaming uploads directly to destination directories.
+Supports placing folders directly into `./media/` or uploading through the browser without memory bloat.
 
 ```mermaid
 flowchart TD
-    subgraph Local["Method A: Local Directory Scanning"]
-        A1["Admin registers library path e.g. /mnt/hdd1/movies"] --> A2["Server validates directory existence"]
-        A2 --> A3["Background worker walks directory tree recursively"]
-        A3 --> A4["Check for local poster.jpg or cover art"]
-        A4 --> A5["Extract file size, format, duration, and title"]
-        A5 --> A6["Insert into movies / series / episodes / books tables"]
+    subgraph Local["Method A: Local Directory Placement & Rescan"]
+        A1["Place media into ./media/video/<Container>/ or ./media/books/<Container>/"] --> A2["Admin clicks 'Rescan All Media' in Manage Server"]
+        A2 --> A3["Scanner walks directories synchronously"]
+        A3 --> A4["Check for local poster.jpg in container folder"]
+        A4 --> A5["Extract file sizes, format, and titles"]
+        A5 --> A6["Insert into videos/books and file tables in SQLite"]
     end
 
     subgraph Remote["Method B: Admin Web Upload"]
-        B1["Admin selects Library (and Series/Season if TV)"] --> B2["Browser sends multipart stream via POST /api/upload"]
+        B1["Admin selects Type (Video/Books) and enters Container Title"] --> B2["Browser sends multipart stream via POST /api/upload"]
         B2 --> B3["Check free space on target mount via statfs"]
         B3 -- "Free space < 2 GB" --> B4["Reject with HTTP 507 Insufficient Storage"]
         B3 -- "Space OK" --> B5["r.MultipartReader reads incoming file stream"]
         B5 --> B6["io.Copy streams directly to destination in 32kb chunks"]
         B6 --> B7["Save file with 0644 permissions (non-executable)"]
-        B7 --> B8["Index new file into SQLite database"]
+        B7 --> B8["Index container & files into SQLite database"]
     end
 ```
 

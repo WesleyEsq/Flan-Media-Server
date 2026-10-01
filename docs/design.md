@@ -6,119 +6,115 @@ High-level architectural design and core technical decisions for Flan Media Serv
 
 ## 1. System Constraints & Operating Targets
 
-Flan is built specifically for underpowered Linux devices (Raspberry Pi Zero, 1–5, low-spec ARM/x86 boards) serving 1 to 5 household users.
+Flan is built specifically for low-power Linux devices (Raspberry Pi Zero, 1–5, low-spec ARM/x86 boards) serving 1 to 5 household users with extreme simplicity.
 
 | Parameter | Specification | Engineering Rationale |
 | :--- | :--- | :--- |
 | **Memory Budget** | 15–20 MB RAM | Soft ceiling via `GOMEMLIMIT=16MiB` and aggressive GC via `GOGC=30`. |
 | **CPU Budget** | Low-power ARM cores | Real-time transcoding is omitted; all media streams directly. |
+| **Navigation System** | **Sidebar-Only** | All platform navigation is consolidated strictly into the left sidebar (`Video`, `Books`, and `Manage Server`). The top header contains zero navigation links. |
+| **Media Architecture** | Container + File List | Unifies Movies and TV Series into `videos` + `video_files`. Unifies Books into `books` + `book_files`. |
+| **Network Footprint** | **100% Offline** | Zero external API calls (no TMDB). Folder name = title; `poster.jpg` = cover. |
+| **Storage Paths** | Fixed Directories | `./media/video` and `./media/books`. Eliminates `libraries` table. |
 | **Concurrent Streams** | Max 3 active | Enforced by counting semaphore to prevent USB mechanical drive thrashing. |
-| **Connections** | 10–15 idle connections | Lightweight Go goroutines (~2 KB per connection; <50 KB overhead). |
-| **Deployment** | Single static binary | Pure-Go driver (`modernc.org/sqlite`, `CGO_ENABLED=0`), assets embedded via `embed.FS`. |
+| **UI Aesthetics** | High-contrast tactile | Thick 2px black borders, purple header & sidebar, split Start screen, zero emojis, zero hover bloat. |
+| **Deployment** | Single static binary | Pure-Go SQLite (`modernc.org/sqlite`, `CGO_ENABLED=0`), assets embedded via `embed.FS`. |
 
 ---
 
 ## 2. Software Architecture (MVC)
 
-The codebase implements a standard Model-View-Controller pattern using Go 1.22+ standard library features:
+The codebase implements a clean Model-View-Controller pattern using Go 1.22+ standard library features:
 
 ```text
-HTTP Request → [Middleware Pipeline] → Controller (RegisterRoutes) → Model (Store) → SQLite WAL
-                                      ↓
-                               ViewModel Assembly → View (html/template) → Client Response
+HTTP Request → [Middleware: Auth & Stream Semaphore] → Controller (RegisterRoutes) → Model (Store) → SQLite WAL
+                                                      ↓
+                                ViewModel Assembly → View (html/template) → Client Response
 ```
 
-* **Model Layer (`internal/model`):** Domain structs, business validation, sentinel errors (`ErrNotFound`, `ErrDuplicate`), and pure SQL queries.
-* **View Layer (`web/templates`, `web/static`):** 9 server-rendered Go HTML templates and vanilla CSS/JS packaged directly into the binary via `embed.FS`.
+* **Model Layer (`internal/model`):** Domain structs (`Video`, `VideoFile`, `Book`, `BookFile`, `User`, `Progress`), sentinel errors (`ErrNotFound`, `ErrDuplicate`), and pure SQL queries for the 6-table schema.
+* **View Layer (`web/templates`, `web/static`):** 8 server-rendered Go HTML templates and vanilla CSS/JS packaged directly into the binary via `embed.FS`.
 * **Controller Layer (`internal/controller`):** HTTP transport adapters, request decoders, status code mapping, ViewModel assembly, and route registration onto `http.ServeMux`.
-* **Middleware Layer (`internal/middleware`):** Cross-cutting concerns: HMAC cookie authentication, 5-zone rate limiting, and the stream governor semaphore.
+* **Middleware Layer (`internal/middleware`):** Minimalist cross-cutting filters: HMAC cookie authentication and the concurrent stream governor semaphore.
 
 ---
 
 ## 3. Key Technical Decisions
 
+### Exclusive Sidebar Navigation
+* **No Header Links:** The top purple bar contains strictly the platform brand title (*"Flan Media Server"*) on the left, and utility controls on the right (`?` Help, `⚙` Settings/Manage, and User Avatar).
+* **Left Sidebar:** Serves as the single, persistent navigation backbone across the entire app with three tactile buttons:
+  * **`Video`**: Navigates to `/video`. When active, fills with solid purple and white text.
+  * **`Books`**: Navigates to `/books`. When active, fills with solid purple and white text.
+  * **`Manage Server`** *(bottom)*: Navigates to `/manage`.
+
+### Split-Screen Start & Login (Image 1)
+* Unauthenticated visits route to a clean split Start screen:
+  * **Left:** Light lavender panel with a bold stylized *"Welcome"* graphic between arrows.
+  * **Right:** Solid purple panel with `User:` dropdown (`<select>`), `Pin:` input field, and `[ Access ]` button.
+* Replaces complex 3x4 on-screen keypad components with standard, accessible browser inputs.
+
+### 100% Offline & Fixed Directory Layout
+* Media is placed directly into:
+  * `./media/video/<Container Title>/<filename>.<ext>` (with optional `poster.jpg`)
+  * `./media/books/<Container Title>/<filename>.<ext>`
+* No dynamic multi-library database tables, no TMDB API keys, and no external network timeouts.
+
 ### Direct Play & Kernel Zero-Copy Streaming
+* **No Transcoding:** Videos must be pre-encoded in web-compatible formats (MP4 with H.264/AAC, WebM with VP9/Opus, or web-safe MKV).
+* **Linux `sendfile`:** Video delivery delegates to Go's standard library `http.ServeContent` with HTTP 206 Partial Content (Range requests), transferring bytes directly from filesystem cache to socket.
 
-* **No Transcoding:** Videos must be pre-encoded in web-compatible formats (MP4 with H.264/AAC, WebM with VP9/Opus, or web-safe MKV). Non-web containers trigger a fallback warning offering direct file download.
-* **Linux `sendfile`:** Video delivery delegates to Go's standard library `http.ServeContent` with HTTP 206 Partial Content (Range requests). Media bytes move straight from kernel page cache to the network socket without traversing Go user-space memory.
-
-### SQLite with Micro-SD Wear-Leveling
-
-* **Driver:** Pure-Go SQLite (`modernc.org/sqlite`) allows instant cross-compilation without C toolchains.
-* **Single Connection Pool:** `db.SetMaxOpenConns(1)` eliminates write-lock contention and conserves RAM. Background scans yield cooperatively (`runtime.Gosched()`) to keep UI requests responsive.
-* **Pragmas:** WAL journal mode, `synchronous = NORMAL` (preserves micro-SD lifespan), `cache_size = -2000` (~2 MB RAM cap), and `busy_timeout = 5000`.
-
-### Storage Tier Decoupling
-
-* **Fast Tier (NVMe/SD):** Holds the application executable, SQLite database (`flan.db`), and cover art cache (`data/covers/`). UI queries and catalog browsing remain instantaneous.
-* **Bulk Tier (USB HDD):** Holds heavy media files. Mechanical hard drives spin down when idle and wake only upon video stream requests (`/stream/...`).
-* **Ghost Mount Defense:** A hidden marker file (`.flan-keep`) prevents creating an accidental empty database on the root drive when external mounts fail.
-
-### Session Authentication & Instant Revocation
-
-* **HMAC-SHA256 Cookies:** Sessions contain `userID:role:tokenVersion:issuedAt:signature`, verified in constant time.
-* **Zero Database Hits:** Authenticated page views validate against an in-memory `token_version` map (`map[int]int`). Resetting a user's PIN increments their version, immediately invalidating old sessions across all devices without database hits.
-* **Persistent Secret:** Auto-generated 32-byte secret stored in `data/.session_secret` (`0600` permissions).
+### Two-Safeguard Rate Limiting
+1. **Stream Governor Semaphore (Safeguard 1):** Caps active streams at 3 (`HTTP 429` on exceed) to protect mechanical USB hard drive read heads.
+2. **PIN Lockout Protection (Safeguard 2):** 5 failed attempts trigger a 5-minute lockout with exponential backoff on subsequent failures.
 
 ---
 
 ## 4. Server Endpoints Summary
 
-### Web Pages (Server-Rendered HTML)
-
+### Web Pages (Server-Rendered HTML - 8 Templates)
 | Method | Route | Description |
 | :--- | :--- | :--- |
-| `GET` | `/` | Dashboard with Continue Watching/Reading shelves and recently added media |
-| `GET` | `/videos` | Movies and TV series catalog with genre filter pills |
-| `GET` | `/show/{id}` | TV series detail view with season tabs and episode lists |
-| `GET` | `/books` | Books and documents catalog with format and genre filters |
-| `GET` | `/watch/{type}/{id}` | Video player page (Plyr) with auto-resume prompt (`type`: `movie` \| `episode`) |
-| `GET` | `/read/{id}` | Document reader (native PDF iframe or ePub.js book viewer) |
-| `GET` | `/login` | Profile selector ("Who is watching?") and numeric PIN keypad |
-| `GET` | `/setup` | First-time onboarding wizard (permanently disabled once admin exists) |
-| `GET` | `/settings` | System status, storage health, library scans, and user management |
+| `GET` | `/login` | Split Start screen (Welcome banner + User dropdown & PIN input) |
+| `GET` | `/` or `/video` | Video catalog (uniform card grid with purple footers and search bar) |
+| `GET` | `/video/{id}` | Video detail view showing cover, synopsis, and list of playable files |
+| `GET` | `/books` | Books catalog (uniform card grid) |
+| `GET` | `/books/{id}` | Book detail view showing cover, author, and list of volume files |
+| `GET` | `/watch/{file_id}` | Video player page (Plyr) with auto-resume prompt |
+| `GET` | `/read/{file_id}` | Document reader (native PDF iframe or ePub.js book viewer) |
+| `GET` | `/manage` | Server status, rescan trigger, uploads, and user profile management |
 
 ### Media Delivery & Streaming
-
 | Method | Route | Description |
 | :--- | :--- | :--- |
-| `GET` | `/stream/{type}/{id}` | Zero-copy byte range delivery via `sendfile` (HTTP 206) |
+| `GET` | `/stream/video/{file_id}` | Zero-copy byte range delivery via `sendfile` (HTTP 206) |
+| `GET` | `/stream/book/{file_id}` | Serves book file (PDF/EPUB) with Range support |
 | `GET` | `/covers/{type}/{id}` | Serves locally cached cover images with long-lived browser caching |
-| `GET` | `/static/*` | Serves embedded CSS, JS, player assets, and mascot SVG avatars |
+| `GET` | `/static/*` | Serves embedded CSS, JS, player assets, and bundled SVG avatars |
 
 ### JSON Management & State APIs
-
 | Category | Method | Route | Description |
 | :--- | :--- | :--- | :--- |
-| **Auth** | `POST` | `/api/setup` | Initializes admin account and default libraries |
-| | `POST` | `/api/login` | Validates PIN, checks lockout, and issues signed cookie |
+| **Auth** | `POST` | `/api/login` | Validates PIN, checks lockout, and issues signed cookie |
 | | `POST` | `/api/logout` | Clears session cookie |
-| **Users** | `GET` | `/api/users` | Lists profile tiles for selector and settings |
+| **Users** | `GET` | `/api/users` | Lists profile names for Start screen dropdown |
 | | `POST` | `/api/users` | Admin creates a new profile |
-| | `PUT` | `/api/users/{id}` | Updates profile avatar icon and accent color |
-| | `PUT` | `/api/users/{id}/pin` | Changes PIN and increments token version |
-| | `DELETE` | `/api/users/{id}` | Admin deletes a user profile |
-| **Libraries** | `GET` | `/api/libraries` | Lists configured libraries with mount disk space stats |
-| | `POST` | `/api/libraries` | Admin registers a new storage path and media type |
-| | `DELETE` | `/api/libraries/{id}` | Admin removes a library directory from catalog |
-| | `POST` | `/api/scan` | Triggers a scan across all libraries (single-flight) |
-| | `POST` | `/api/libraries/{id}/scan` | Triggers a scan for a specific library |
-| | `POST` | `/api/upload` | Streaming multipart upload direct to library disk path |
-| **Catalog** | `GET` | `/api/movies` | Lists standalone movies (supports genre filter) |
-| | `GET` | `/api/series` | Lists TV series cards (grouped by series title) |
-| | `GET` | `/api/series/{id}` | Retrieves series details, seasons, and episodes |
-| | `GET` | `/api/books` | Lists books (supports format and genre filters) |
-| | `POST` | `/api/media/{type}/{id}/match` | Admin manual metadata override ("Fix Match") |
-| | `DELETE` | `/api/media/{type}/{id}` | Admin removes an item from catalog |
-| **Progress** | `GET` | `/api/progress/{type}/{id}` | Retrieves saved playback or reading position |
+| | `PUT` | `/api/users/{id}` | Updates profile avatar icon / uploaded image |
+| | `PUT` | `/api/users/{id}/pin`| Changes PIN and increments token version |
+| | `DELETE`| `/api/users/{id}`| Admin deletes a user profile |
+| **Media** | `POST` | `/api/scan` | Scans `./media/video` and `./media/books` |
+| | `POST` | `/api/upload` | Streaming multipart upload direct to container folder |
+| | `PUT` | `/api/media/{type}/{id}` | Edits title and overview synopsis |
+| | `DELETE`| `/api/media/{type}/{id}`| Admin removes an item from catalog |
+| **Progress**| `GET` | `/api/progress/{type}/{file_id}` | Retrieves saved playback or reading position |
 | | `POST` | `/api/progress` | Syncs current playback or reading progress |
 
 ---
 
 ## 5. Architectural References
 
-* **Data & Storage:** [Database Schema](database.md) • [Storage Architecture](storage.md) • [Scraping Engine](scraper.md)
-* **Security & Traffic:** [Rate Limiting](rate-limiting.md) • [Threat Model](threat-model.md)
-* **Client & UI:** [Design System](client/design-system.md) • [Components](client/components.md) • [Pages](client/pages.md)
+* **Data & Storage:** [Database Schema (6 Tables)](database.md) • [Storage Architecture](storage.md) • [Local-First Metadata Engine](scraper.md)
+* **Security & Traffic:** [Two-Safeguard Rate Limiting](rate-limiting.md) • [Threat Model](threat-model.md)
+* **Client & UI:** [Design System](client/design-system.md) • [Tactile Components](client/components.md) • [Page Templates (7 Views)](client/pages.md)
 * **Operations:** [Compilation & Deployment](compilation.md) • [Testing Strategy](testing.md)
 * **Diagrams:** [Data Flow](diagrams/data-flow.md) • [User Flows](diagrams/user-flows.md)
