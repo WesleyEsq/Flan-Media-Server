@@ -76,6 +76,7 @@ For cross-compiling to Raspberry Pi boards (ARMv6, ARMv7, ARM64) and systemd dep
   * [Tactile Component Specifications](docs/client/components.md)
   * [Page Templates & Wireframes (9 Templates)](docs/client/pages.md)
   * [Mobile Responsiveness & Adaptive Navigation](docs/responsiveness.md)
+  * [Accessibility & WCAG 2.1 AA Compliance Guide](docs/accessibility.md)
 * **Diagrams:**
   * [Data Flow & Architecture](docs/diagrams/data-flow.md)
   * [User Journeys & Technical Flows](docs/diagrams/user-flows.md)

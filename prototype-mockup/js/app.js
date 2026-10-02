@@ -78,14 +78,16 @@
   }
 
   // =========================================================================
-  // UNIFIED MY PROFILE MODAL MANAGER
+  // UNIFIED MY PROFILE MODAL MANAGER (Accessible HTML5 Dialog)
   // =========================================================================
   let profileTargetUser = null;
   let tempAvatarType = null;
   let tempAvatarKey = null;
   let tempCustomAvatarData = null;
+  let lastFocusedElement = null;
 
   function openProfileModal(user) {
+    lastFocusedElement = document.activeElement;
     profileTargetUser = user || state.currentUser;
     tempAvatarType = profileTargetUser.avatarType || "preset";
     tempAvatarKey = profileTargetUser.avatarKey || "mascot";
@@ -98,7 +100,12 @@
     el.profileAvatarFile.value = "";
 
     renderProfileAvatarsGrid();
-    el.profileModal.classList.remove("hidden");
+    if (typeof el.profileModal.showModal === "function") {
+      el.profileModal.showModal();
+    } else {
+      el.profileModal.classList.remove("hidden");
+    }
+    el.profileUsernameInput.focus();
   }
 
   function renderProfileAvatarsGrid() {
@@ -106,7 +113,7 @@
       .map(([key, item]) => {
         const isActive = tempAvatarType === "preset" && tempAvatarKey === key && !tempCustomAvatarData;
         return `
-          <button type="button" class="preset-avatar-btn ${isActive ? "active" : ""}" data-key="${key}" title="${item.name}">
+          <button type="button" class="preset-avatar-btn ${isActive ? "active" : ""}" data-key="${key}" title="${item.name}" aria-label="Avatar ${item.name}">
             ${item.svg}
             <span class="preset-avatar-label">${item.name}</span>
           </button>
@@ -132,16 +139,25 @@
   }
 
   function closeProfileModal() {
-    el.profileModal.classList.add("hidden");
+    if (typeof el.profileModal.close === "function" && el.profileModal.open) {
+      el.profileModal.close();
+    } else {
+      el.profileModal.classList.add("hidden");
+    }
     profileTargetUser = null;
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
   }
 
   // =========================================================================
-  // ADD USER MODAL MANAGER (Manage Server)
+  // ADD USER MODAL MANAGER (Manage Server - Accessible HTML5 Dialog)
   // =========================================================================
   let newUserSelectedAvatarKey = "mascot";
 
   function openAddUserModal() {
+    lastFocusedElement = document.activeElement;
     el.newUserName.value = "";
     el.newUserPin.value = "";
     el.newUserRole.value = "user";
@@ -154,7 +170,7 @@
       .map(([key, item]) => {
         const isActive = key === newUserSelectedAvatarKey;
         return `
-          <button type="button" class="preset-avatar-btn ${isActive ? "active" : ""}" data-key="${key}" title="${item.name}">
+          <button type="button" class="preset-avatar-btn ${isActive ? "active" : ""}" data-key="${key}" title="${item.name}" aria-label="Avatar ${item.name}">
             ${item.svg}
             <span class="preset-avatar-label">${item.name}</span>
           </button>
@@ -171,11 +187,24 @@
       });
     });
 
-    el.addUserModal.classList.remove("hidden");
+    if (typeof el.addUserModal.showModal === "function") {
+      el.addUserModal.showModal();
+    } else {
+      el.addUserModal.classList.remove("hidden");
+    }
+    el.newUserName.focus();
   }
 
   function closeAddUserModal() {
-    el.addUserModal.classList.add("hidden");
+    if (typeof el.addUserModal.close === "function" && el.addUserModal.open) {
+      el.addUserModal.close();
+    } else {
+      el.addUserModal.classList.add("hidden");
+    }
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
   }
 
   // =========================================================================
@@ -245,12 +274,19 @@
     el.sidebarBooksBtn.classList.remove("active", "focused");
     el.sidebarManageBtn.classList.remove("active");
 
+    el.sidebarVideoBtn.removeAttribute("aria-current");
+    el.sidebarBooksBtn.removeAttribute("aria-current");
+    el.sidebarManageBtn.removeAttribute("aria-current");
+
     if (state.activeTab === "video") {
       el.sidebarVideoBtn.classList.add("active");
+      el.sidebarVideoBtn.setAttribute("aria-current", "page");
     } else if (state.activeTab === "books") {
       el.sidebarBooksBtn.classList.add("active");
+      el.sidebarBooksBtn.setAttribute("aria-current", "page");
     } else if (state.activeTab === "manage") {
       el.sidebarManageBtn.classList.add("active");
+      el.sidebarManageBtn.setAttribute("aria-current", "page");
     }
   }
 
@@ -319,7 +355,7 @@
               Access
             </button>
 
-            <div id="login-feedback" class="login-feedback"></div>
+            <div id="login-feedback" class="login-feedback" role="alert" aria-live="assertive"></div>
           </form>
         </div>
       </div>
@@ -405,7 +441,7 @@
               autocomplete="off"
             />
           </div>
-          <button id="catalog-search-btn" class="search-btn" title="Search">
+          <button id="catalog-search-btn" class="search-btn" aria-label="Search ${type === 'video' ? 'videos' : 'books'}" title="Search">
             <svg viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="7" />
               <line x1="16.5" y1="16.5" x2="22" y2="22" />
@@ -424,7 +460,7 @@
             : filtered
                 .map((item) => {
                   return `
-            <div class="media-card" data-id="${item.id}" data-type="${type}">
+            <a class="media-card" href="#detail/${type}/${item.id}" data-id="${item.id}" data-type="${type}" role="article" aria-label="${item.title}${item.badge ? ' (' + item.badge + ')' : ''}">
               <!-- Upper Poster Area -->
               <div class="card-poster">
                 <span class="card-badge">${item.badge}</span>
@@ -451,7 +487,7 @@
                     : `${item.author || "Book"}`
                 }</div>
               </div>
-            </div>
+            </a>
           `;
                 })
                 .join("")
@@ -483,7 +519,8 @@
     // Bind Card Click -> Details View
     const cards = el.mainContent.querySelectorAll(".media-card");
     cards.forEach((card) => {
-      card.addEventListener("click", () => {
+      card.addEventListener("click", (e) => {
+        e.preventDefault();
         const id = card.getAttribute("data-id");
         window.location.hash = `#detail/${type}/${id}`;
       });
@@ -559,20 +596,20 @@
                   ${
                     type === "video"
                       ? `
-                      <button class="tactile-action-btn play-file-btn" data-file-id="${file.id}">
+                      <button class="tactile-action-btn play-file-btn" data-file-id="${file.id}" aria-label="Play ${file.title}">
                         ▶ Play
                       </button>
-                      <button class="tactile-action-btn vlc download-vlc-btn" data-url="${file.downloadUrl}" data-title="${file.title}" title="Direct download or stream in VLC">
+                      <button class="tactile-action-btn vlc download-vlc-btn" data-url="${file.downloadUrl}" data-title="${file.title}" aria-label="Download or stream in VLC: ${file.title}" title="Direct download or stream in VLC">
                         ⬇ VLC / Download
                       </button>
                     `
                       : `
                       ${
                         file.format === "pdf"
-                          ? `<button class="tactile-action-btn read-pdf-btn" data-url="${file.readUrl}" data-title="${file.title}">📖 Open PDF</button>`
+                          ? `<button class="tactile-action-btn read-pdf-btn" data-url="${file.readUrl}" data-title="${file.title}" aria-label="Open PDF: ${file.title}">📖 Open PDF</button>`
                           : ""
                       }
-                      <button class="tactile-action-btn download download-book-btn" data-url="${file.downloadUrl}" data-title="${file.title}">
+                      <button class="tactile-action-btn download download-book-btn" data-url="${file.downloadUrl}" data-title="${file.title}" aria-label="Download ${file.format.toUpperCase()}: ${file.title}">
                         ⬇ Download (${file.format.toUpperCase()})
                       </button>
                     `
@@ -757,7 +794,7 @@
               ⟳ Rescan All Media
             </button>
           </div>
-          <div id="rescan-feedback" style="font-weight: 700; color: #2e7d32; min-height: 20px;"></div>
+          <div id="rescan-feedback" role="alert" aria-live="polite" style="font-weight: 700; color: #2e7d32; min-height: 20px;"></div>
         </div>
 
         <div class="manage-card">
@@ -790,7 +827,7 @@
                   </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                  <button class="tactile-action-btn secondary edit-user-btn" data-username="${u.username}" style="padding: 6px 12px; font-size: 0.85rem;">
+                  <button class="tactile-action-btn secondary edit-user-btn" data-username="${u.username}" aria-label="Edit Profile for ${u.username}" style="padding: 6px 12px; font-size: 0.85rem;">
                     ✏️ Edit Profile
                   </button>
                 </div>
@@ -1038,9 +1075,8 @@ PORT=8080 GOMEMLIMIT=16MiB ./flan</code></pre>
   function initListeners() {
     window.addEventListener("hashchange", handleRoute);
 
-    // Title Horizontal Scrolling on Hover (Marquee)
-    document.addEventListener("mouseover", (e) => {
-      const card = e.target.closest(".media-card");
+    // Title Horizontal Scrolling on Hover & Focus (Marquee)
+    function handleMarqueeOverflow(card) {
       if (!card) return;
       const titleEl = card.querySelector(".card-title");
       const spanEl = titleEl ? titleEl.querySelector(".title-text") : null;
@@ -1055,9 +1091,28 @@ PORT=8080 GOMEMLIMIT=16MiB ./flan</code></pre>
       } else {
         titleEl.classList.remove("is-overflowing");
       }
+    }
+
+    document.addEventListener("mouseover", (e) => {
+      handleMarqueeOverflow(e.target.closest(".media-card"));
+    });
+
+    document.addEventListener("focusin", (e) => {
+      handleMarqueeOverflow(e.target.closest(".media-card"));
     });
 
     document.addEventListener("mouseout", (e) => {
+      const card = e.target.closest(".media-card");
+      if (!card) return;
+      if (!card.contains(e.relatedTarget)) {
+        const spanEl = card.querySelector(".card-title .title-text");
+        if (spanEl) {
+          spanEl.style.transform = "translateX(0)";
+        }
+      }
+    });
+
+    document.addEventListener("focusout", (e) => {
       const card = e.target.closest(".media-card");
       if (!card) return;
       if (!card.contains(e.relatedTarget)) {
@@ -1086,6 +1141,12 @@ PORT=8080 GOMEMLIMIT=16MiB ./flan</code></pre>
     el.brandTitle.addEventListener("click", () => {
       window.location.hash = "#video";
     });
+    el.brandTitle.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        window.location.hash = "#video";
+      }
+    });
 
     // Header avatar click -> Opens Unified My Profile Modal
     el.userAvatar.addEventListener("click", () => {
@@ -1097,6 +1158,20 @@ PORT=8080 GOMEMLIMIT=16MiB ./flan</code></pre>
     el.profileModal.addEventListener("click", (e) => {
       if (e.target === el.profileModal) {
         closeProfileModal();
+      }
+    });
+    el.profileModal.addEventListener("cancel", () => {
+      profileTargetUser = null;
+      if (lastFocusedElement) {
+        lastFocusedElement.focus();
+        lastFocusedElement = null;
+      }
+    });
+
+    el.addUserModal.addEventListener("cancel", () => {
+      if (lastFocusedElement) {
+        lastFocusedElement.focus();
+        lastFocusedElement = null;
       }
     });
 

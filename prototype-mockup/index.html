@@ -7,25 +7,27 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <!-- Accessibility: Skip Link (WCAG 2.4.1) -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
 
   <!-- =========================================================================
        TOP HEADER BAR (Visible across all authenticated views)
        ========================================================================= -->
   <header id="top-header" class="top-header">
-    <div id="brand-title" class="brand-title" title="Go to Catalog">
+    <div id="brand-title" class="brand-title" title="Go to Catalog" tabindex="0" role="link" aria-label="Flan Media Server - Go to Catalog">
       <span>Flan Media Server</span>
     </div>
 
     <div class="header-tools">
       <!-- ( ? ) Help / Software Manual Button -->
-      <button id="help-btn" class="tool-circle-btn" title="Software Manual & About">
+      <button id="help-btn" class="tool-circle-btn" aria-label="Software Manual & About" title="Software Manual & About">
         ?
       </button>
 
       <!-- User Avatar Badge (Opens My Profile Modal) -->
-      <div id="user-avatar" class="avatar-badge" title="My Profile & Settings">
+      <button id="user-avatar" type="button" class="avatar-badge" aria-label="My Profile & Settings" aria-haspopup="dialog" title="My Profile & Settings">
         <!-- Injected by JS -->
-      </div>
+      </button>
     </div>
   </header>
 
@@ -36,25 +38,28 @@
     <!-- Left Sidebar (Desktop) / Bottom Navigation Bar (Mobile) -->
     <aside id="left-sidebar" class="left-sidebar">
       <!-- Top Decorative Arrow (Desktop only) -->
-      <div class="sidebar-arrow">
+      <div class="sidebar-arrow" aria-hidden="true">
         <svg viewBox="0 0 100 12" preserveAspectRatio="none">
           <line x1="100" y1="6" x2="6" y2="6" stroke="#000" stroke-width="3.5" />
           <polyline points="14,1 5,6 14,11" fill="none" stroke="#000" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </div>
 
-      <!-- Tactile Video Button -->
-      <button id="nav-video-btn" class="sidebar-nav-btn active">
-        Video
-      </button>
+      <!-- Semantic Navigation Wrapper (WCAG 1.3.1) -->
+      <nav class="sidebar-nav" aria-label="Main Navigation" style="display:flex; flex-direction:column; gap:12px; width:100%;">
+        <!-- Tactile Video Button -->
+        <button id="nav-video-btn" class="sidebar-nav-btn active" aria-current="page">
+          Video
+        </button>
 
-      <!-- Tactile Books Button -->
-      <button id="nav-books-btn" class="sidebar-nav-btn">
-        Books
-      </button>
+        <!-- Tactile Books Button -->
+        <button id="nav-books-btn" class="sidebar-nav-btn">
+          Books
+        </button>
+      </nav>
 
       <!-- Bottom Decorative Arrow (Desktop only) -->
-      <div class="sidebar-arrow">
+      <div class="sidebar-arrow" aria-hidden="true">
         <svg viewBox="0 0 100 12" preserveAspectRatio="none">
           <line x1="0" y1="6" x2="94" y2="6" stroke="#000" stroke-width="3.5" />
           <polyline points="86,1 95,6 86,11" fill="none" stroke="#000" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -63,7 +68,7 @@
 
       <!-- Pinned Bottom Manage Server Button -->
       <div class="sidebar-bottom">
-        <button id="nav-manage-btn" class="sidebar-manage-btn">
+        <button id="nav-manage-btn" class="sidebar-manage-btn" aria-label="Manage Server">
           <span class="desktop-manage-label">Manage<br>Server</span>
           <span class="mobile-manage-label">Manage</span>
         </button>
@@ -71,102 +76,98 @@
     </aside>
 
     <!-- Main Content Canvas (Dynamic View Injection) -->
-    <main id="main-content" class="main-content">
+    <main id="main-content" class="main-content" tabindex="-1">
       <!-- Injected by app.js router -->
     </main>
   </div>
 
   <!-- =========================================================================
-       UNIFIED MY PROFILE MODAL
+       UNIFIED MY PROFILE MODAL (Accessible HTML5 Dialog)
        ========================================================================= -->
-  <div id="profile-modal" class="modal-overlay hidden">
-    <div class="modal-card profile-modal-card">
-      <div class="modal-header">
-        <h2 style="font-size: 1.3rem; font-weight: 800;">My Profile</h2>
-        <button id="close-profile-btn" class="modal-close-btn">✕</button>
+  <dialog id="profile-modal" class="modal-dialog" aria-labelledby="profile-modal-title">
+    <div class="modal-header">
+      <h2 id="profile-modal-title" style="font-size: 1.3rem; font-weight: 800;">My Profile</h2>
+      <button id="close-profile-btn" type="button" class="modal-close-btn" aria-label="Close My Profile dialog">✕</button>
+    </div>
+
+    <form id="profile-form" style="display: flex; flex-direction: column; gap: 14px;">
+      <!-- Username Field -->
+      <div>
+        <label class="form-field-label" for="profile-username-input">Profile Name:</label>
+        <input type="text" id="profile-username-input" class="tactile-text-input" required />
       </div>
 
-      <form id="profile-form" style="display: flex; flex-direction: column; gap: 14px;">
-        <!-- Username Field -->
-        <div>
-          <label class="form-field-label" for="profile-username-input">Profile Name:</label>
-          <input type="text" id="profile-username-input" class="tactile-text-input" required />
+      <!-- Avatar Presets -->
+      <div>
+        <label class="form-field-label">Avatar Companion:</label>
+        <div id="profile-avatars-grid" class="preset-avatars-grid" role="group" aria-label="Select avatar companion">
+          <!-- Rendered by JS -->
         </div>
+      </div>
 
-        <!-- Avatar Presets -->
-        <div>
-          <label class="form-field-label">Avatar Companion:</label>
-          <div id="profile-avatars-grid" class="preset-avatars-grid">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
+      <!-- Custom Photo Upload -->
+      <div class="custom-avatar-section">
+        <label class="form-field-label" for="profile-avatar-file">Or Upload Custom Photo (Max 2MB):</label>
+        <input type="file" id="profile-avatar-file" accept="image/png, image/jpeg, image/webp" class="tactile-file-input" />
+      </div>
 
-        <!-- Custom Photo Upload -->
-        <div class="custom-avatar-section">
-          <label class="form-field-label" for="profile-avatar-file">Or Upload Custom Photo (Max 2MB):</label>
-          <input type="file" id="profile-avatar-file" accept="image/png, image/jpeg, image/webp" class="tactile-file-input" />
-        </div>
+      <!-- Change PIN -->
+      <div>
+        <label class="form-field-label" for="profile-pin-input">Change PIN (4-6 digits):</label>
+        <input type="password" id="profile-pin-input" class="tactile-text-input" placeholder="Leave blank to keep current" maxlength="6" />
+      </div>
 
-        <!-- Change PIN -->
-        <div>
-          <label class="form-field-label" for="profile-pin-input">Change PIN (4-6 digits):</label>
-          <input type="password" id="profile-pin-input" class="tactile-text-input" placeholder="Leave blank to keep current" maxlength="6" />
-        </div>
+      <div id="profile-feedback" class="avatar-feedback" role="alert" aria-live="polite"></div>
 
-        <div id="profile-feedback" class="avatar-feedback"></div>
+      <div style="display: flex; gap: 10px; margin-top: 4px;">
+        <button type="submit" class="tactile-action-btn" style="flex: 1;">Save Changes</button>
+      </div>
 
-        <div style="display: flex; gap: 10px; margin-top: 4px;">
-          <button type="submit" class="tactile-action-btn" style="flex: 1;">Save Changes</button>
-        </div>
-
-        <!-- Prominent Log Out Button -->
-        <div style="border-top: 2px solid #eee; padding-top: 12px; margin-top: 4px;">
-          <button type="button" id="profile-logout-btn" class="tactile-action-btn danger" style="width: 100%;">
-            🚪 Log Out
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+      <!-- Prominent Log Out Button -->
+      <div style="border-top: 2px solid #eee; padding-top: 12px; margin-top: 4px;">
+        <button type="button" id="profile-logout-btn" class="tactile-action-btn danger" style="width: 100%;">
+          🚪 Log Out
+        </button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- =========================================================================
-       ADD USER MODAL (Manage Server)
+       ADD USER MODAL (Manage Server - Accessible HTML5 Dialog)
        ========================================================================= -->
-  <div id="add-user-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2 style="font-size: 1.3rem; font-weight: 800;">Add New Household User</h2>
-        <button id="close-add-user-btn" class="modal-close-btn">✕</button>
-      </div>
-      <form id="add-user-form" style="display: flex; flex-direction: column; gap: 14px;">
-        <div>
-          <label class="form-field-label" for="new-user-name">Username:</label>
-          <input type="text" id="new-user-name" class="tactile-text-input" placeholder="e.g. Sarah" required />
-        </div>
-        <div>
-          <label class="form-field-label" for="new-user-pin">4-Digit PIN:</label>
-          <input type="password" id="new-user-pin" class="tactile-text-input" placeholder="e.g. 5678" maxlength="6" required />
-        </div>
-        <div>
-          <label class="form-field-label" for="new-user-role">Role:</label>
-          <div class="tactile-select-wrap">
-            <select id="new-user-role">
-              <option value="user">Standard User (Family / Kids)</option>
-              <option value="admin">Administrator</option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <label class="form-field-label">Choose Starting Avatar:</label>
-          <div id="new-user-avatars-grid" class="preset-avatars-grid">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
-        <div id="add-user-feedback" class="avatar-feedback"></div>
-        <button type="submit" class="tactile-action-btn" style="width: 100%;">Create Profile</button>
-      </form>
+  <dialog id="add-user-modal" class="modal-dialog" aria-labelledby="add-user-modal-title">
+    <div class="modal-header">
+      <h2 id="add-user-modal-title" style="font-size: 1.3rem; font-weight: 800;">Add New Household User</h2>
+      <button id="close-add-user-btn" type="button" class="modal-close-btn" aria-label="Close Add User dialog">✕</button>
     </div>
-  </div>
+    <form id="add-user-form" style="display: flex; flex-direction: column; gap: 14px;">
+      <div>
+        <label class="form-field-label" for="new-user-name">Username:</label>
+        <input type="text" id="new-user-name" class="tactile-text-input" placeholder="e.g. Sarah" required />
+      </div>
+      <div>
+        <label class="form-field-label" for="new-user-pin">4-Digit PIN:</label>
+        <input type="password" id="new-user-pin" class="tactile-text-input" placeholder="e.g. 5678" maxlength="6" required />
+      </div>
+      <div>
+        <label class="form-field-label" for="new-user-role">Role:</label>
+        <div class="tactile-select-wrap">
+          <select id="new-user-role">
+            <option value="user">Standard User (Family / Kids)</option>
+            <option value="admin">Administrator</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="form-field-label">Choose Starting Avatar:</label>
+        <div id="new-user-avatars-grid" class="preset-avatars-grid" role="group" aria-label="Choose starting avatar">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+      <div id="add-user-feedback" class="avatar-feedback" role="alert" aria-live="polite"></div>
+      <button type="submit" class="tactile-action-btn" style="width: 100%;">Create Profile</button>
+    </form>
+  </dialog>
 
 
 

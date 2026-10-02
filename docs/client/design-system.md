@@ -13,6 +13,8 @@ Visual tokens, typography scale, sidebar-only layout, and tactile interaction pr
 * **Zero Emojis:** Pure SVG vector icons are used exclusively for all buttons, avatars, and indicators. No OS-dependent emoji rendering.
 * **System Font Stack:** Uses the device's native system font stack with zero external font network requests (`font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`).
 
+* **WCAG 2.1 AA Accessibility Compliant:** Verified color contrast ratios $\ge 4.5:1$ on all text surfaces, visible tactile focus rings (`:focus-visible`), support for `prefers-reduced-motion: reduce`, unrestricted user text selection, and skip-to-content links.
+
 ---
 
 ## 2. Color Palette & Design Tokens
@@ -21,27 +23,30 @@ All styles are declared as CSS variables in `web/static/css/style.css`:
 
 ```css
 :root {
-    /* Brand & Structural Surfaces */
-    --brand-purple:     #9c7cd8; /* Header bar and left sidebar background */
-    --brand-active:     #6d52a8; /* Active/selected button background */
+    /* Brand & Structural Surfaces (WCAG AA Compliant) */
+    --brand-purple:     #724799; /* Header bar background (contrast >= 6.8:1 with pure white text) */
+    --brand-active:     #6d4ca6; /* Active/selected button background (contrast 6.5:1 with white text) */
+    --brand-access:     #5b3794; /* Login Access button (contrast 8.7:1 with white text) */
     --bg-main:          #f4f0fa; /* Main content area (pale lavender) */
     --surface-card:     #ffffff; /* Card background */
     --surface-button:   #eae8f2; /* Inactive button background */
 
-    /* High-Contrast Borders */
+    /* High-Contrast Borders & Focus */
     --border-black:     #000000; /* Crisp 2px and 3px structural borders */
     --border-subtle:    #2c2e3e; /* Inner divider borders */
-    --border-focus:     #000000; /* High-visibility keyboard/remote focus outline */
+    --border-focus:     #000000; /* High-visibility keyboard/remote focus outline (:focus-visible 3px) */
 
     /* Typography */
-    --text-primary:     #12131a; /* Pitch dark off-black on light surfaces */
+    --text-primary:     #12131a; /* Pitch dark off-black on light surfaces (contrast 16.8:1) */
     --text-header:      #ffffff; /* Pure white text on purple surfaces */
-    --text-muted:       #555869; /* Secondary metadata text */
+    --text-muted:       #555869; /* Secondary metadata text (contrast 6.3:1) */
 
-    /* Functional Accents */
-    --accent-lavender:  #9c7cd8; /* Primary action color, card title bands */
-    --color-danger:     #e5534b; /* Lockouts, delete actions */
-    --color-success:    #57ab5a; /* Completed indicators */
+    /* Functional Accents & Alerts */
+    --accent-lavender:  #6d4ca6; /* Primary action color, card title bands */
+    --color-danger:     #700000; /* Lockouts, login errors (contrast 6.3:1 on lilac, 11:1 on white) */
+    --color-success:    #2e7d32; /* Completed indicators (contrast 5.1:1 on white) */
+    --btn-vlc-bg:       #ff6f00; /* VLC action button (pair strictly with #000000 text for 7.5:1 contrast) */
+    --btn-vlc-text:     #000000;
 }
 ```
 
@@ -158,4 +163,5 @@ Accessible via the `( ? )` button as a dedicated 2-column view with a sticky Tab
 
 * [Tactile Components](components.md)
 * [Page Templates & Wireframes](pages.md)
+* [Accessibility & WCAG Compliance Guide](../accessibility.md)
 * [Master System Architecture](../design.md)

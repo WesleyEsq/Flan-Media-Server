@@ -39,8 +39,8 @@ Used in the left navigation sidebar for **`Video`**, **`Books`**, and **`Manage 
 
 ### HTML Structure
 ```html
-<nav class="sidebar-nav">
-    <a href="/video" class="sidebar-btn sidebar-btn--active">Video</a>
+<nav class="sidebar-nav" aria-label="Main Navigation">
+    <a href="/video" class="sidebar-btn sidebar-btn--active" aria-current="page">Video</a>
     <a href="/books" class="sidebar-btn">Books</a>
     <a href="/manage" class="sidebar-btn sidebar-btn--bottom">Manage Server</a>
 </nav>
@@ -51,6 +51,7 @@ Used in the left navigation sidebar for **`Video`**, **`Books`**, and **`Manage 
 * **Active State (`.sidebar-btn--active`):** Solid darker purple (`#6d52a8`) background with pure white bold text.
 * **Inactive State:** Light gray/white surface (`#eae8f2`) with dark bold text (`#12131a`).
 * **Tactile Click:** Depresses slightly on click (`:active { transform: translateY(2px); }`) with zero hover float delays.
+* **Focus Indicator:** Visible 3px black outline (`:focus-visible { outline: 3px solid #000; outline-offset: 2px; }`).
 
 ---
 
@@ -84,14 +85,14 @@ Positioned on the right side of the top purple bar strictly for utility controls
 <button class="header-icon-btn" id="open-help" aria-label="Software Manual & About">?</button>
 
 <!-- Profile Avatar Badge (Opens My Profile Modal) -->
-<button class="header-avatar-badge" id="open-profile" aria-label="My Profile">
+<button class="header-avatar-badge" id="open-profile" aria-label="My Profile & Settings" aria-haspopup="dialog">
     <img src="/static/assets/avatars/mascot.svg" alt="Avatar">
 </button>
 ```
 
 ### Styling Rules
 * Manual button is a circular white surface, 36px diameter, thick `2px solid #000000` border, centered `?` symbol.
-* Avatar badge is a 40px rounded rectangle with `3px solid #3ea6ff` accent border and `2px solid #000000` outline, which depresses on click to open the "My Profile" modal.
+* Avatar badge is a 40px rounded rectangle button with `3px solid #3ea6ff` accent border, `box-shadow: 0 0 0 2px #000000`, which depresses on click to open the "My Profile" dialog.
 
 ---
 
@@ -181,20 +182,21 @@ Used in `/manage` and accessible by clicking the header avatar badge to customiz
 
 ---
 
-## 8. Modal Dialog Component (`<div class="modal-card">` or `<dialog>`)
+## 8. Modal Dialog Component (`<dialog class="modal-dialog">`)
 
-Used for the unified **My Profile** modal (name, avatar picker/upload, PIN, log out) and **Add New User** modal in `/manage`.
+Used for the unified **My Profile** modal (name, avatar picker/upload, PIN, log out) and **Add New User** modal in `/manage`. Uses the native HTML5 `<dialog>` element for built-in focus trapping, top-layer backdrop, and native `Escape` dismissal.
 
 ```html
-<div class="modal-card">
+<dialog id="profile-modal" class="modal-dialog" aria-labelledby="profile-title">
     <header class="modal-header">
-        <h2 class="modal-title">My Profile</h2>
-        <button class="modal-close-btn" aria-label="Close">✕</button>
+        <h2 id="profile-title" class="modal-title">My Profile</h2>
+        <button class="modal-close-btn" type="button" aria-label="Close dialog">✕</button>
     </header>
     <div class="modal-body"><!-- Content --></div>
-</div>
+</dialog>
 ```
 
+* **Focus Restoration:** When opened via `.showModal()`, focus shifts to the first actionable input. When closed, focus strictly returns to the opening trigger button.
 * **Sticky Pinned Header:** `modal-header` is sticky (`position: sticky; top: -24px; background: #fff;`) so the title and `✕` close button remain visible at all times while scrolling.
 * **Tactile Scrollbar:** Bounded to `max-height: 85vh` with `overflow-y: auto` and a custom high-contrast purple thumb scrollbar with 2px borders.
 
@@ -212,15 +214,16 @@ Replaces heavy section headings with an unobtrusive, high-density status strip (
 
 ---
 
-## 10. Horizontal Title Marquee on Hover
+## 10. Horizontal Title Marquee on Hover & Focus
 
 When media container titles exceed the width of the card's solid purple footer band:
 
 * **Idle State:** Text truncates with a clean ellipsis (`text-overflow: ellipsis; white-space: nowrap;`).
-* **Hover State:** If `scrollWidth > clientWidth`, `.is-overflowing` is dynamically added, activating a CSS marquee animation:
+* **Hover & Focus-Visible State:** If `scrollWidth > clientWidth`, `.is-overflowing` is dynamically added on mouseover or keyboard `:focus-visible`, activating a CSS marquee animation:
   * 0%–20%: Pauses at origin so the opening words are readable.
   * 80%–100%: Smoothly translates left by `calc(scrollWidth - clientWidth + 8px)` and pauses so the end of the title is readable.
-  * Resets smoothly on mouse leave. Titles that fit without overflow remain completely static.
+  * Resets smoothly on blur / mouse leave. Titles that fit without overflow remain completely static.
+* **Reduced Motion Support:** Under `@media (prefers-reduced-motion: reduce)`, the marquee animation is completely disabled (`animation: none !important`), maintaining clean ellipsis truncation for vestibular safety.
 
 ---
 
@@ -228,5 +231,6 @@ When media container titles exceed the width of the card's solid purple footer b
 
 * [Design System & Tokens](design-system.md)
 * [Page Templates & Wireframes](pages.md)
+* [Accessibility & WCAG Compliance Guide](../accessibility.md)
 * [Master System Architecture](../design.md)
 

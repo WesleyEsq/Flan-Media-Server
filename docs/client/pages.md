@@ -214,9 +214,25 @@ All platform navigation is consolidated strictly into the left sidebar. The top 
 
 ---
 
-## 3. Related Documentation
+## 3. Accessibility & Keyboard Navigation (WCAG 2.1 AA)
+
+All 9 templates are designed for seamless keyboard navigation, high-contrast readability, and screen reader clarity:
+
+1. **Skip-to-Content Link:** The first focusable item on every authenticated page is `<a href="#main-content" class="skip-link">Skip to main content</a>`, jumping past the header and sidebar directly into catalog items or detail panels.
+2. **Predictable Tab Sequence:**
+   * `Top Header`: Skip Link $\to$ Brand Logo $\to$ Manual Button (`?`) $\to$ User Avatar Badge (`[Avatar]`).
+   * `Sidebar Navigation`: `Video` $\to$ `Books` $\to$ `Manage Server`. Active tab is flagged with `aria-current="page"`.
+   * `Main Catalog`: Search input $\to$ Search button $\to$ Media Cards in natural DOM reading order.
+3. **Card Activation:** Catalog cards are semantic `<a>` tags with `role="article"` and descriptive `aria-label` attributes (e.g. `Blade Runner (Movie)`), activated instantly with `Enter`.
+4. **Accessible Modals:** All dialogs use native HTML5 `<dialog class="modal-dialog">` with `aria-labelledby`. Focus is automatically trapped within the modal while open, `Escape` safely closes the dialog, and focus is restored to the triggering button on dismissal.
+5. **Live Status Feedback:** Form feedback (login errors, PIN validation, media rescan status) uses `role="alert"` and `aria-live="polite"` / `aria-live="assertive"` for instantaneous screen reader announcement.
+
+---
+
+## 4. Related Documentation
 
 * [Design System & Foundations](design-system.md)
 * [Tactile Components](components.md)
+* [Accessibility & WCAG Compliance Guide](../accessibility.md)
 * [User Flows & Journeys](../diagrams/user-flows.md)
 
