@@ -74,29 +74,24 @@ Positioned at the top of the main content area.
 
 ---
 
-## 4. Circular Header Action Buttons (`.header-icon-btn`)
+## 4. Header Utility Controls (`.header-tools`)
 
-Positioned on the right side of the top purple bar for utility controls (no navigation links).
+Positioned on the right side of the top purple bar strictly for utility controls (no navigation links).
 
 ### HTML Structure
 ```html
-<!-- Help Button -->
-<button class="header-icon-btn" id="open-help" aria-label="Help">?</button>
+<!-- Software Manual Trigger (Navigates to /manual or #view-manual) -->
+<button class="header-icon-btn" id="open-help" aria-label="Software Manual & About">?</button>
 
-<!-- Manage Shortcut -->
-<a href="/manage" class="header-icon-btn" aria-label="Manage Server">
-    <svg class="icon" viewBox="0 0 24 24"><path d="M...gear"/></svg>
-</a>
-
-<!-- Profile Avatar Badge -->
-<a href="/login" class="header-avatar-badge" aria-label="Profile">
-    <img src="/static/assets/avatars/flan.svg" alt="Avatar">
-</a>
+<!-- Profile Avatar Badge (Opens My Profile Modal) -->
+<button class="header-avatar-badge" id="open-profile" aria-label="My Profile">
+    <img src="/static/assets/avatars/mascot.svg" alt="Avatar">
+</button>
 ```
 
 ### Styling Rules
-* Circular white background, 36px diameter, thick `2px solid #000000` border, centered content.
-* Avatar badge is a 36px rounded square with `2px solid #000000` border.
+* Manual button is a circular white surface, 36px diameter, thick `2px solid #000000` border, centered `?` symbol.
+* Avatar badge is a 40px rounded rectangle with `3px solid #3ea6ff` accent border and `2px solid #000000` outline, which depresses on click to open the "My Profile" modal.
 
 ---
 
@@ -137,12 +132,13 @@ Replaces the complex 3x4 on-screen keypad and avatar tiles with the clean split 
 
 ---
 
-## 6. Playable File Row (`.file-row`)
+## 6. Playable File Row & Fallback Action (`.file-row`)
 
 Displayed inside the Video or Book detail view to list playable episodes, cuts, or book volumes.
 
 ### HTML Structure
 ```html
+<!-- Video File Row with Direct Play & VLC Fallback -->
 <div class="file-row">
     <div class="file-row__info">
         <span class="file-row__title">S01E01 - Pilot</span>
@@ -152,38 +148,85 @@ Displayed inside the Video or Book detail view to list playable episodes, cuts, 
     <div class="file-row__progress">
         <div class="file-row__progress-fill" style="width: 45%;"></div>
     </div>
-    <a href="/watch/101" class="btn btn--primary">Play</a>
+    <div class="file-row__actions">
+        <a href="/watch/101" class="btn btn--primary">Play</a>
+        <a href="/download/video/101" class="btn btn--vlc" title="Direct download or stream in VLC">⬇ VLC / Download</a>
+    </div>
+</div>
+
+<!-- Book File Row with Read / Download -->
+<div class="file-row">
+    <div class="file-row__info">
+        <span class="file-row__title">Volume 1 (PDF)</span>
+        <span class="file-row__duration">18.4 MB</span>
+    </div>
+    <div class="file-row__actions">
+        <a href="/stream/book/201" target="_blank" class="btn btn--primary">📖 Open PDF</a>
+        <a href="/download/book/201" class="btn btn--secondary">⬇ Download</a>
+    </div>
 </div>
 ```
 
 ---
 
-## 7. Modal Dialog Component (`<dialog class="modal">`)
+## 7. Whimsical Avatar Picker Component (`.avatar-picker`)
 
-Used for the e-manual, upload dialog, and user editing.
+Used in `/manage` and accessible by clicking the header avatar badge to customize household profiles.
 
-```html
-<dialog class="modal" id="modal-id">
-    <div class="modal__container">
-        <header class="modal__header">
-            <h2 class="modal__title">Title</h2>
-            <button class="modal__close" aria-label="Close">✕</button>
-        </header>
-        <div class="modal__body"><!-- Content --></div>
-        <footer class="modal__footer">
-            <button class="btn btn--secondary">Cancel</button>
-            <button class="btn btn--primary">Confirm</button>
-        </footer>
-    </div>
-</dialog>
-```
-
-* High-contrast `2px solid #000000` border, white surface, native `<dialog>` with focus trapping.
+### Visual & Tactile Rules
+* **Preset Grid:** 3-column tactile grid displaying 6 high-contrast SVG companions (Mascot, Flan, Cat, Ghost, Robot, Star).
+* **Active Indicator:** 3px solid `#6d52a8` border with 4px offset shadow.
+* **Custom Photo Upload:** Direct image file input (`accept="image/png, image/jpeg, image/webp"`, enforced max 2 MB).
+* **Instant Tactile Feedback:** Selecting an avatar immediately updates the header avatar badge without a page reload.
 
 ---
 
-## 8. Related Documentation
+## 8. Modal Dialog Component (`<div class="modal-card">` or `<dialog>`)
+
+Used for the unified **My Profile** modal (name, avatar picker/upload, PIN, log out) and **Add New User** modal in `/manage`.
+
+```html
+<div class="modal-card">
+    <header class="modal-header">
+        <h2 class="modal-title">My Profile</h2>
+        <button class="modal-close-btn" aria-label="Close">✕</button>
+    </header>
+    <div class="modal-body"><!-- Content --></div>
+</div>
+```
+
+* **Sticky Pinned Header:** `modal-header` is sticky (`position: sticky; top: -24px; background: #fff;`) so the title and `✕` close button remain visible at all times while scrolling.
+* **Tactile Scrollbar:** Bounded to `max-height: 85vh` with `overflow-y: auto` and a custom high-contrast purple thumb scrollbar with 2px borders.
+
+---
+
+## 9. Compact Catalog Status & Filter Strip
+
+Replaces heavy section headings with an unobtrusive, high-density status strip (~24px height, `0.78rem` uppercase monospace/bold tactile font).
+
+* **Default Browsing Mode:** Displays section identity and total count without pushing content down:
+  `ALL VIDEOS & SERIES • 5 TITLES` or `BOOKS & PUBLICATIONS • 3 TITLES`
+* **Search / Filter Mode:** Smoothly mutates into an active filter tag with an interactive 1-click reset button:
+  `[FILTER] "gundam" (1 match)   [ ✕ Clear ]`
+* **Touch & Click:** Clicking `[ ✕ Clear ]` resets search input and immediately restores full library view.
+
+---
+
+## 10. Horizontal Title Marquee on Hover
+
+When media container titles exceed the width of the card's solid purple footer band:
+
+* **Idle State:** Text truncates with a clean ellipsis (`text-overflow: ellipsis; white-space: nowrap;`).
+* **Hover State:** If `scrollWidth > clientWidth`, `.is-overflowing` is dynamically added, activating a CSS marquee animation:
+  * 0%–20%: Pauses at origin so the opening words are readable.
+  * 80%–100%: Smoothly translates left by `calc(scrollWidth - clientWidth + 8px)` and pauses so the end of the title is readable.
+  * Resets smoothly on mouse leave. Titles that fit without overflow remain completely static.
+
+---
+
+## 11. Related Documentation
 
 * [Design System & Tokens](design-system.md)
 * [Page Templates & Wireframes](pages.md)
 * [Master System Architecture](../design.md)
+

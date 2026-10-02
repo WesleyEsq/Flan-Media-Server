@@ -16,11 +16,11 @@ Flan-Media-Server/
 │   ├── model/              # [M] Domain models (video, book, user, progress)
 │   ├── controller/         # [C] HTTP handlers, status codes, and route registration
 │   ├── middleware/         # HTTP filters (auth, stream governor semaphore)
-│   ├── scraper/            # Simple local folder crawler (zero network dependencies)
-│   └── storage/            # Disk space helper (statfs linux/other build tags)
+│   └── scraper/            # Simple local folder crawler (zero network dependencies)
 ├── web/                    # [V] Presentation layer embedded via embed.FS
-│   ├── templates/          # 8 Server-rendered Go HTML templates (login, video, books, etc.)
-│   └── static/             # Assets: CSS, modular JS, bundled sample avatars, player libs
+│   ├── templates/          # 9 Server-rendered Go HTML templates (login, video, books, etc.)
+│   └── static/             # Assets: CSS, modular JS, bundled sample avatars, player libs (Plyr)
+├── data/                   # Persistent runtime directory (flan.db, data/avatars/)
 ├── docs/                   # System design, architecture, and threat model specifications
 ├── tests/                  # Hermetic unit and integration tests (fstest, mocks)
 ├── .env                    # Default environment configuration
@@ -38,12 +38,11 @@ Flan-Media-Server/
 | **`internal/config`** | Config | `config.go` | Reads `.env` and environment variables with safe defaults (ports, fixed directories, secrets). |
 | **`internal/database`**| Persistence | `database.go` | Pure-Go SQLite connection (`modernc.org/sqlite`), WAL pragmas, `.flan-keep` check, pool limits (`SetMaxOpenConns(1)`), 6-table DDL migrations, and snapshots. |
 | **`internal/model`** | **Model** | `user.go`, `video.go`, `book.go`, `progress.go`, `errors.go` | Domain structs, sentinel errors (`ErrNotFound`, `ErrDuplicate`), and pure SQL queries for containers and unified progress. |
-| **`internal/controller`**| **Controller** | `auth.go`, `user.go`, `video.go`, `book.go`, `progress.go`, `upload.go`, `page.go` | Self-contained route registration (`RegisterRoutes(mux)`), HTTP decoding, ViewModel assembly, zero-copy `sendfile` streaming, and streaming uploads. |
+| **`internal/controller`**| **Controller** | `auth.go`, `user.go`, `video.go`, `book.go`, `progress.go`, `avatar.go`, `page.go` | Self-contained route registration (`RegisterRoutes(mux)`), HTTP decoding, ViewModel assembly, zero-copy `sendfile` streaming, download routing, and custom avatar upload. |
 | **`internal/middleware`**| Pipeline | `auth.go`, `governor.go` | Composable HTTP filters: HMAC session cookie verification and the concurrent stream semaphore. |
 | **`internal/scraper`** | Local Scanner | `scanner.go` | 100% offline filesystem crawler: maps folder name to container title and discovers `poster.jpg`. |
-| **`internal/storage`** | OS Abstraction | `disk_linux.go`, `disk_other.go` | Portable free-space verification via build tags (`unix.Statfs` on Linux; portable fallback for developer OSs). |
-| **`web/templates`** | **View** | 8 HTML templates | Sidebar-only layout, split Start screen, high-contrast cards with purple footers. |
-| **`web/static`** | Static Assets | `css/style.css`, `js/*.js`, `vendor/*`, `assets/avatars/*` | Tactile styling with thick 2px black borders, bundled SVG sample avatars, and player dependencies (Plyr, ePub.js). |
+| **`web/templates`** | **View** | 9 HTML templates | Sidebar-only layout, split Start screen, high-contrast cards with purple footers, and offline manual. |
+| **`web/static`** | Static Assets | `css/style.css`, `js/*.js`, `vendor/plyr/*`, `assets/avatars/*` | Tactile styling with thick 2px black borders, bundled SVG preset avatars, and video player dependencies. |
 
 ---
 

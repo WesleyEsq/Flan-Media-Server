@@ -39,15 +39,14 @@ Rather than maintaining a dynamic `libraries` database table, Flan uses fixed, d
 
 ---
 
-## 3. Admin Web Upload Pipeline
+## 3. Host Media Population & Storage Tiers
 
-Administrators can upload media through the web interface without terminal access:
+Flan eliminates the fragility of browser-based multi-gigabyte uploads by relying on proven, standard homelab media transfer methods. Administrators manage files directly on host storage:
 
-1. **Upload Routing:** The modal prompts for target type (`Video` or `Books`) and Container Title (e.g. *Breaking Bad*). Files stream directly into `./media/{type}/{Container Title}/`.
-2. **Pre-Flight Disk Verification (`statfs`):** Verifies that the destination filesystem has **>2 GB free space**. If space is low, it rejects the upload immediately with `HTTP 507 Insufficient Storage`.
-3. **Direct-Play Codec Check:** Validates `.mp4`, `.webm`, and web-safe `.mkv`. Rejects legacy non-web containers like `.avi`.
-4. **Zero-Memory Streaming:** Uses `r.MultipartReader` and `io.Copy` in 32 KB buffers (<1 MB RAM footprint).
-5. **Immediate Indexing:** Writes files with `0644` permissions and indexes them immediately into SQLite.
+1. **Local Network File Shares (SMB / NFS):** Mount `./media` as a Samba share on local desktop workstations (Windows Explorer / macOS Finder) and drag-and-drop video folders with full network resilience.
+2. **Secure Copy / Terminal (SCP / rsync):** Sync media libraries directly over SSH (`rsync -avP /local/movies/ pi@flan:./media/video/`).
+3. **Direct USB Drive Attachment:** Mount external USB 3.0 drives containing media directly into `./media/video` or `./media/books`.
+4. **Immediate Catalog Indexing:** Once files are copied, clicking `[ ⟳ Rescan All Media ]` in the `/manage` console synchronously indexes all new titles into SQLite in sub-second times.
 
 ---
 

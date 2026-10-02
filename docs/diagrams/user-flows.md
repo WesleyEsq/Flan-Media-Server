@@ -96,29 +96,19 @@ sequenceDiagram
 
 ---
 
-## 4. File Intake: Local Scan vs Admin Upload
+## 4. Media Ingestion & Synchronous Rescan Flow
 
-Supports placing folders directly into `./media/` or uploading through the browser without memory bloat.
+Media files are populated directly onto host storage via network shares (SMB/NFS), SCP/rsync, or USB drives, followed by synchronous SQLite indexing.
 
 ```mermaid
 flowchart TD
-    subgraph Local["Method A: Local Directory Placement & Rescan"]
-        A1["Place media into ./media/video/<Container>/ or ./media/books/<Container>/"] --> A2["Admin clicks 'Rescan All Media' in Manage Server"]
-        A2 --> A3["Scanner walks directories synchronously"]
-        A3 --> A4["Check for local poster.jpg in container folder"]
-        A4 --> A5["Extract file sizes, format, and titles"]
-        A5 --> A6["Insert into videos/books and file tables in SQLite"]
-    end
-
-    subgraph Remote["Method B: Admin Web Upload"]
-        B1["Admin selects Type (Video/Books) and enters Container Title"] --> B2["Browser sends multipart stream via POST /api/upload"]
-        B2 --> B3["Check free space on target mount via statfs"]
-        B3 -- "Free space < 2 GB" --> B4["Reject with HTTP 507 Insufficient Storage"]
-        B3 -- "Space OK" --> B5["r.MultipartReader reads incoming file stream"]
-        B5 --> B6["io.Copy streams directly to destination in 32kb chunks"]
-        B6 --> B7["Save file with 0644 permissions (non-executable)"]
-        B7 --> B8["Index container & files into SQLite database"]
-    end
+    A1["Place media into ./media/video/<Container>/ or ./media/books/<Container>/<br/>(via Samba, NFS, SCP, rsync, or USB drive)"] --> A2["Admin clicks 'Rescan All Media' in Manage Server"]
+    A2 --> A3["Scanner verifies mount liveness (folder exists & not empty)"]
+    A3 --> A4["Walk directory tree synchronously without external network requests"]
+    A4 --> A5["Look for local poster.jpg or cover.jpg artwork"]
+    A5 --> A6["Parse clean title & file metadata (size, format, index)"]
+    A6 --> A7["Batch upsert into SQLite videos/books and file tables"]
+    A7 --> A8["Catalog updated instantly with zero background queue delay"]
 ```
 
 ---

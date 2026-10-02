@@ -11,15 +11,16 @@ Flan eliminates complexity: 100% offline, zero external APIs, fixed storage dire
 | Feature | Specification |
 | :--- | :--- |
 | **Target Memory** | ~15–20 MB RAM (`GOMEMLIMIT=16MiB`, `GOGC=30`) |
-| **Navigation System** | **Sidebar-Only:** All platform navigation is consolidated strictly into the left sidebar (`Video`, `Books`, and `Manage Server`). The top header contains zero navigation links. |
-| **Interface Style** | High-contrast neo-tactile layout with thick black borders, split Start screen, purple card footers, and no emojis |
+| **Navigation System** | **Sidebar-Only (Desktop) & Bottom Bar (Mobile):** All platform navigation is consolidated strictly into the left sidebar (`Video`, `Books`, `Manage Server`), shifting to a thumb-accessible fixed bottom bar on mobile screens. The top header contains only the brand title, `(?)` manual, and user profile avatar. |
+| **Interface Style** | High-contrast neo-tactile layout with thick black borders, split Start screen, purple card footers, zero emojis, and pure CSS mobile responsiveness |
 | **Media Architecture** | **Unified Containers (100% Local-First):**<br>• **Video (`./media/video`):** Series with episode lists, or movies with version lists<br>• **Books (`./media/books`):** Multi-volume series or single books (EPUB/PDF) |
 | **Metadata Engine** | Zero-network, 100% offline (Folder name = title; `poster.jpg` = cover; no TMDB dependencies) |
 | **Concurrent Streams**| Max 3 active video streams (governed by semaphore) |
-| **Video Delivery** | Linux kernel `sendfile` zero-copy transfer (HTTP 206 Range requests) |
-| **Supported Formats** | Direct-play: MP4 (H.264/AAC), WebM (VP9/Opus/AV1), web-safe MKV, EPUB, PDF |
+| **Video Delivery** | Linux kernel `sendfile` zero-copy transfer (HTTP 206 Range requests) + 1-click VLC / Direct Download fallback for unsupported audio codecs (AC3/DTS) |
+| **Supported Formats** | Direct-play: MP4 (H.264/AAC), WebM (VP9/Opus/AV1), web-safe MKV; Books: EPUB, PDF (direct download & browser view) |
+| **Avatars** | Whimsical preset SVG companions (Flan mascot, cat, robot, ghost, etc.) or custom user photo uploads (max 2MB) |
 | **Database** | Pure-Go SQLite3 (`modernc.org/sqlite`) running in WAL mode (~2 MB cache, 6 tables) |
-| **Web Client** | Server-rendered Go `html/template` (8 templates) + vanilla JS/CSS embedded via `embed.FS` |
+| **Web Client** | Server-rendered Go `html/template` + vanilla JS/CSS embedded via `embed.FS` |
 
 ---
 
@@ -73,7 +74,8 @@ For cross-compiling to Raspberry Pi boards (ARMv6, ARMv7, ARM64) and systemd dep
 * **Web Client & UX:**
   * [Design System & High-Contrast Foundations](docs/client/design-system.md)
   * [Tactile Component Specifications](docs/client/components.md)
-  * [Page Templates & Wireframes (7 Templates)](docs/client/pages.md)
+  * [Page Templates & Wireframes (9 Templates)](docs/client/pages.md)
+  * [Mobile Responsiveness & Adaptive Navigation](docs/responsiveness.md)
 * **Diagrams:**
   * [Data Flow & Architecture](docs/diagrams/data-flow.md)
   * [User Journeys & Technical Flows](docs/diagrams/user-flows.md)

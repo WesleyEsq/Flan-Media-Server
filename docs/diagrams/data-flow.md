@@ -28,10 +28,10 @@ flowchart LR
 
     Browser -->|"1. HTTP Range & Progress"| Daemon
     Daemon -->|"2. 206 Partial (sendfile) & UI"| Browser
-    Admin -->|"3. Access & Multipart Uploads"| Daemon
+    Admin -->|"3. Management & Rescan"| Daemon
     Daemon -->|"4. Admin Views & Status"| Admin
-    Daemon <-->|"5. Read/Write SQLite & Covers"| AppData
-    Daemon <-->|"6. Zero-Copy Reads & Chunked Writes"| BulkMedia
+    Daemon <-->|"5. Read/Write SQLite, Covers & Avatars"| AppData
+    Daemon <-->|"6. Zero-Copy Media Reads"| BulkMedia
 ```
 
 ---
@@ -50,14 +50,15 @@ flowchart LR
         Governor["1.0 Stream Governor (Semaphore max 3)"]
         Router["2.0 Router & Auth Middleware"]
         PageEngine["3.0 Template Engine (html/template)"]
-        StreamEngine["4.0 Streaming Engine (http.ServeContent)"]
-        UploadEngine["5.0 Upload Handler (MultipartReader)"]
+        StreamEngine["4.0 Streaming & Download Engine (sendfile)"]
+        AvatarEngine["5.0 Avatar Handler (Presets & Max 2MB Upload)"]
         Scanner["6.0 Local Library Scanner"]
     end
 
     subgraph Stores["Persistence & Hardware Stores"]
         SQLite[("SQLite Database: flan.db")]
         Covers[("Local Cover Cache: data/covers/")]
+        Avatars[("Avatar Storage: data/avatars/")]
         HostDrives[("Media Directories: ./media/")]
     end
 
@@ -68,17 +69,19 @@ flowchart LR
     Request --> Governor
     Governor --> Router
     Router -- "GET /stream/video/{file_id}" --> StreamEngine
+    Router -- "GET /download/{type}/{file_id}" --> StreamEngine
     Router -- "GET / (Pages)" --> PageEngine
-    Router -- "POST /api/upload" --> UploadEngine
+    Router -- "POST /api/users/{id}/avatar" --> AvatarEngine
     StreamEngine --> SQLite
     StreamEngine --> HostDrives
     StreamEngine --> Response
     PageEngine --> SQLite
     PageEngine --> Covers
+    PageEngine --> Avatars
     PageEngine --> Response
-    UploadEngine --> HostDrives
-    UploadEngine --> SQLite
-    UploadEngine --> Response
+    AvatarEngine --> Avatars
+    AvatarEngine --> SQLite
+    AvatarEngine --> Response
     Scanner --> HostDrives
     Scanner --> SQLite
     Scanner --> Covers
@@ -169,36 +172,43 @@ sequenceDiagram
 
 ---
 
-## 6. Admin Zero-Memory File Upload Data Flow
+## 6. Whimsical Avatar Customization & VLC Direct Download Flow
 
-Browser-based media uploads streamed directly to disk into the appropriate container directory.
+Shows avatar updates (preset or custom upload) and direct VLC streaming bypassing browser codec limits.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Admin as Admin Browser
-    participant Handler as Upload API (Go)
-    participant Storage as Storage Layer (statfs)
-    participant Disk as Target Drive (./media/...)
+    actor User as Household User
+    participant Browser as Client Browser
+    participant API as Flan API (Go)
+    participant Disk as Flash Storage (data/avatars/)
     participant DB as SQLite (flan.db)
+    actor VLC as External VLC Player
 
-    Admin->>Handler: POST /api/upload (multipart: media_type, container_title, files)
-    Handler->>Handler: Verify admin role & token_version
-    Handler->>Storage: CheckFreeSpace on destination mount via statfs
-    Storage-->>Handler: Free space result
-    alt Free space < 2 GB
-        Handler-->>Admin: HTTP 507 Insufficient Storage
-    else Free space adequate
-        loop For each file part in multipart stream
-            Handler->>Handler: Validate format (.mp4, .webm, web-safe .mkv)
-            Handler->>Handler: Compute destination path: ./media/{type}/<Container>/<filename>
-            Handler->>Disk: os.OpenFile(destinationPath, O_CREATE|O_WRONLY, 0644)
-            Handler->>Disk: io.Copy in 32kb buffers (Socket -> Disk)
-            Disk-->>Handler: File write complete
-            Handler->>DB: Index into videos/books & file tables
-        end
-        Handler-->>Admin: HTTP 200 OK (Upload Successful)
+    Note over User,DB: Scenario A: User selects whimsical preset or uploads photo
+    User->>Browser: Selects preset avatar OR uploads custom photo (<= 2 MB)
+    alt Preset Avatar Selected
+        Browser->>API: PUT /api/users/{id} {avatar_icon: "flan"}
+        API->>DB: UPDATE users SET avatar_icon = 'flan', avatar_path = NULL
+        DB-->>API: Row updated
+        API-->>Browser: HTTP 200 OK (Avatar Updated)
+    else Custom Photo Uploaded
+        Browser->>API: POST /api/users/{id}/avatar (Multipart image file)
+        API->>API: Enforce max 2 MB & validate image magic bytes (JPEG/PNG/WebP)
+        API->>Disk: Save image to data/avatars/{user_id}.ext (0644)
+        API->>DB: UPDATE users SET avatar_path = 'data/avatars/{user_id}.ext'
+        DB-->>API: Row updated
+        API-->>Browser: HTTP 200 OK (Custom Avatar Saved)
     end
+
+    Note over User,VLC: Scenario B: Video has unplayable AC3 audio -> Open in VLC
+    User->>Browser: Clicks [ ⬇ VLC / Download ]
+    Browser->>VLC: Opens network stream: http://flan:4907/download/video/42
+    VLC->>API: GET /download/video/42
+    API->>DB: Query relative_path from video_files
+    DB-->>API: Returns path
+    API-->>VLC: HTTP 200/206 with full audio track (AC3/DTS decoded natively by VLC)
 ```
 
 ---

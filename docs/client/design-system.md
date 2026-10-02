@@ -53,7 +53,7 @@ All navigation across the entire platform occurs through the left sidebar. The t
 
 ```text
 +-------------------------------------------------------------------------+
-| Flan Media Server                                   ( ? )   ( ⚙ )   [Avatar]|
+| Flan Media Server                                           ( ? )   [Avatar]|
 +----------+--------------------------------------------------------------+
 | ←─────── |                                                              |
 | [ Video] |   +---------------------------------------------+  [ 🔍 ]    |
@@ -72,9 +72,8 @@ All navigation across the entire platform occurs through the left sidebar. The t
 * **Background:** Solid purple (`--brand-purple: #9c7cd8`). Height: 60px.
 * **Left Title:** Bold text `Flan Media Server` (white, high-contrast, ~1.5rem).
 * **Right Utility Controls (No navigation links):**
-  * `( ? )` **Help Button:** White circle, 36px diameter, thick 2px black border. Opens built-in e-manual `<dialog>`.
-  * `( ⚙ )` **Manage Shortcut:** White circle, 36px diameter, thick 2px black border. Quick link to `/manage`.
-  * `[Avatar]` **User Profile Badge:** 36px rounded square with thick 2px black border, displaying user's selected SVG avatar or custom image.
+  * `( ? )` **Software Manual Button:** White circle, 36px diameter, thick 2px black border. Navigates to the dedicated Software Handbook view (`/manual`).
+  * `[Avatar]` **User Profile Badge:** 40px rounded rectangle with thick 2px black border, displaying user's selected SVG avatar or custom image. Depresses on click to open the "My Profile" modal.
 
 ### 2. Exclusive Left Navigation Sidebar (`aside.sidebar`)
 * **Background:** Solid purple (`--brand-purple: #9c7cd8`). Width: ~200px.
@@ -123,9 +122,9 @@ Unauthenticated users see a split-panel screen with zero on-screen keypad bloat:
 
 ---
 
-## 5. Built-in E-Manual (`<dialog id="manual-dialog">`)
+## 5. Software Manual & System Handbook (`manual.html` - `GET /manual`)
 
-Accessible via the `( ? )` button, built with native HTML `<dialog>` (focus trapping, closes on `Escape`):
+Accessible via the `( ? )` button as a dedicated 2-column view with a sticky Table of Contents and 1-click terminal copy blocks (100% offline).
 
 ### Keyboard Shortcuts (Video Player)
 | Key | Action |
@@ -137,21 +136,21 @@ Accessible via the `( ? )` button, built with native HTML `<dialog>` (focus trap
 | `↑` / `↓` | Volume up / down (5% increments) |
 
 ### Direct Play Media Guidelines
-* **Video:** MP4 (H.264/AAC), WebM (VP9/Opus, AV1), and web-safe MKV.
-* **Books:** EPUB (ePub.js viewer) and PDF (native browser viewer).
+* **Video:** MP4 (H.264/AAC), WebM (VP9/Opus, AV1), and web-safe MKV. Plus 1-click `[ ⬇ VLC / Download ]` fallback for unsupported audio codecs (AC3, EAC3, DTS).
+* **Books:** PDF (browser-native viewer in new tab) and EPUB (instant direct download for native reader apps like Apple Books, Moon+ Reader, Kindle).
 
 ---
 
-## 6. Sample & Custom Avatars
+## 6. Whimsical Preset & Custom Avatars
 
-* **Bundled Sample Icons:** Shipped directly inside `web/static/assets/avatars/` as clean high-contrast SVGs:
-  * Hamster mascot (Flan)
+* **Bundled High-Contrast SVG Presets:** Shipped directly inside `web/static/assets/avatars/` as clean high-contrast SVGs:
+  * Mascot (Flan boy)
+  * Flan (Caramel pudding)
   * Cat
-  * Popcorn bowl
-  * Retro TV
-  * Book
-  * Cassette tape
-* **Custom Avatar Uploads:** Users can upload a personalized avatar image via `/manage`, saved to `data/avatars/{user_id}.png`.
+  * Ghost
+  * Robot
+  * Star
+* **Custom Avatar Uploads:** Users can upload a personalized photo via `/manage` or the "My Profile" modal (JPEG, PNG, WebP up to 2MB), saved to `data/avatars/{user_id}.ext`.
 
 ---
 

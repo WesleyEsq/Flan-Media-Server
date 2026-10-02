@@ -9,7 +9,7 @@
 <body>
 
   <!-- =========================================================================
-       TOP HEADER BAR (Visible across all views)
+       TOP HEADER BAR (Visible across all authenticated views)
        ========================================================================= -->
   <header id="top-header" class="top-header">
     <div id="brand-title" class="brand-title" title="Go to Catalog">
@@ -17,22 +17,14 @@
     </div>
 
     <div class="header-tools">
-      <!-- ( ? ) Help Button -->
-      <button id="help-btn" class="tool-circle-btn" title="Help / Manual">
+      <!-- ( ? ) Help / Software Manual Button -->
+      <button id="help-btn" class="tool-circle-btn" title="Software Manual & About">
         ?
       </button>
 
-      <!-- ( ⚙ ) Manage Shortcut Button -->
-      <button id="manage-shortcut-btn" class="tool-circle-btn" title="Manage Server">
-        <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; stroke: #000; fill: none; stroke-width: 2.2;">
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-        </svg>
-      </button>
-
-      <!-- User Avatar Badge (Mascot from drawing with blue border) -->
-      <div id="user-avatar" class="avatar-badge" title="User Profile / Switch Account">
-        <img src="assets/avatar.svg" alt="User Avatar" />
+      <!-- User Avatar Badge (Opens My Profile Modal) -->
+      <div id="user-avatar" class="avatar-badge" title="My Profile & Settings">
+        <!-- Injected by JS -->
       </div>
     </div>
   </header>
@@ -41,9 +33,9 @@
        APP CONTAINER (Sidebar + Main Content)
        ========================================================================= -->
   <div id="app-container" class="app-container">
-    <!-- Left Sidebar (Images 2 & 3) -->
+    <!-- Left Sidebar (Desktop) / Bottom Navigation Bar (Mobile) -->
     <aside id="left-sidebar" class="left-sidebar">
-      <!-- Top Decorative Arrow pointing left -->
+      <!-- Top Decorative Arrow (Desktop only) -->
       <div class="sidebar-arrow">
         <svg viewBox="0 0 100 12" preserveAspectRatio="none">
           <line x1="100" y1="6" x2="6" y2="6" stroke="#000" stroke-width="3.5" />
@@ -61,7 +53,7 @@
         Books
       </button>
 
-      <!-- Bottom Decorative Arrow pointing right -->
+      <!-- Bottom Decorative Arrow (Desktop only) -->
       <div class="sidebar-arrow">
         <svg viewBox="0 0 100 12" preserveAspectRatio="none">
           <line x1="0" y1="6" x2="94" y2="6" stroke="#000" stroke-width="3.5" />
@@ -72,7 +64,8 @@
       <!-- Pinned Bottom Manage Server Button -->
       <div class="sidebar-bottom">
         <button id="nav-manage-btn" class="sidebar-manage-btn">
-          Manage<br>Server
+          <span class="desktop-manage-label">Manage<br>Server</span>
+          <span class="mobile-manage-label">Manage</span>
         </button>
       </div>
     </aside>
@@ -84,28 +77,98 @@
   </div>
 
   <!-- =========================================================================
-       BUILT-IN HELP & MANUAL MODAL
+       UNIFIED MY PROFILE MODAL
        ========================================================================= -->
-  <div id="help-modal" class="modal-overlay hidden">
-    <div class="modal-card">
+  <div id="profile-modal" class="modal-overlay hidden">
+    <div class="modal-card profile-modal-card">
       <div class="modal-header">
-        <h2 style="font-size: 1.3rem; font-weight: 800;">Flan Media Server - Quick Help</h2>
-        <button id="close-help-btn" class="modal-close-btn">✕</button>
+        <h2 style="font-size: 1.3rem; font-weight: 800;">My Profile</h2>
+        <button id="close-profile-btn" class="modal-close-btn">✕</button>
       </div>
-      <div style="line-height: 1.5; font-size: 1rem; color: #222; display: flex; flex-direction: column; gap: 12px;">
-        <p><strong>100% Offline, Zero-Bloat Media Server:</strong></p>
-        <ul style="padding-left: 20px; display: flex; flex-direction: column; gap: 6px;">
-          <li><strong>Navigation:</strong> All browsing is handled strictly via the left sidebar (<em>Video</em> and <em>Books</em>).</li>
-          <li><strong>Fixed Directories:</strong> Drop video folders in <code>./media/video</code> and books in <code>./media/books</code>.</li>
-          <li><strong>Direct Playback:</strong> Videos stream with kernel zero-copy without transcoding to preserve SBC CPU and SD card life.</li>
-          <li><strong>Storage Guard:</strong> Maximum 3 concurrent streams allowed to prevent USB disk head thrashing.</li>
-        </ul>
-        <div style="margin-top: 8px; padding: 10px; background: #f4effa; border: 2px solid #000; border-radius: 6px; font-size: 0.85rem;">
-          <strong>Tip:</strong> Press <code>[ Manage Server ]</code> at the bottom of the sidebar to rescan files or check system metrics.
+
+      <form id="profile-form" style="display: flex; flex-direction: column; gap: 14px;">
+        <!-- Username Field -->
+        <div>
+          <label class="form-field-label" for="profile-username-input">Profile Name:</label>
+          <input type="text" id="profile-username-input" class="tactile-text-input" required />
         </div>
-      </div>
+
+        <!-- Avatar Presets -->
+        <div>
+          <label class="form-field-label">Avatar Companion:</label>
+          <div id="profile-avatars-grid" class="preset-avatars-grid">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Custom Photo Upload -->
+        <div class="custom-avatar-section">
+          <label class="form-field-label" for="profile-avatar-file">Or Upload Custom Photo (Max 2MB):</label>
+          <input type="file" id="profile-avatar-file" accept="image/png, image/jpeg, image/webp" class="tactile-file-input" />
+        </div>
+
+        <!-- Change PIN -->
+        <div>
+          <label class="form-field-label" for="profile-pin-input">Change PIN (4-6 digits):</label>
+          <input type="password" id="profile-pin-input" class="tactile-text-input" placeholder="Leave blank to keep current" maxlength="6" />
+        </div>
+
+        <div id="profile-feedback" class="avatar-feedback"></div>
+
+        <div style="display: flex; gap: 10px; margin-top: 4px;">
+          <button type="submit" class="tactile-action-btn" style="flex: 1;">Save Changes</button>
+        </div>
+
+        <!-- Prominent Log Out Button -->
+        <div style="border-top: 2px solid #eee; padding-top: 12px; margin-top: 4px;">
+          <button type="button" id="profile-logout-btn" class="tactile-action-btn danger" style="width: 100%;">
+            🚪 Log Out
+          </button>
+        </div>
+      </form>
     </div>
   </div>
+
+  <!-- =========================================================================
+       ADD USER MODAL (Manage Server)
+       ========================================================================= -->
+  <div id="add-user-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 style="font-size: 1.3rem; font-weight: 800;">Add New Household User</h2>
+        <button id="close-add-user-btn" class="modal-close-btn">✕</button>
+      </div>
+      <form id="add-user-form" style="display: flex; flex-direction: column; gap: 14px;">
+        <div>
+          <label class="form-field-label" for="new-user-name">Username:</label>
+          <input type="text" id="new-user-name" class="tactile-text-input" placeholder="e.g. Sarah" required />
+        </div>
+        <div>
+          <label class="form-field-label" for="new-user-pin">4-Digit PIN:</label>
+          <input type="password" id="new-user-pin" class="tactile-text-input" placeholder="e.g. 5678" maxlength="6" required />
+        </div>
+        <div>
+          <label class="form-field-label" for="new-user-role">Role:</label>
+          <div class="tactile-select-wrap">
+            <select id="new-user-role">
+              <option value="user">Standard User (Family / Kids)</option>
+              <option value="admin">Administrator</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="form-field-label">Choose Starting Avatar:</label>
+          <div id="new-user-avatars-grid" class="preset-avatars-grid">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+        <div id="add-user-feedback" class="avatar-feedback"></div>
+        <button type="submit" class="tactile-action-btn" style="width: 100%;">Create Profile</button>
+      </form>
+    </div>
+  </div>
+
+
 
   <!-- Scripts -->
   <script src="js/mock-data.js"></script>
