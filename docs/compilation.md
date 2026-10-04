@@ -1,46 +1,75 @@
-# Cross-Compilation & SBC Deployment Guide
+# Compilation & Homelab Deployment Guide
 
-Flan Media Server compiles with `CGO_ENABLED=0` thanks to the pure-Go SQLite driver (`modernc.org/sqlite`). Standalone, statically linked binaries can be cross-compiled for any target architecture directly from your development machine without external C toolchains.
-
----
-
-## 1. Hardware Target Matrix & Build Commands
-
-Build commands use `-ldflags="-s -w"` to strip symbol and DWARF debug tables, shrinking binary size by 25–35% for faster loading from micro-SD cards:
-
-| Target Device Family | Target Architecture | Cross-Compilation Command |
-| :--- | :--- | :--- |
-| **Raspberry Pi Zero, Zero W, 1** | ARMv6 (32-bit) | `CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -ldflags="-s -w" -o flan-armv6 ./cmd/flan` |
-| **Raspberry Pi 2, 3 (32-bit OS), Orange Pi** | ARMv7 (32-bit) | `CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w" -o flan-armv7 ./cmd/flan` |
-| **Raspberry Pi 3, 4, 5, Zero 2 W (64-bit OS)** | ARM64 (64-bit) | `CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o flan-arm64 ./cmd/flan` |
-| **x86_64 Homelab / Mini PC / Intel NUC** | AMD64 (64-bit) | `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o flan-amd64 ./cmd/flan` |
-| **Local Host Development** | Host Native | `go build -o flan ./cmd/flan` |
+Flan Media Server compiles with `CGO_ENABLED=0` using the pure-Go SQLite driver (`modernc.org/sqlite`). Statically linked binaries can be cross-compiled for any target architecture directly from your development machine without external C toolchains.
 
 ---
 
-## 2. Runtime Memory Tuning
+## 1. Cross-Compilation Commands
 
-On memory-constrained boards (e.g. 512 MB Pi Zero), run Flan with runtime limits to keep memory strictly within 15–20 MB:
+Build commands use `-ldflags="-s -w"` to strip symbol and debug information, reducing binary size by 25–35% for faster loading from disk or flash storage.
 
+### Local Development
 ```bash
-GOMEMLIMIT=16MiB GOGC=30 ./flan
+go build -o flan ./cmd/flan
 ```
 
-* `GOMEMLIMIT=16MiB`: Soft ceiling prompting the Go runtime to trigger GC before heap allocations exceed 16 MB.
-* `GOGC=30`: Aggressive GC trigger ratio (default is 100), ensuring garbage collection runs frequently while individual heaps are small.
+### x86_64 / AMD64 (Standard PCs, Mini PCs, NUCs)
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o flan-amd64 ./cmd/flan
+```
+
+### ARM64 / AArch64 (Raspberry Pi 3/4/5 64-bit, Orange Pi, Rock Pi)
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o flan-arm64 ./cmd/flan
+```
+
+### ARMv7 32-bit (Raspberry Pi 2/3 32-bit OS, Older SBCs)
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w" -o flan-armv7 ./cmd/flan
+```
+
+### ARMv6 32-bit (Raspberry Pi 1, Raspberry Pi Zero)
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -ldflags="-s -w" -o flan-armv6 ./cmd/flan
+```
 
 ---
 
-## 3. Production systemd Service
+## 2. Resource Management & Runtime Tuning
 
-For 24/7 homelab operation, manage Flan as a systemd service.
+Flan is designed for low memory and CPU overhead:
+1. **Zero-Copy Streaming:** File delivery uses Go's `http.ServeContent`, delegating to Linux `sendfile` to stream bytes directly from filesystem cache to socket without copying into heap buffers.
+2. **Direct Passthrough:** Omits CPU-intensive real-time transcoding.
+3. **Bounded Database Cache:** SQLite runs in WAL mode with a bounded ~2 MB page cache per connection.
+4. **Embedded Assets:** Templates and static files are compiled directly into the binary via `embed.FS`.
 
-### 1. Host Preparation
+Process resource metrics (allocated heap, system memory, goroutines, active streams, and uptime) can be viewed directly on the `/manage` console.
+
+### Low-Memory Tuning (512 MB SBCs)
+
+When running on devices with 512 MB of RAM, the Go runtime can be constrained via environment variables:
+
+```bash
+GOMEMLIMIT=32MiB GOGC=50 ./flan
+```
+
+On devices with 1 GB or more RAM, default Go runtime settings are recommended.
+
+---
+
+## 3. Production systemd Service Setup
+
+To run Flan as a persistent service on a Linux host:
+
+### 1. Create Dedicated User and Directories
 
 ```bash
 sudo useradd -r -s /bin/false flan
 sudo mkdir -p /var/lib/flan/data /var/lib/flan/media
+sudo touch /var/lib/flan/data/.flan-keep /var/lib/flan/media/.flan-keep
 sudo chown -R flan:flan /var/lib/flan
+
+# Copy binary for target architecture
 sudo cp flan-arm64 /usr/local/bin/flan
 sudo chmod +x /usr/local/bin/flan
 ```
@@ -51,6 +80,7 @@ sudo chmod +x /usr/local/bin/flan
 [Unit]
 Description=Flan Media Server
 After=network.target local-fs.target
+RequiresMountsFor=/var/lib/flan/media /var/lib/flan/data
 
 [Service]
 Type=simple
@@ -61,14 +91,11 @@ ExecStart=/usr/local/bin/flan
 Restart=always
 RestartSec=5s
 
-# Hard memory limits and process defenses
-MemoryMax=32M
-Environment="GOMEMLIMIT=16MiB"
-Environment="GOGC=30"
+# Environment configuration
 Environment="DB_PATH=/var/lib/flan/data/flan.db"
 Environment="MEDIA_DIR=/var/lib/flan/media"
 
-# Security hardening & sandboxing
+# Security hardening
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/flan
@@ -79,7 +106,7 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 ```
 
-### 3. Enable & Start
+### 3. Enable and Start Service
 
 ```bash
 sudo systemctl daemon-reload
@@ -93,4 +120,4 @@ sudo systemctl status flan
 
 * [Master System Architecture](design.md)
 * [Storage Architecture](storage.md)
-* [Database Wear-Leveling](database.md)
+* [Rate Limiting & Throttling](rate-limiting.md)

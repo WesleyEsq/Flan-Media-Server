@@ -119,8 +119,11 @@ const FLAN_MOCK_DATA = {
   videos: [
     {
       id: 1,
-      title: "Breaking Bad (2008)",
+      title: "Breaking Bad",
+      releaseYear: 2008,
       type: "series",
+      sourceId: 1,
+      lastWatched: "2026-10-03T21:15:00Z",
       overview: "A high school chemistry teacher diagnosed with inoperable lung cancer turns to manufacturing and selling methamphetamine with a former student.",
       coverColor: "#2e7d32",
       badge: "Series",
@@ -133,8 +136,11 @@ const FLAN_MOCK_DATA = {
     },
     {
       id: 2,
-      title: "Spirited Away (2001)",
+      title: "Spirited Away",
+      releaseYear: 2001,
       type: "movie",
+      sourceId: 2,
+      lastWatched: "2026-10-02T19:40:00Z",
       overview: "During her family's move to the suburbs, a sullen 10-year-old girl wanders into a world ruled by gods, witches and spirits, and where humans are changed into beasts.",
       coverColor: "#e65100",
       badge: "Movie",
@@ -144,8 +150,11 @@ const FLAN_MOCK_DATA = {
     },
     {
       id: 3,
-      title: "Blade Runner (1982)",
+      title: "Blade Runner",
+      releaseYear: 1982,
       type: "movie",
+      sourceId: 1,
+      lastWatched: null,
       overview: "A blade runner must pursue and terminate four replicants who stole a ship in space and have returned to Earth to find their creator.",
       coverColor: "#1565c0",
       badge: "Movie",
@@ -156,8 +165,11 @@ const FLAN_MOCK_DATA = {
     },
     {
       id: 4,
-      title: "Cowboy Bebop (1998)",
+      title: "Cowboy Bebop",
+      releaseYear: 1998,
       type: "series",
+      sourceId: 1,
+      lastWatched: "2026-10-01T22:10:00Z",
       overview: "The futuristic misadventures and tragedies of an easygoing bounty hunter and his partners.",
       coverColor: "#c2185b",
       badge: "Series",
@@ -168,13 +180,269 @@ const FLAN_MOCK_DATA = {
     },
     {
       id: 5,
-      title: "Princess Mononoke (1997)",
+      title: "Princess Mononoke",
+      releaseYear: 1997,
       type: "movie",
+      sourceId: 2,
+      lastWatched: null,
       overview: "On a journey to find the cure for a Tatarigami's curse, Ashitaka finds himself in the middle of a war between the forest gods and Tatara, a mining colony.",
       coverColor: "#00695c",
       badge: "Movie",
       files: [
         { id: 501, title: "Feature Film (Japanese Audio)", duration: "2h 14m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/501", downloadUrl: "/download/video/501" }
+      ]
+    },
+    {
+      id: 6,
+      title: "Alien",
+      releaseYear: 1979,
+      type: "movie",
+      sourceId: 1,
+      lastWatched: null,
+      overview: "The crew of a commercial spacecraft encounters a deadly lifeform after investigating an unknown transmission.",
+      coverColor: "#263238",
+      badge: "Movie",
+      files: [
+        { id: 601, title: "Director's Cut (1080p)", duration: "1h 56m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/601", downloadUrl: "/download/video/601" }
+      ]
+    },
+    {
+      id: 7,
+      title: "Akira",
+      releaseYear: 1988,
+      type: "movie",
+      sourceId: 2,
+      lastWatched: null,
+      overview: "A secret military project endangers Neo-Tokyo when it turns a biker gang member into a rampaging psychic psychopath.",
+      coverColor: "#b71c1c",
+      badge: "Movie",
+      files: [
+        { id: 701, title: "Remastered (1080p)", duration: "2h 4m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/701", downloadUrl: "/download/video/701" }
+      ]
+    },
+    {
+      id: 8,
+      title: "The Wire",
+      releaseYear: 2002,
+      type: "series",
+      sourceId: 2,
+      lastWatched: null,
+      overview: "Told from the points of view of both the Baltimore police and their targets, the series captures a universe where easy distinctions between good and evil are discarded.",
+      coverColor: "#37474f",
+      badge: "Series",
+      files: [
+        { id: 801, title: "S01E01 - The Target", duration: "1h 0m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/801", downloadUrl: "/download/video/801" },
+        { id: 802, title: "S01E02 - The Detail", duration: "56m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/802", downloadUrl: "/download/video/802" }
+      ]
+    },
+    {
+      id: 9,
+      title: "Dune",
+      releaseYear: 2021,
+      type: "movie",
+      sourceId: 2,
+      lastWatched: null,
+      overview: "A noble family becomes embroiled in a war for control over the galaxy's most valuable asset while its heir becomes troubled by visions of a dark future.",
+      coverColor: "#d84315",
+      badge: "Movie",
+      files: [
+        { id: 901, title: "Part One (4K HDR)", duration: "2h 35m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/901", downloadUrl: "/download/video/901" }
+      ]
+    },
+    {
+      id: 10,
+      title: "Severance",
+      releaseYear: 2022,
+      type: "series",
+      sourceId: 1,
+      lastWatched: null,
+      overview: "Mark leads a team of office workers whose memories have been surgically divided between their work and personal lives.",
+      coverColor: "#0277bd",
+      badge: "Series",
+      files: [
+        { id: 1001, title: "S01E01 - Good News About Hell", duration: "57m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/1001", downloadUrl: "/download/video/1001" }
+      ]
+    },
+    {
+      id: 11,
+      title: "The Matrix",
+      releaseYear: 1999,
+      type: "movie",
+      sourceId: 1,
+      lastWatched: null,
+      overview: "A computer hacker learns from mysterious rebels about the true nature of his reality and his role in the war against its controllers.",
+      coverColor: "#1b5e20",
+      badge: "Movie",
+      files: [
+        { id: 1101, title: "Theatrical Cut (1080p)", duration: "2h 16m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/1101", downloadUrl: "/download/video/1101" }
+      ]
+    },
+    {
+      id: 12,
+      title: "Cyberpunk: Edgerunners",
+      releaseYear: 2022,
+      type: "series",
+      sourceId: 2,
+      lastWatched: null,
+      overview: "A street kid trying to survive in a technology and body modification-obsessed city of the future.",
+      coverColor: "#c2185b",
+      badge: "Series",
+      files: [
+        { id: 1201, title: "Episode 1 - Let You Down", duration: "24m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/1201", downloadUrl: "/download/video/1201" }
+      ]
+    },
+    {
+      id: 13,
+      title: "Fargo",
+      releaseYear: 1996,
+      type: "movie",
+      sourceId: 1,
+      lastWatched: null,
+      overview: "Minnesota police chief Marge Gunderson investigates homicides that occurred after a car salesman hired two criminals to kidnap his wife.",
+      coverColor: "#455a64",
+      badge: "Movie",
+      files: [
+        { id: 1301, title: "Feature Film", duration: "1h 38m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/1301", downloadUrl: "/download/video/1301" }
+      ]
+    },
+    {
+      id: 14,
+      title: "Metropolis",
+      releaseYear: 1927,
+      type: "movie",
+      sourceId: 1,
+      lastWatched: null,
+      overview: "In a futuristic city sharply divided between the working class and the city planners, the son of the city's mastermind falls in love with a working-class prophet.",
+      coverColor: "#3e2723",
+      badge: "Movie",
+      files: [
+        { id: 1401, title: "Restored Giorgio Moroder Edition", duration: "2h 33m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/1401", downloadUrl: "/download/video/1401" }
+      ]
+    },
+    {
+      id: 15,
+      title: "Succession",
+      releaseYear: 2018,
+      type: "series",
+      sourceId: 2,
+      lastWatched: null,
+      overview: "The Roy family is known for controlling the biggest media and entertainment company in the world. However, their world changes when their aging father steps down.",
+      coverColor: "#424242",
+      badge: "Series",
+      files: [
+        { id: 1501, title: "S01E01 - Celebration", duration: "1h 1m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/1501", downloadUrl: "/download/video/1501" }
+      ]
+    },
+    {
+      id: 16,
+      title: "Twin Peaks",
+      releaseYear: 1990,
+      type: "series",
+      sourceId: 1,
+      lastWatched: null,
+      overview: "An idiosyncratic FBI agent investigates the murder of a young woman in the even more idiosyncratic town of Twin Peaks.",
+      coverColor: "#4e342e",
+      badge: "Series",
+      files: [
+        { id: 1601, title: "Pilot - Northwest Passage", duration: "1h 34m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/1601", downloadUrl: "/download/video/1601" }
+      ]
+    },
+    {
+      id: 17,
+      title: "Neon Genesis Evangelion",
+      releaseYear: 1995,
+      type: "series",
+      sourceId: 1,
+      lastWatched: null,
+      overview: "A teenage boy finds himself recruited by his estranged father into the shadowy organization NERV to pilot a giant bio-machine.",
+      coverColor: "#6a1b9a",
+      badge: "Series",
+      files: [
+        { id: 1701, title: "Episode 1 - Angel Attack", duration: "24m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/1701", downloadUrl: "/download/video/1701" }
+      ]
+    },
+    {
+      id: 18,
+      title: "Chernobyl",
+      releaseYear: 2019,
+      type: "series",
+      sourceId: 2,
+      lastWatched: null,
+      overview: "In April 1986, an explosion at the Chernobyl nuclear power plant becomes one of the world's worst man-made catastrophes.",
+      coverColor: "#f57f17",
+      badge: "Series",
+      files: [
+        { id: 1801, title: "1:23:45", duration: "59m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/1801", downloadUrl: "/download/video/1801" }
+      ]
+    },
+    {
+      id: 19,
+      title: "Mad Max: Fury Road",
+      releaseYear: 2015,
+      type: "movie",
+      sourceId: 2,
+      lastWatched: null,
+      overview: "In a post-apocalyptic wasteland, a woman rebels against a tyrannical ruler in search for her homeland with the aid of a group of female prisoners.",
+      coverColor: "#e65100",
+      badge: "Movie",
+      files: [
+        { id: 1901, title: "Black & Chrome Edition", duration: "2h 0m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/1901", downloadUrl: "/download/video/1901" }
+      ]
+    },
+    {
+      id: 20,
+      title: "Better Call Saul",
+      releaseYear: 2015,
+      type: "series",
+      sourceId: 1,
+      lastWatched: null,
+      overview: "The trials and tribulations of criminal lawyer Jimmy McGill in the years leading up to his fateful run-in with Walter White and Jesse Pinkman.",
+      coverColor: "#f9a825",
+      badge: "Series",
+      files: [
+        { id: 2001, title: "S01E01 - Uno", duration: "53m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/2001", downloadUrl: "/download/video/2001" }
+      ]
+    },
+    {
+      id: 21,
+      title: "Ghost in the Shell",
+      releaseYear: 1995,
+      type: "movie",
+      sourceId: 2,
+      lastWatched: null,
+      overview: "A cyborg policewoman and her partner hunt a mysterious and powerful hacker called the Puppet Master.",
+      coverColor: "#00838f",
+      badge: "Movie",
+      files: [
+        { id: 2101, title: "Original 1995 Theatrical (1080p)", duration: "1h 23m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/2101", downloadUrl: "/download/video/2101" }
+      ]
+    },
+    {
+      id: 22,
+      title: "Taxi Driver",
+      releaseYear: 1976,
+      type: "movie",
+      sourceId: 1,
+      lastWatched: null,
+      overview: "A mentally unstable veteran works as a nighttime taxi driver in New York City, where the perceived decadence fuels his urge for violent action.",
+      coverColor: "#d32f2f",
+      badge: "Movie",
+      files: [
+        { id: 2201, title: "4K Master (1080p)", duration: "1h 54m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/2201", downloadUrl: "/download/video/2201" }
+      ]
+    },
+    {
+      id: 23,
+      title: "Blade Runner 2049",
+      releaseYear: 2017,
+      type: "movie",
+      sourceId: 2,
+      lastWatched: null,
+      overview: "Young Blade Runner K's discovery of a long-buried secret leads him to track down former Blade Runner Rick Deckard, who's been missing for thirty years.",
+      coverColor: "#0288d1",
+      badge: "Movie",
+      files: [
+        { id: 2301, title: "Theatrical Release (1080p)", duration: "2h 44m", progress: 0, positionSeconds: 0, isFinished: false, streamUrl: "/stream/video/2301", downloadUrl: "/download/video/2301" }
       ]
     }
   ],
@@ -184,6 +452,11 @@ const FLAN_MOCK_DATA = {
       id: 101,
       title: "Dune",
       author: "Frank Herbert",
+      releaseYear: 1965,
+      sourceId: 3,
+      status: "reading",
+      lastRead: "2026-10-03T18:00:00Z",
+      readingProgress: "Page 142 of 680",
       overview: "Set on the desert planet Arrakis, Dune is the story of Paul Atreides—who would become known as Muad'Dib—and of a great family's ambition to bring to fruition humankind's most ancient and unattainable dream.",
       coverColor: "#d84315",
       badge: "EPUB",
@@ -195,6 +468,10 @@ const FLAN_MOCK_DATA = {
       id: 102,
       title: "The Linux Programming Interface",
       author: "Michael Kerrisk",
+      releaseYear: 2010,
+      sourceId: 3,
+      status: "unread",
+      lastRead: null,
       overview: "The definitive guide to the Linux and UNIX programming interface—the interface employed by nearly every application that runs on a Linux or UNIX system.",
       coverColor: "#283593",
       badge: "PDF",
@@ -206,22 +483,240 @@ const FLAN_MOCK_DATA = {
       id: 103,
       title: "Neuromancer",
       author: "William Gibson",
+      releaseYear: 1984,
+      sourceId: 3,
+      status: "finished",
+      lastRead: null,
       overview: "Case was the sharpest data-thief in the business, until he pissed off the wrong people and they crippled his nervous system.",
       coverColor: "#4a148c",
       badge: "EPUB",
       files: [
         { id: 1003, title: "Neuromancer", format: "epub", size: "1.2 MB", downloadUrl: "/download/book/1003" }
       ]
+    },
+    {
+      id: 104,
+      title: "Snow Crash",
+      author: "Neal Stephenson",
+      releaseYear: 1992,
+      sourceId: 3,
+      status: "reading",
+      lastRead: "2026-10-02T14:30:00Z",
+      readingProgress: "Page 88 of 440",
+      overview: "In reality, Hiro Protagonist delivers pizza for Uncle Enzo's CosoNostra Pizza Inc., but in the Metaverse he's a warrior prince.",
+      coverColor: "#00695c",
+      badge: "EPUB",
+      files: [
+        { id: 1004, title: "Snow Crash - Complete", format: "epub", size: "1.8 MB", downloadUrl: "/download/book/1004" }
+      ]
+    },
+    {
+      id: 105,
+      title: "Designing Data-Intensive Applications",
+      author: "Martin Kleppmann",
+      releaseYear: 2017,
+      sourceId: 3,
+      status: "unread",
+      lastRead: null,
+      overview: "Data is at the center of many challenges in system design today. Difficult issues need to be figured out, such as scalability, consistency, reliability, efficiency, and maintainability.",
+      coverColor: "#004d40",
+      badge: "PDF",
+      files: [
+        { id: 1005, title: "Designing Data-Intensive Applications (1st Ed)", format: "pdf", size: "14.2 MB", readUrl: "/stream/book/1005", downloadUrl: "/download/book/1005" }
+      ]
+    },
+    {
+      id: 106,
+      title: "The Pragmatic Programmer",
+      author: "Andrew Hunt, David Thomas",
+      releaseYear: 1999,
+      sourceId: 3,
+      status: "unread",
+      lastRead: null,
+      overview: "Illustrates the best approaches and major pitfalls of many different aspects of software development.",
+      coverColor: "#bf360c",
+      badge: "EPUB",
+      files: [
+        { id: 1006, title: "The Pragmatic Programmer (20th Anniv)", format: "epub", size: "3.1 MB", downloadUrl: "/download/book/1006" }
+      ]
+    },
+    {
+      id: 107,
+      title: "Clean Architecture",
+      author: "Robert C. Martin",
+      releaseYear: 2017,
+      sourceId: 3,
+      status: "unread",
+      lastRead: null,
+      overview: "By applying universal rules of software architecture, you can dramatically improve developer productivity throughout the life of any software system.",
+      coverColor: "#1a237e",
+      badge: "PDF",
+      files: [
+        { id: 1007, title: "Clean Architecture", format: "pdf", size: "9.8 MB", readUrl: "/stream/book/1007", downloadUrl: "/download/book/1007" }
+      ]
+    },
+    {
+      id: 108,
+      title: "Structure and Interpretation of Computer Programs",
+      author: "Harold Abelson, Gerald Jay Sussman",
+      releaseYear: 1984,
+      sourceId: 3,
+      status: "unread",
+      lastRead: null,
+      overview: "SICP has had a dramatic impact on computer science curricula over the past decades, exploring functional programming and metacircular evaluators.",
+      coverColor: "#311b92",
+      badge: "PDF",
+      files: [
+        { id: 1008, title: "SICP (2nd Edition)", format: "pdf", size: "18.4 MB", readUrl: "/stream/book/1008", downloadUrl: "/download/book/1008" }
+      ]
+    },
+    {
+      id: 109,
+      title: "Godel, Escher, Bach",
+      author: "Douglas Hofstadter",
+      releaseYear: 1979,
+      sourceId: 3,
+      status: "unread",
+      lastRead: null,
+      overview: "An Eternal Golden Braid: A metaphorical fugue on minds and machines in the spirit of Lewis Carroll.",
+      coverColor: "#4e342e",
+      badge: "PDF",
+      files: [
+        { id: 1009, title: "Godel, Escher, Bach - Complete Scan", format: "pdf", size: "32.1 MB", readUrl: "/stream/book/1009", downloadUrl: "/download/book/1009" }
+      ]
+    },
+    {
+      id: 110,
+      title: "The Mythical Man-Month",
+      author: "Fred Brooks",
+      releaseYear: 1975,
+      sourceId: 3,
+      status: "unread",
+      lastRead: null,
+      overview: "Essays on software engineering and project management: Adding manpower to a late software project makes it later.",
+      coverColor: "#263238",
+      badge: "EPUB",
+      files: [
+        { id: 1010, title: "The Mythical Man-Month (Anniversary Ed)", format: "epub", size: "2.1 MB", downloadUrl: "/download/book/1010" }
+      ]
+    },
+    {
+      id: 111,
+      title: "Foundation",
+      author: "Isaac Asimov",
+      releaseYear: 1951,
+      sourceId: 3,
+      status: "unread",
+      lastRead: null,
+      overview: "The story of our civilization, the Galactic Empire, now in its twilight, and Hari Seldon's mathematical science of psychohistory.",
+      coverColor: "#006064",
+      badge: "EPUB",
+      files: [
+        { id: 1011, title: "Foundation - Volume 1", format: "epub", size: "1.5 MB", downloadUrl: "/download/book/1011" }
+      ]
+    },
+    {
+      id: 112,
+      title: "Solaris",
+      author: "Stanislaw Lem",
+      releaseYear: 1961,
+      sourceId: 3,
+      status: "unread",
+      lastRead: null,
+      overview: "A psychologist arrives at a research station hovering above the oceanic surface of the planet Solaris, studying its sentient alien ocean.",
+      coverColor: "#01579b",
+      badge: "EPUB",
+      files: [
+        { id: 1012, title: "Solaris (Bilingual Translation)", format: "epub", size: "1.9 MB", downloadUrl: "/download/book/1012" }
+      ]
+    },
+    {
+      id: 113,
+      title: "Do Androids Dream of Electric Sheep?",
+      author: "Philip K. Dick",
+      releaseYear: 1968,
+      sourceId: 3,
+      status: "unread",
+      lastRead: null,
+      overview: "By 2021, the World War has killed millions, driving entire species into extinction and sending mankind off-planet. Rick Deckard is tasked with retiring rogue Nexus-6 androids.",
+      coverColor: "#3e2723",
+      badge: "EPUB",
+      files: [
+        { id: 1013, title: "Do Androids Dream of Electric Sheep?", format: "epub", size: "1.7 MB", downloadUrl: "/download/book/1013" }
+      ]
     }
   ],
 
   serverMetrics: {
-    memoryUsed: "14.2 MB",
-    memoryLimit: "16.0 MB",
+    heapUsed: "18.5 MB",
+    sysMem: "28.2 MB",
+    goroutines: 14,
     activeStreams: 1,
     maxStreams: 3,
     storageMediaFree: "238 GB / 500 GB (External HDD)",
     storageDbFree: "24.8 GB / 32 GB (eMMC / SD)",
     uptime: "14 days, 3 hours"
-  }
+  },
+
+  storageSources: [
+    { id: 1, name: "Primary Video Drive", mediaType: "video", path: "./media/video", freeSpace: "184 GB / 500 GB", isActive: true },
+    { id: 2, name: "4TB USB Movie Drive", mediaType: "video", path: "/mnt/usb1/movies", freeSpace: "2.1 TB / 4.0 TB", isActive: true },
+    { id: 3, name: "Household Books", mediaType: "book", path: "./media/books", freeSpace: "58 GB / 128 GB", isActive: true }
+  ],
+
+  pendingIngestion: [
+    {
+      id: 901,
+      sourceId: 2,
+      sourceName: "4TB USB Movie Drive",
+      rawFolder: "the.wire.s01.720p.hdtv.x264-ctu[eztv]",
+      proposedTitle: "The Wire",
+      proposedYear: 2002,
+      mediaType: "video",
+      fileCount: 13,
+      coverColor: "#b71c1c",
+      badge: "Series",
+      overview: "Told from the points of view of both the Baltimore police and their targets, the series captures a universe where easy distinctions between good and evil are discarded.",
+      files: [
+        { id: 9001, rawFilename: "the.wire.s01e01.720p.mkv", title: "S01E01 - The Target", duration: "60m", progress: 0, positionSeconds: 0, isFinished: false, isHidden: false, streamUrl: "#", downloadUrl: "#" },
+        { id: 9002, rawFilename: "the.wire.s01e02.720p.mkv", title: "S01E02 - The Detail", duration: "56m", progress: 0, positionSeconds: 0, isFinished: false, isHidden: false, streamUrl: "#", downloadUrl: "#" },
+        { id: 9003, rawFilename: "the.wire.s01e03.720p.mkv", title: "S01E03 - The Buys", duration: "55m", progress: 0, positionSeconds: 0, isFinished: false, isHidden: false, streamUrl: "#", downloadUrl: "#" }
+      ]
+    },
+    {
+      id: 902,
+      sourceId: 1,
+      sourceName: "Primary Video Drive",
+      rawFolder: "alien.1979.directors.cut.1080p.bluray.x264",
+      proposedTitle: "Alien",
+      proposedYear: 1979,
+      mediaType: "video",
+      fileCount: 2,
+      coverColor: "#263238",
+      badge: "Movie",
+      overview: "The crew of a commercial spacecraft encounters a deadly lifeform after investigating an unknown transmission.",
+      files: [
+        { id: 9010, rawFilename: "Alien.1979.Directors.Cut.1080p.mkv", title: "Director's Cut", duration: "1h 56m", progress: 0, positionSeconds: 0, isFinished: false, isHidden: false, streamUrl: "#", downloadUrl: "#" },
+        { id: 9011, rawFilename: "Alien.1979.Theatrical.1080p.mkv", title: "Theatrical Cut", duration: "1h 57m", progress: 0, positionSeconds: 0, isFinished: false, isHidden: false, streamUrl: "#", downloadUrl: "#" }
+      ]
+    },
+    {
+      id: 903,
+      sourceId: 3,
+      sourceName: "Household Books",
+      rawFolder: "Snow.Crash.Neal.Stephenson.1992.epub",
+      proposedTitle: "Snow Crash",
+      proposedAuthor: "Neal Stephenson",
+      proposedYear: 1992,
+      mediaType: "book",
+      fileCount: 1,
+      coverColor: "#00695c",
+      badge: "EPUB",
+      overview: "In reality, Hiro Protagonist delivers pizza for Uncle Enzo's CosoNostra Pizza Inc., but in the Metaverse he's a warrior prince.",
+      files: [
+        { id: 9020, rawFilename: "Snow Crash - Neal Stephenson.epub", title: "Snow Crash", format: "epub", size: "1.8 MB", downloadUrl: "#" }
+      ]
+    }
+  ]
 };
+

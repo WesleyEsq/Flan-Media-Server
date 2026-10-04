@@ -47,16 +47,16 @@ flowchart LR
     end
 
     subgraph Core["Internal Processing Modules"]
-        Governor["1.0 Stream Governor (Semaphore max 3)"]
-        Router["2.0 Router & Auth Middleware"]
+        Router["1.0 Router & Auth / CSRF Middleware"]
+        Governor["2.0 Stream Governor (Playback Leases max 3)"]
         PageEngine["3.0 Template Engine (html/template)"]
         StreamEngine["4.0 Streaming & Download Engine (sendfile)"]
         AvatarEngine["5.0 Avatar Handler (Presets & Max 2MB Upload)"]
-        Scanner["6.0 Local Library Scanner"]
+        Scanner["6.0 Local Library Scanner & Reconciliation"]
     end
 
     subgraph Stores["Persistence & Hardware Stores"]
-        SQLite[("SQLite Database: flan.db")]
+        SQLite[("SQLite Database: flan.db (WAL)")]
         Covers[("Local Cover Cache: data/covers/")]
         Avatars[("Avatar Storage: data/avatars/")]
         HostDrives[("Media Directories: ./media/")]
@@ -66,11 +66,12 @@ flowchart LR
         Response["HTTP Response (HTML, JSON, Video Bytes)"]
     end
 
-    Request --> Governor
-    Governor --> Router
-    Router -- "GET /stream/video/{file_id}" --> StreamEngine
-    Router -- "GET /download/{type}/{file_id}" --> StreamEngine
-    Router -- "GET / (Pages)" --> PageEngine
+    Request --> Router
+    Router -- "GET /stream/video/{id}" --> Governor
+    Router -- "GET /download/video/{id}" --> Governor
+    Governor -- "Lease Granted (< 3)" --> StreamEngine
+    Governor -- "Capacity Reached (>= 3)" --> Response
+    Router -- "GET / (HTML Pages)" --> PageEngine
     Router -- "POST /api/users/{id}/avatar" --> AvatarEngine
     StreamEngine --> SQLite
     StreamEngine --> HostDrives
@@ -91,21 +92,21 @@ flowchart LR
 
 ## 3. Zero-Copy Video Streaming (UML Sequence)
 
-Shows how byte range requests trigger Linux `sendfile`, moving data directly from kernel cache to socket buffers without touching Go heap RAM.
+Shows how byte range requests trigger Linux `sendfile`, moving data directly from kernel cache to socket buffers without touching Go heap RAM, governed by playback session leases.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Client as Browser (HTML5 Video)
-    participant Gov as Stream Governor (Semaphore)
+    participant Gov as Stream Governor (Lease Tracker)
     participant Handler as Stream Handler (Go)
     participant DB as SQLite (flan.db)
     participant VFS as Linux Kernel VFS
     participant Socket as Network TCP Socket
 
     Client->>Gov: GET /stream/video/42 (Range: bytes=1048576-)
-    Gov->>Gov: Acquire semaphore token (active <= 3)
-    Gov->>Handler: Forward request
+    Gov->>Gov: Check (session_id, 42) lease; refresh last_active (active <= 3)
+    Gov->>Handler: Forward request with granted lease
     Handler->>DB: Query video_files for file_id = 42
     DB-->>Handler: Relative path under ./media/video/
     Handler->>Handler: Validate canonical path inside ./media/video/
@@ -116,8 +117,7 @@ sequenceDiagram
     Note over VFS,Socket: Kernel transfers pages directly from<br/>filesystem cache to socket. Zero bytes in Go RAM.
     VFS-->>Socket: Stream raw bytes
     Socket-->>Client: HTTP 206 Partial Content
-    Client->>Handler: Connection closed / playback ends
-    Handler->>Gov: Release semaphore token
+    Note over Gov: Lease automatically expires 30s after<br/>last range request or on pause/exit beacon.
 ```
 
 ---
@@ -156,8 +156,8 @@ sequenceDiagram
     participant API as Progress API Handler (Go)
     participant DB as SQLite (flan.db)
 
-    loop Every 5 seconds (throttled)
-        Player->>API: POST /api/progress {media_type: "video", file_id: 42, position_data: "1450"}
+    loop Every 15 seconds (throttled) & on pause
+        Player->>API: POST /api/progress {media_type: "video", file_id: 42, position_data: "1450.5"}
         API->>API: Verify HMAC cookie & token_version (in-memory)
         API->>DB: Atomic UPSERT into progress
         DB-->>API: Row updated
@@ -172,9 +172,9 @@ sequenceDiagram
 
 ---
 
-## 6. Whimsical Avatar Customization & VLC Direct Download Flow
+## 6. Avatar Selection & VLC Signed Stream Flow
 
-Shows avatar updates (preset or custom upload) and direct VLC streaming bypassing browser codec limits.
+Shows avatar updates (preset or custom upload) and direct VLC streaming bypassing browser codec limits using short-lived signed URLs.
 
 ```mermaid
 sequenceDiagram
@@ -186,7 +186,7 @@ sequenceDiagram
     participant DB as SQLite (flan.db)
     actor VLC as External VLC Player
 
-    Note over User,DB: Scenario A: User selects whimsical preset or uploads photo
+    Note over User,DB: Scenario A: User selects preset avatar or uploads photo
     User->>Browser: Selects preset avatar OR uploads custom photo (<= 2 MB)
     alt Preset Avatar Selected
         Browser->>API: PUT /api/users/{id} {avatar_icon: "flan"}
@@ -202,10 +202,12 @@ sequenceDiagram
         API-->>Browser: HTTP 200 OK (Custom Avatar Saved)
     end
 
-    Note over User,VLC: Scenario B: Video has unplayable AC3 audio -> Open in VLC
-    User->>Browser: Clicks [ ⬇ VLC / Download ]
-    Browser->>VLC: Opens network stream: http://flan:4907/download/video/42
-    VLC->>API: GET /download/video/42
+    Note over User,VLC: Scenario B: Video has unplayable AC3 audio -> Open in VLC via Signed URL
+    User->>Browser: Clicks [ VLC / Download ]
+    Note over Browser: Page holds signed URL with 4h expiry:<br/>http://flan:4907/download/video/42?exp=1700000000&u=1&sig=...
+    Browser->>VLC: Opens network stream with signed URL
+    VLC->>API: GET /download/video/42?exp=1700000000&u=1&sig=...
+    API->>API: Verify HMAC signature over (42, u, exp) & assert exp >= now
     API->>DB: Query relative_path from video_files
     DB-->>API: Returns path
     API-->>VLC: HTTP 200/206 with full audio track (AC3/DTS decoded natively by VLC)

@@ -11,6 +11,12 @@
     activeTab: "video", // 'video' | 'books' | 'manage' | 'manual'
     previousTab: "video",
     searchQuery: "",
+    filterExpanded: false,
+    selectedFormat: "all", // 'all' | 'movies' | 'series' (or 'epub' | 'pdf')
+    selectedStatus: "all", // 'all' | 'in-progress' | 'unwatched'
+    selectedSource: "all", // 'all' | sourceId
+    sortOrder: "random",   // 'random' (default) | 'recent' | 'az' | 'year'
+    currentPage: 1,
     selectedMediaId: null,
     selectedFileId: null
   };
@@ -47,34 +53,91 @@
     newUserPin: document.getElementById("new-user-pin"),
     newUserRole: document.getElementById("new-user-role"),
     newUserAvatarsGrid: document.getElementById("new-user-avatars-grid"),
-    addUserFeedback: document.getElementById("add-user-feedback")
+    addUserFeedback: document.getElementById("add-user-feedback"),
+
+    // Video Detail Edit Modal
+    mediaEditModal: document.getElementById("media-edit-modal"),
+    closeMediaEditBtn: document.getElementById("close-media-edit-btn"),
+    cancelMediaEditBtn: document.getElementById("cancel-media-edit-btn"),
+    mediaEditForm: document.getElementById("media-edit-form"),
+    editVideoId: document.getElementById("edit-video-id"),
+    editVideoTitle: document.getElementById("edit-video-title"),
+    editVideoYear: document.getElementById("edit-video-year"),
+    editVideoType: document.getElementById("edit-video-type"),
+    editVideoOverview: document.getElementById("edit-video-overview"),
+    editFilesTableWrap: document.getElementById("edit-files-table-wrap"),
+    mediaEditFeedback: document.getElementById("media-edit-feedback"),
+
+    // Add Storage Source Modal
+    addSourceModal: document.getElementById("add-source-modal"),
+    closeAddSourceBtn: document.getElementById("close-add-source-btn"),
+    addSourceForm: document.getElementById("add-source-form"),
+    sourceNameInput: document.getElementById("source-name-input"),
+    sourceTypeSelect: document.getElementById("source-type-select"),
+    sourcePathInput: document.getElementById("source-path-input"),
+    addSourceFeedback: document.getElementById("add-source-feedback"),
+
+    // Direct Web Upload Modal
+    uploadMediaModal: document.getElementById("upload-media-modal"),
+    closeUploadBtn: document.getElementById("close-upload-btn"),
+    uploadMediaForm: document.getElementById("upload-media-form"),
+    uploadTargetSource: document.getElementById("upload-target-source"),
+    uploadTitleInput: document.getElementById("upload-title-input"),
+    uploadFileInput: document.getElementById("upload-file-input"),
+    uploadProgressWrap: document.getElementById("upload-progress-wrap"),
+    uploadStatusText: document.getElementById("upload-status-text"),
+    uploadPercentText: document.getElementById("upload-percent-text"),
+    uploadProgressFill: document.getElementById("upload-progress-fill"),
+    uploadFeedback: document.getElementById("upload-feedback"),
+    startUploadBtn: document.getElementById("start-upload-btn"),
+
+    // Ingestion Pipeline Modal
+    ingestionPipelineModal: document.getElementById("ingestion-pipeline-modal"),
+    pipelineModalTitle: document.getElementById("pipeline-modal-title"),
+    pipelineSourceSubtitle: document.getElementById("pipeline-source-subtitle"),
+    closePipelineBtn: document.getElementById("close-pipeline-btn"),
+    cancelPipelineBtn: document.getElementById("cancel-pipeline-btn"),
+    pipelineSelectAll: document.getElementById("pipeline-select-all"),
+    pipelineSelectedCounter: document.getElementById("pipeline-selected-counter"),
+    pipelineFilterInput: document.getElementById("pipeline-filter-input"),
+    pipelineItemsList: document.getElementById("pipeline-items-list"),
+    pipelineFeedback: document.getElementById("pipeline-feedback"),
+    commitPipelineBtn: document.getElementById("commit-pipeline-btn"),
+
+    // Remove Storage Source Warning Modal
+    removeSourceModal: document.getElementById("remove-source-modal"),
+    removeSourceName: document.getElementById("remove-source-name"),
+    removeSourcePath: document.getElementById("remove-source-path"),
+    closeRemoveSourceBtn: document.getElementById("close-remove-source-btn"),
+    cancelRemoveSourceBtn: document.getElementById("cancel-remove-source-btn"),
+    confirmRemoveSourceBtn: document.getElementById("confirm-remove-source-btn"),
+
+    // Edit Storage Source Modal
+    editSourceModal: document.getElementById("edit-source-modal"),
+    editSourceForm: document.getElementById("edit-source-form"),
+    editSourceNameInput: document.getElementById("edit-source-name-input"),
+    editSourcePathDisplay: document.getElementById("edit-source-path-display"),
+    editSourceFeedback: document.getElementById("edit-source-feedback"),
+    closeEditSourceBtn: document.getElementById("close-edit-source-btn"),
+    cancelEditSourceBtn: document.getElementById("cancel-edit-source-btn"),
+    saveEditSourceBtn: document.getElementById("save-edit-source-btn")
   };
 
-  // Helper: Create SVG Arrow
-  function getArrowSVG(direction) {
-    if (direction === "left") {
-      return `<svg viewBox="0 0 100 12" preserveAspectRatio="none">
-        <line x1="100" y1="6" x2="6" y2="6" stroke="#000" stroke-width="3.5" />
-        <polyline points="14,1 5,6 14,11" fill="none" stroke="#000" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>`;
-    } else {
-      return `<svg viewBox="0 0 100 12" preserveAspectRatio="none">
-        <line x1="0" y1="6" x2="94" y2="6" stroke="#000" stroke-width="3.5" />
-        <polyline points="86,1 95,6 86,11" fill="none" stroke="#000" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>`;
+  // Helper: Get User Avatar SVG or custom image
+  function getUserAvatarSVG(user) {
+    if (!user) return "";
+    if (user.avatarType === "custom" && user.customAvatarData) {
+      return `<img src="${user.customAvatarData}" alt="${user.username}" style="width:100%; height:100%; object-fit:cover;" />`;
     }
+    const key = user.avatarKey || "mascot";
+    const preset = FLAN_MOCK_DATA.presetAvatars[key] || FLAN_MOCK_DATA.presetAvatars.mascot;
+    return preset.svg;
   }
 
   // Render User Avatar Badge (Top Header)
   function renderUserAvatarBadge(user) {
     if (!user || !el.userAvatar) return;
-    if (user.avatarType === "custom" && user.customAvatarData) {
-      el.userAvatar.innerHTML = `<img src="${user.customAvatarData}" alt="${user.username}" style="width:100%; height:100%; object-fit:cover;" />`;
-    } else {
-      const key = user.avatarKey || "mascot";
-      const preset = FLAN_MOCK_DATA.presetAvatars[key] || FLAN_MOCK_DATA.presetAvatars.mascot;
-      el.userAvatar.innerHTML = preset.svg;
-    }
+    el.userAvatar.innerHTML = getUserAvatarSVG(user);
   }
 
   // =========================================================================
@@ -207,6 +270,534 @@
     }
   }
 
+  // Media Detail Edit Modal
+  let currentEditingItem = null;
+  function openMediaEditModal(item) {
+    lastFocusedElement = document.activeElement;
+    currentEditingItem = item;
+    el.mediaEditFeedback.textContent = "";
+    el.mediaEditFeedback.className = "avatar-feedback";
+
+    el.editVideoId.value = item.id;
+    el.editVideoTitle.value = item.title || item.proposedTitle || "";
+    el.editVideoYear.value = item.releaseYear || item.proposedYear || "";
+    el.editVideoType.value = item.type || item.mediaType || "series";
+    el.editVideoOverview.value = item.overview || "";
+
+    renderEditFilesTable();
+
+    if (typeof el.mediaEditModal.showModal === "function") {
+      el.mediaEditModal.showModal();
+    } else {
+      el.mediaEditModal.classList.remove("hidden");
+    }
+    el.editVideoTitle.focus();
+  }
+
+  function renderEditFilesTable() {
+    if (!currentEditingItem || !currentEditingItem.files) {
+      el.editFilesTableWrap.innerHTML = "<p style='font-size:0.85rem; color:#666;'>No playable files detected.</p>";
+      return;
+    }
+
+    el.editFilesTableWrap.innerHTML = currentEditingItem.files
+      .map((f, i) => `
+        <div class="edit-file-row" data-file-id="${f.id}" style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #ddd;">
+          <span style="font-weight:700; opacity:0.6; min-width:24px;">#${i + 1}</span>
+          <input type="text" class="tactile-text-input file-title-edit" data-file-id="${f.id}" value="${f.title}" style="flex:1; padding:4px 8px; font-size:0.85rem;" />
+          <button type="button" class="tactile-action-btn secondary move-file-up" data-file-id="${f.id}" title="Move Up" style="padding:2px 8px; font-size:0.8rem;" ${i === 0 ? "disabled" : ""}>▲</button>
+          <button type="button" class="tactile-action-btn secondary move-file-down" data-file-id="${f.id}" title="Move Down" style="padding:2px 8px; font-size:0.8rem;" ${i === currentEditingItem.files.length - 1 ? "disabled" : ""}>▼</button>
+          <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer;">
+            <input type="checkbox" class="file-hide-check" data-file-id="${f.id}" ${f.isHidden ? "checked" : ""} /> Hide
+          </label>
+        </div>
+      `)
+      .join("");
+
+    // Wire Up/Down Reordering
+    const upBtns = el.editFilesTableWrap.querySelectorAll(".move-file-up");
+    upBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const fId = parseInt(btn.getAttribute("data-file-id"));
+        const idx = currentEditingItem.files.findIndex((x) => x.id === fId);
+        if (idx > 0) {
+          const temp = currentEditingItem.files[idx];
+          currentEditingItem.files[idx] = currentEditingItem.files[idx - 1];
+          currentEditingItem.files[idx - 1] = temp;
+          renderEditFilesTable();
+        }
+      });
+    });
+
+    const downBtns = el.editFilesTableWrap.querySelectorAll(".move-file-down");
+    downBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const fId = parseInt(btn.getAttribute("data-file-id"));
+        const idx = currentEditingItem.files.findIndex((x) => x.id === fId);
+        if (idx < currentEditingItem.files.length - 1) {
+          const temp = currentEditingItem.files[idx];
+          currentEditingItem.files[idx] = currentEditingItem.files[idx + 1];
+          currentEditingItem.files[idx + 1] = temp;
+          renderEditFilesTable();
+        }
+      });
+    });
+  }
+
+  function closeMediaEditModal() {
+    if (typeof el.mediaEditModal.close === "function" && el.mediaEditModal.open) {
+      el.mediaEditModal.close();
+    } else {
+      el.mediaEditModal.classList.add("hidden");
+    }
+    currentEditingItem = null;
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+  }
+
+  // Add Storage Source Modal
+  function openAddSourceModal() {
+    lastFocusedElement = document.activeElement;
+    el.addSourceFeedback.textContent = "";
+    el.addSourceFeedback.className = "avatar-feedback";
+    el.sourceNameInput.value = "";
+    el.sourcePathInput.value = "";
+
+    if (typeof el.addSourceModal.showModal === "function") {
+      el.addSourceModal.showModal();
+    } else {
+      el.addSourceModal.classList.remove("hidden");
+    }
+    el.sourceNameInput.focus();
+  }
+
+  function closeAddSourceModal() {
+    if (typeof el.addSourceModal.close === "function" && el.addSourceModal.open) {
+      el.addSourceModal.close();
+    } else {
+      el.addSourceModal.classList.add("hidden");
+    }
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+  }
+
+  // Direct Web Upload Modal
+  function openUploadModal() {
+    lastFocusedElement = document.activeElement;
+    el.uploadFeedback.textContent = "";
+    el.uploadFeedback.className = "avatar-feedback";
+    el.uploadTitleInput.value = "";
+    el.uploadFileInput.value = "";
+    el.uploadProgressWrap.style.display = "none";
+    el.uploadProgressFill.style.width = "0%";
+    el.uploadPercentText.textContent = "0%";
+    el.startUploadBtn.disabled = false;
+    el.startUploadBtn.textContent = "Upload Files";
+
+    // Populate target sources
+    el.uploadTargetSource.innerHTML = FLAN_MOCK_DATA.storageSources
+      .map(
+        (s) =>
+          `<option value="${s.id}">${s.name} (${s.path}) [${s.mediaType.toUpperCase()}]</option>`
+      )
+      .join("");
+
+    if (typeof el.uploadMediaModal.showModal === "function") {
+      el.uploadMediaModal.showModal();
+    } else {
+      el.uploadMediaModal.classList.remove("hidden");
+    }
+    el.uploadTitleInput.focus();
+  }
+
+  function closeUploadModal() {
+    if (typeof el.uploadMediaModal.close === "function" && el.uploadMediaModal.open) {
+      el.uploadMediaModal.close();
+    } else {
+      el.uploadMediaModal.classList.add("hidden");
+    }
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+  }
+
+  // Remove Storage Source Warning Modal Manager
+  let pendingRemoveSource = null;
+
+  function openRemoveSourceModal(source) {
+    lastFocusedElement = document.activeElement;
+    pendingRemoveSource = source;
+    el.removeSourceName.textContent = `"${source.name}"`;
+    el.removeSourcePath.textContent = source.path;
+
+    if (typeof el.removeSourceModal.showModal === "function") {
+      el.removeSourceModal.showModal();
+    } else {
+      el.removeSourceModal.classList.remove("hidden");
+    }
+    el.cancelRemoveSourceBtn.focus();
+  }
+
+  function closeRemoveSourceModal() {
+    if (typeof el.removeSourceModal.close === "function" && el.removeSourceModal.open) {
+      el.removeSourceModal.close();
+    } else {
+      el.removeSourceModal.classList.add("hidden");
+    }
+    pendingRemoveSource = null;
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+  }
+
+  // Edit Storage Source Modal Manager
+  let pendingEditSource = null;
+
+  function openEditSourceModal(source) {
+    lastFocusedElement = document.activeElement;
+    pendingEditSource = source;
+    el.editSourceFeedback.textContent = "";
+    el.editSourceFeedback.className = "avatar-feedback";
+    el.editSourceNameInput.value = source.name;
+    el.editSourcePathDisplay.textContent = source.path;
+
+    if (typeof el.editSourceModal.showModal === "function") {
+      el.editSourceModal.showModal();
+    } else {
+      el.editSourceModal.classList.remove("hidden");
+    }
+    el.editSourceNameInput.focus();
+    el.editSourceNameInput.select();
+  }
+
+  function closeEditSourceModal() {
+    if (typeof el.editSourceModal.close === "function" && el.editSourceModal.open) {
+      el.editSourceModal.close();
+    } else {
+      el.editSourceModal.classList.add("hidden");
+    }
+    pendingEditSource = null;
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+  }
+
+  // =========================================================================
+  // INGESTION PIPELINE WIZARD (Accessible HTML5 Dialog)
+  // =========================================================================
+  let pipelineActiveSource = null;
+  let pipelineCandidates = [];
+
+  function openIngestionPipeline(source) {
+    lastFocusedElement = document.activeElement;
+    pipelineActiveSource = source;
+    el.pipelineFeedback.textContent = "";
+    el.pipelineFeedback.className = "avatar-feedback";
+    el.pipelineFilterInput.value = "";
+
+    // Gather pending items for this source (or all sources)
+    let rawItems = [];
+    if (source) {
+      rawItems = FLAN_MOCK_DATA.pendingIngestion.filter((x) => x.sourceId === source.id);
+    } else {
+      rawItems = [...FLAN_MOCK_DATA.pendingIngestion];
+    }
+
+    pipelineCandidates = rawItems.map((item) => ({
+      id: item.id,
+      sourceId: item.sourceId,
+      sourceName: item.sourceName,
+      rawFolder: item.rawFolder,
+      proposedTitle: item.proposedTitle,
+      proposedYear: item.proposedYear,
+      proposedAuthor: item.proposedAuthor,
+      mediaType: item.mediaType,
+      fileCount: item.fileCount,
+      coverColor: item.coverColor,
+      badge: item.badge,
+      overview: item.overview,
+      files: (item.files || []).map((f) => ({ ...f })),
+      // State in pipeline
+      selected: true,
+      expanded: false,
+      editTitle: item.proposedTitle,
+      editMeta: item.proposedYear || item.proposedAuthor || ""
+    }));
+
+    if (source) {
+      el.pipelineModalTitle.textContent = `Scan Media: ${source.name}`;
+      el.pipelineSourceSubtitle.textContent = `Path: ${source.path} • ${pipelineCandidates.length} new candidates discovered`;
+    } else {
+      el.pipelineModalTitle.textContent = "Scan Media: All Storage Sources";
+      el.pipelineSourceSubtitle.textContent = `Indexing all active sources • ${pipelineCandidates.length} total candidates discovered`;
+    }
+
+    renderPipelineList();
+
+    if (typeof el.ingestionPipelineModal.showModal === "function") {
+      el.ingestionPipelineModal.showModal();
+    } else {
+      el.ingestionPipelineModal.classList.remove("hidden");
+    }
+    el.pipelineFilterInput.focus();
+  }
+
+  function closeIngestionPipeline() {
+    if (typeof el.ingestionPipelineModal.close === "function" && el.ingestionPipelineModal.open) {
+      el.ingestionPipelineModal.close();
+    } else {
+      el.ingestionPipelineModal.classList.add("hidden");
+    }
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+  }
+
+  function renderPipelineList() {
+    const filterQuery = el.pipelineFilterInput.value.trim().toLowerCase();
+    const visibleItems = pipelineCandidates.filter((item) => {
+      if (!filterQuery) return true;
+      return (
+        item.editTitle.toLowerCase().includes(filterQuery) ||
+        item.rawFolder.toLowerCase().includes(filterQuery) ||
+        item.sourceName.toLowerCase().includes(filterQuery)
+      );
+    });
+
+    const selectedCount = pipelineCandidates.filter((x) => x.selected).length;
+    const totalCount = pipelineCandidates.length;
+
+    el.pipelineSelectAll.checked = totalCount > 0 && selectedCount === totalCount;
+    el.pipelineSelectAll.indeterminate = selectedCount > 0 && selectedCount < totalCount;
+    el.pipelineSelectedCounter.textContent = `Select All (${selectedCount} of ${totalCount} selected)`;
+    el.commitPipelineBtn.textContent = `Ingest Selected Items (${selectedCount})`;
+    el.commitPipelineBtn.disabled = selectedCount === 0;
+
+    if (pipelineCandidates.length === 0) {
+      el.pipelineItemsList.innerHTML = `
+        <div style="padding: 32px 16px; background: #f9f9f9; border: 2px dashed #ccc; border-radius: 8px; text-align: center; color: #555;">
+          <div style="font-weight: 800; font-size: 1.1rem; color: #2e7d32; margin-bottom: 6px;">✓ Storage Folder Up to Date</div>
+          <div style="font-size: 0.9rem;">All media discovered in this source has already been indexed and ingested into your catalog.</div>
+        </div>
+      `;
+      return;
+    }
+
+    if (visibleItems.length === 0) {
+      el.pipelineItemsList.innerHTML = `
+        <div style="padding: 24px 16px; background: #f9f9f9; border: 2px dashed #ccc; border-radius: 8px; text-align: center; color: #666; font-size: 0.9rem;">
+          No candidates match your search filter "<strong>${filterQuery}</strong>".
+        </div>
+      `;
+      return;
+    }
+
+    el.pipelineItemsList.innerHTML = visibleItems
+      .map(
+        (c) => `
+        <div class="pipeline-item-card ${c.selected ? "is-selected" : "is-excluded"}" data-id="${c.id}">
+          <div class="pipeline-item-header">
+            <input type="checkbox" class="pipeline-checkbox item-select-check" data-id="${c.id}" ${c.selected ? "checked" : ""} aria-label="Select ${c.editTitle} for ingestion" />
+            <div class="pipeline-item-body">
+              <div class="pipeline-item-meta">
+                <span class="pipeline-source-badge">${c.sourceName}</span>
+                <span class="pipeline-folder-path"><svg style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>${c.rawFolder}</span>
+                <span style="font-weight: 700; color: #333;">(${c.fileCount} files)</span>
+                <span style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; background: #6d4ca6; color: #fff; padding: 2px 6px; border-radius: 3px;">${c.badge}</span>
+              </div>
+
+              <div class="pipeline-fields-grid">
+                <div>
+                  <label for="pipeline-title-${c.id}" style="display: block; font-size: 0.75rem; font-weight: 800; color: #555; margin-bottom: 2px;">
+                    Catalog Title (Typo & Name Correction)
+                  </label>
+                  <input type="text" id="pipeline-title-${c.id}" class="tactile-text-input item-title-input" data-id="${c.id}" value="${c.editTitle}" placeholder="Clean title..." style="padding: 6px 10px; font-weight: 700;" />
+                </div>
+                <div>
+                  <label for="pipeline-meta-${c.id}" style="display: block; font-size: 0.75rem; font-weight: 800; color: #555; margin-bottom: 2px;">
+                    ${c.mediaType === "book" ? "Author" : "Release Year"}
+                  </label>
+                  <input type="text" id="pipeline-meta-${c.id}" class="tactile-text-input item-meta-input" data-id="${c.id}" value="${c.editMeta}" placeholder="${c.mediaType === "book" ? "Author..." : "e.g. 2024"}" style="padding: 6px 10px;" />
+                </div>
+              </div>
+
+              <div class="pipeline-files-details">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <button type="button" class="tactile-action-btn secondary item-toggle-files-btn" data-id="${c.id}" style="padding: 3px 8px; font-size: 0.75rem;">
+                    ${c.expanded ? "▲ Hide Gathered Files" : `▼ Review ${c.files.length} Gathered Files`}
+                  </button>
+                  <button type="button" class="tactile-action-btn secondary item-skip-btn" data-id="${c.id}" style="padding: 3px 8px; font-size: 0.75rem; color: #700000;" title="Exclude this item from library">
+                    ${c.selected ? "Skip Item" : "Include Item"}
+                  </button>
+                </div>
+
+                ${
+                  c.expanded
+                    ? `
+                  <div class="pipeline-files-list">
+                    ${c.files
+                      .map(
+                        (f) => `
+                      <div class="pipeline-file-row">
+                        <div>
+                          <strong>${f.title}</strong>
+                          <span style="font-family: monospace; color: #666; font-size: 0.75rem; margin-left: 6px;">${f.rawFilename}</span>
+                        </div>
+                        <span style="font-family: monospace; color: #555;">${f.duration || f.size || "Ready"}</span>
+                      </div>
+                    `
+                      )
+                      .join("")}
+                  </div>
+                `
+                    : ""
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      `
+      )
+      .join("");
+
+    // Bind item event listeners
+    const checkboxes = el.pipelineItemsList.querySelectorAll(".item-select-check");
+    checkboxes.forEach((cb) => {
+      cb.addEventListener("change", () => {
+        const id = parseInt(cb.getAttribute("data-id"));
+        const item = pipelineCandidates.find((x) => x.id === id);
+        if (item) {
+          item.selected = cb.checked;
+          const card = el.pipelineItemsList.querySelector(`.pipeline-item-card[data-id="${id}"]`);
+          if (card) {
+            card.classList.toggle("is-selected", item.selected);
+            card.classList.toggle("is-excluded", !item.selected);
+          }
+          const selCount = pipelineCandidates.filter((x) => x.selected).length;
+          const totCount = pipelineCandidates.length;
+          el.pipelineSelectAll.checked = totCount > 0 && selCount === totCount;
+          el.pipelineSelectAll.indeterminate = selCount > 0 && selCount < totCount;
+          el.pipelineSelectedCounter.textContent = `Select All (${selCount} of ${totCount} selected)`;
+          el.commitPipelineBtn.textContent = `Ingest Selected Items (${selCount})`;
+          el.commitPipelineBtn.disabled = selCount === 0;
+        }
+      });
+    });
+
+    const titleInputs = el.pipelineItemsList.querySelectorAll(".item-title-input");
+    titleInputs.forEach((input) => {
+      input.addEventListener("input", () => {
+        const id = parseInt(input.getAttribute("data-id"));
+        const item = pipelineCandidates.find((x) => x.id === id);
+        if (item) {
+          item.editTitle = input.value;
+        }
+      });
+    });
+
+    const metaInputs = el.pipelineItemsList.querySelectorAll(".item-meta-input");
+    metaInputs.forEach((input) => {
+      input.addEventListener("input", () => {
+        const id = parseInt(input.getAttribute("data-id"));
+        const item = pipelineCandidates.find((x) => x.id === id);
+        if (item) {
+          item.editMeta = input.value;
+        }
+      });
+    });
+
+    const toggleBtns = el.pipelineItemsList.querySelectorAll(".item-toggle-files-btn");
+    toggleBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = parseInt(btn.getAttribute("data-id"));
+        const item = pipelineCandidates.find((x) => x.id === id);
+        if (item) {
+          item.expanded = !item.expanded;
+          renderPipelineList();
+        }
+      });
+    });
+
+    const skipBtns = el.pipelineItemsList.querySelectorAll(".item-skip-btn");
+    skipBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = parseInt(btn.getAttribute("data-id"));
+        const item = pipelineCandidates.find((x) => x.id === id);
+        if (item) {
+          item.selected = !item.selected;
+          renderPipelineList();
+        }
+      });
+    });
+  }
+
+  function commitPipeline() {
+    const selected = pipelineCandidates.filter((x) => x.selected);
+    if (selected.length === 0) return;
+
+    selected.forEach((c) => {
+      if (c.mediaType === "book") {
+        FLAN_MOCK_DATA.books.push({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          title: c.editTitle || c.proposedTitle,
+          author: c.editMeta || c.proposedAuthor || "Unknown",
+          overview: c.overview || "",
+          coverColor: c.coverColor || "#00695c",
+          badge: c.badge || "EPUB",
+          metadataLocked: true,
+          files: c.files.map((f) => ({
+            ...f,
+            downloadUrl: f.downloadUrl && f.downloadUrl !== "#" ? f.downloadUrl : `/download/book/${f.id}`
+          }))
+        });
+      } else {
+        FLAN_MOCK_DATA.videos.push({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          title: c.editTitle || c.proposedTitle,
+          releaseYear: parseInt(c.editMeta) || c.proposedYear || null,
+          type: c.badge ? c.badge.toLowerCase() : "series",
+          overview: c.overview || "",
+          coverColor: c.coverColor || "#4a148c",
+          badge: c.badge || "Series",
+          metadataLocked: true,
+          files: c.files.map((f) => ({
+            ...f,
+            streamUrl: f.streamUrl && f.streamUrl !== "#" ? f.streamUrl : `/stream/video/${f.id}`,
+            downloadUrl: f.downloadUrl && f.downloadUrl !== "#" ? f.downloadUrl : `/download/video/${f.id}`
+          }))
+        });
+      }
+
+      // Remove from pending ingestion
+      const idx = FLAN_MOCK_DATA.pendingIngestion.findIndex((x) => x.id === c.id);
+      if (idx !== -1) {
+        FLAN_MOCK_DATA.pendingIngestion.splice(idx, 1);
+      }
+    });
+
+    el.pipelineFeedback.className = "avatar-feedback success";
+    el.pipelineFeedback.textContent = `✓ Successfully ingested ${selected.length} item(s) into your library!`;
+
+    setTimeout(() => {
+      closeIngestionPipeline();
+      if (state.activeTab === "manage") {
+        renderManageView();
+      } else if (state.activeTab === "video") {
+        renderCatalogView("video");
+      } else if (state.activeTab === "books") {
+        renderCatalogView("books");
+      }
+    }, 600);
+  }
+
   // =========================================================================
   // ROUTER DISPATCHER
   // =========================================================================
@@ -227,7 +818,7 @@
     }
 
     // Show app shell
-    el.topHeader.classList.remove("hidden");
+    if (el.topHeader) el.topHeader.classList.remove("hidden");
     el.leftSidebar.classList.remove("hidden");
     el.appContainer.classList.remove("hidden");
     renderUserAvatarBadge(state.currentUser);
@@ -291,68 +882,110 @@
   }
 
   // =========================================================================
-  // VIEW 1: SPLIT START & LOGIN SCREEN
+  // VIEW 1: 2-STEP SEQUENTIAL LOGIN (Step 1: Profile Picker -> Step 2: PIN)
   // =========================================================================
-  function renderLoginScreen() {
+  function renderLoginScreen(step = "picker", targetUser = null) {
+    if (el.topHeader) el.topHeader.classList.add("hidden");
     el.leftSidebar.classList.add("hidden");
     el.mainContent.style.padding = "0";
 
+    if (step === "pin" && targetUser) {
+      renderLoginPinState(targetUser);
+    } else {
+      renderLoginPickerState();
+    }
+  }
+
+  // STEP 1: Profile Picker State ("Who is watching?")
+  function renderLoginPickerState() {
     el.mainContent.innerHTML = `
-      <div class="split-login-container">
-        <!-- Left Panel: Welcome Graphic -->
-        <div class="login-left-panel">
-          <div class="welcome-graphic-wrap">
-            <div class="welcome-arrow-top">
-              ${getArrowSVG("left")}
-            </div>
-            <h1 class="welcome-banner-text">Welcome</h1>
-            <div class="welcome-arrow-bottom">
-              ${getArrowSVG("right")}
-            </div>
+      <div class="login-pad-viewport">
+        <div class="login-pad-card login-picker-card">
+          <div class="login-pad-header">
+            <h1 class="login-pad-title">Flan Media Server</h1>
+            <p class="login-pad-subtitle">Who is watching?</p>
+          </div>
+
+          <!-- Household Profile Cards -->
+          <div class="login-profiles-grid" role="group" aria-label="Household Profiles">
+            ${FLAN_MOCK_DATA.users
+              .map(
+                (u) => `
+                <button
+                  type="button"
+                  class="login-profile-card"
+                  data-username="${u.username}"
+                  title="Select ${u.username}"
+                >
+                  <div class="login-profile-avatar-frame">
+                    ${getUserAvatarSVG(u)}
+                  </div>
+                  <span class="login-profile-username">${u.username}</span>
+                  <span class="login-profile-role-pill">${u.role}</span>
+                </button>
+              `
+              )
+              .join("")}
           </div>
         </div>
+      </div>
+    `;
 
-        <!-- Right Panel: Access Form -->
-        <div class="login-right-panel">
-          <form id="login-form" class="login-form-box">
-            <div class="form-field-group">
-              <label class="form-field-label" for="user-select">User:</label>
-              <div class="tactile-select-wrap">
-                <select id="user-select">
-                  ${FLAN_MOCK_DATA.users
-                    .map(
-                      (u) =>
-                        `<option value="${u.username}" ${
-                          state.currentUser && state.currentUser.username === u.username
-                            ? "selected"
-                            : ""
-                        }>${u.username}</option>`
-                    )
-                    .join("")}
-                </select>
-                <div class="select-chevron-box">
-                  <svg viewBox="0 0 10 8">
-                    <polygon points="1,1 9,1 5,7" />
-                  </svg>
-                </div>
-              </div>
+    const profileCards = document.querySelectorAll(".login-profile-card");
+    profileCards.forEach((card) => {
+      card.addEventListener("click", () => {
+        const username = card.dataset.username;
+        const found = FLAN_MOCK_DATA.users.find((u) => u.username === username);
+        if (!found) return;
+        renderLoginScreen("pin", found);
+      });
+    });
+
+    if (profileCards.length > 0) {
+      profileCards[0].focus();
+    }
+  }
+
+  // STEP 2: Dedicated PIN Entry State
+  function renderLoginPinState(user) {
+    el.mainContent.innerHTML = `
+      <div class="login-pad-viewport">
+        <div class="login-pad-card login-pin-card">
+          <!-- Active User Badge Header -->
+          <div class="login-user-banner">
+            <div class="login-user-avatar-badge">
+              ${getUserAvatarSVG(user)}
             </div>
+            <div class="login-user-info">
+              <h2 class="login-user-name">${user.username}</h2>
+              <span class="login-profile-role-pill">${user.role}</span>
+            </div>
+          </div>
 
+          <p class="login-pad-subtitle">Enter your 4-digit PIN</p>
+
+          <!-- Tactile PIN Access Form -->
+          <form id="login-form" class="login-pin-form">
             <div class="form-field-group">
-              <label class="form-field-label" for="pin-input">Pin:</label>
               <input
                 id="pin-input"
                 class="tactile-pin-input"
                 type="password"
                 maxlength="6"
+                inputmode="numeric"
                 placeholder="••••"
                 autofocus
                 autocomplete="current-password"
+                aria-label="Enter PIN for ${user.username}"
               />
             </div>
 
             <button type="submit" id="access-btn" class="tactile-access-btn">
-              Access
+              Access Library →
+            </button>
+
+            <button type="button" id="switch-profile-btn" class="tactile-switch-btn">
+              ← Switch Profile
             </button>
 
             <div id="login-feedback" class="login-feedback" role="alert" aria-live="assertive"></div>
@@ -362,18 +995,19 @@
     `;
 
     const form = document.getElementById("login-form");
-    const userSelect = document.getElementById("user-select");
     const pinInput = document.getElementById("pin-input");
+    const switchBtn = document.getElementById("switch-profile-btn");
     const feedback = document.getElementById("login-feedback");
+
+    pinInput.focus();
+
+    switchBtn.addEventListener("click", () => {
+      renderLoginScreen("picker");
+    });
 
     form.addEventListener("submit", (e) => {
       e.preventDefault();
-      const selectedUsername = userSelect.value;
       const enteredPin = pinInput.value.trim();
-
-      const user = FLAN_MOCK_DATA.users.find(
-        (u) => u.username === selectedUsername
-      );
 
       if (user && user.pin === enteredPin) {
         state.currentUser = user;
@@ -382,7 +1016,7 @@
         window.location.hash = "#video";
       } else {
         feedback.className = "login-feedback error";
-        feedback.textContent = "Invalid PIN. Try '1234' for mike or '0000' for wesley.";
+        feedback.textContent = `Invalid PIN. Try '1234' for mike or '0000' for wesley.`;
         pinInput.classList.add("shake");
         pinInput.value = "";
         setTimeout(() => pinInput.classList.remove("shake"), 400);
@@ -391,43 +1025,304 @@
   }
 
   // =========================================================================
-  // VIEW 2 & 3: MEDIA CATALOG WITH DYNAMIC HEADER
+  // VIEW 2 & 3: MEDIA CATALOG WITH DYNAMIC HEADER & 7-COL PAGINATED GRID
   // =========================================================================
   function renderCatalogView(type) {
     el.mainContent.style.padding = "24px 32px";
 
-    const items =
+    const allItems =
       type === "video" ? FLAN_MOCK_DATA.videos : FLAN_MOCK_DATA.books;
-    const filtered = items.filter((item) =>
-      item.title.toLowerCase().includes(state.searchQuery.toLowerCase())
-    );
 
-    // Compact Tactile Status & Filter Strip
+    // 1. FILTERING
+    let filtered = allItems.filter((item) => {
+      // Search Query
+      if (state.searchQuery.trim().length > 0) {
+        const q = state.searchQuery.toLowerCase();
+        const matchesTitle = item.title.toLowerCase().includes(q);
+        const matchesAuthor = item.author && item.author.toLowerCase().includes(q);
+        const matchesOverview = item.overview && item.overview.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesAuthor && !matchesOverview) return false;
+      }
+
+      // Format Filter
+      if (state.selectedFormat !== "all") {
+        if (type === "video") {
+          if (state.selectedFormat === "movies" && item.type !== "movie") return false;
+          if (state.selectedFormat === "series" && item.type !== "series") return false;
+        } else {
+          if (state.selectedFormat === "epub" && item.badge.toLowerCase() !== "epub") return false;
+          if (state.selectedFormat === "pdf" && item.badge.toLowerCase() !== "pdf") return false;
+        }
+      }
+
+      // Status Filter
+      if (state.selectedStatus !== "all") {
+        if (type === "video") {
+          const inProg = item.files && item.files.some((f) => f.progress > 0 && !f.isFinished);
+          if (state.selectedStatus === "in-progress" && !inProg && !item.lastWatched) return false;
+          if (state.selectedStatus === "unwatched" && (inProg || item.lastWatched)) return false;
+        } else {
+          if (state.selectedStatus === "in-progress" && item.status !== "reading") return false;
+          if (state.selectedStatus === "unwatched" && item.status !== "unread") return false;
+        }
+      }
+
+      // Source Filter
+      if (state.selectedSource !== "all") {
+        if (item.sourceId !== Number(state.selectedSource)) return false;
+      }
+
+      return true;
+    });
+
+    // 2. SORTING
+    let sorted = [...filtered];
+    if (state.sortOrder === "az") {
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (state.sortOrder === "year") {
+      sorted.sort((a, b) => (b.releaseYear || 0) - (a.releaseYear || 0));
+    } else if (state.sortOrder === "recent") {
+      sorted.sort((a, b) => {
+        const timeA = a.lastWatched || a.lastRead || 0;
+        const timeB = b.lastWatched || b.lastRead || 0;
+        if (timeA && timeB) return new Date(timeB) - new Date(timeA);
+        if (timeA) return -1;
+        if (timeB) return 1;
+        return b.id - a.id;
+      });
+    } else if (state.sortOrder === "random") {
+      // Deterministic / seeded shuffle based on item id and fixed hash so pagination stays stable across pages
+      sorted.sort((a, b) => {
+        const hashA = (a.id * 997 + a.title.length * 37) % 1000;
+        const hashB = (b.id * 997 + b.title.length * 37) % 1000;
+        return hashA - hashB;
+      });
+    }
+
+    // 3. CONTINUE WATCHING / JUMP BACK IN SHELF (In-progress items sorted by date)
+    let continueShelfHtml = "";
+    const inProgressList = allItems.filter((item) => {
+      if (type === "video") {
+        return (item.files && item.files.some((f) => f.progress > 0 && !f.isFinished)) || !!item.lastWatched;
+      } else {
+        return item.status === "reading" || !!item.lastRead;
+      }
+    });
+
+    // Sort in-progress items by last activity date descending
+    inProgressList.sort((a, b) => {
+      const dateA = new Date(a.lastWatched || a.lastRead || "1970-01-01");
+      const dateB = new Date(b.lastWatched || b.lastRead || "1970-01-01");
+      return dateB - dateA;
+    });
+
+    // If there are in-progress items AND we aren't searching for a specific query that excludes them
+    if (inProgressList.length > 0 && state.searchQuery.trim().length === 0 && state.selectedStatus !== "unwatched") {
+      const shelfTitle = type === "video" ? "Continue Watching" : "Jump Back In";
+      const shelfBadgeText = `${inProgressList.length} IN PROGRESS`;
+
+      const cardsHtml = inProgressList.map((item) => {
+        if (type === "video") {
+          const activeFile = (item.files && item.files.find((f) => f.progress > 0 && !f.isFinished)) || (item.files && item.files[0]) || {};
+          const isSeries = item.type === "series";
+          const progressPercent = activeFile.progress || 0;
+          const progressLabel = isSeries
+            ? `${activeFile.title || 'Next Episode'} - ${activeFile.formattedPos || activeFile.duration || ''}`
+            : `${activeFile.formattedPos || ''} / ${activeFile.duration || ''} (${progressPercent}%)`;
+
+          return `
+            <div class="continue-card" role="article" aria-label="Resume ${item.title}">
+              <div class="continue-card-thumb">
+                <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+              </div>
+              <div class="continue-card-content">
+                <div>
+                  <div class="continue-card-title" title="${item.title}">${item.title}</div>
+                  <div class="continue-card-subtitle" title="${progressLabel}">${progressLabel}</div>
+                </div>
+                <div>
+                  <div class="continue-progress-wrap" aria-label="${progressPercent}% watched">
+                    <div class="continue-progress-bar" style="width: ${progressPercent}%;"></div>
+                  </div>
+                  <button type="button" class="continue-resume-btn resume-video-btn" data-file-id="${activeFile.id}">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none"><polygon points="5,3 19,12 5,21"/></svg>
+                    <span>Resume</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          // Discrete reading status, NO raw percentages for books!
+          const readingLabel = item.readingProgress || "Currently Reading";
+          return `
+            <div class="continue-card" role="article" aria-label="Continue reading ${item.title}">
+              <div class="continue-card-thumb">
+                <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+              </div>
+              <div class="continue-card-content">
+                <div>
+                  <div class="continue-card-title" title="${item.title}">${item.title}</div>
+                  <div class="continue-card-subtitle">${item.author || ''}</div>
+                </div>
+                <div>
+                  <span style="display:inline-block; font-size:0.75rem; font-weight:800; background:#e2d9f3; color:#4a148c; padding:2px 8px; border-radius:3px; border:1px solid #000; margin-top:2px;">
+                    ${readingLabel}
+                  </span>
+                  <div>
+                    <button type="button" class="continue-resume-btn resume-book-btn" data-book-id="${item.id}" style="margin-top:6px;">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                      <span>Continue</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      }).join("");
+
+      continueShelfHtml = `
+        <section class="continue-shelf" aria-label="${shelfTitle}">
+          <div class="continue-shelf-header">
+            <h2 class="continue-shelf-title">${shelfTitle}</h2>
+            <span class="continue-shelf-badge">${shelfBadgeText}</span>
+          </div>
+          <div class="continue-shelf-grid">
+            ${cardsHtml}
+          </div>
+        </section>
+      `;
+    }
+
+    // 4. PAGINATION: 21 ITEMS MAX PER PAGE (7x3)
+    const ITEMS_PER_PAGE = 21;
+    const totalItems = sorted.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+    if (state.currentPage > totalPages) state.currentPage = totalPages;
+    if (state.currentPage < 1) state.currentPage = 1;
+
+    const pageStartIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
+    const pageItems = sorted.slice(pageStartIndex, pageStartIndex + ITEMS_PER_PAGE);
+
+    // 5. STATUS STRIP
     const isSearching = state.searchQuery.trim().length > 0;
-    let filterStripHtml = "";
-    if (isSearching) {
-      filterStripHtml = `
+    const hasActiveFilters = state.selectedFormat !== "all" || state.selectedStatus !== "all" || state.selectedSource !== "all" || state.sortOrder !== "random";
+    let statusStripHtml = "";
+    if (isSearching || hasActiveFilters) {
+      statusStripHtml = `
         <div class="catalog-status-strip filtered">
-          <span class="status-indicator-tag">FILTER</span>
-          <span class="status-query-text">"${state.searchQuery}"</span>
-          <span class="status-match-count">(${filtered.length} match${filtered.length === 1 ? "" : "es"})</span>
-          <button id="clear-search-btn" class="tactile-clear-btn" title="Clear Search">
-            ✕ Clear
+          <span class="status-indicator-tag">FILTERED</span>
+          ${isSearching ? `<span class="status-query-text">"${state.searchQuery}"</span>` : ""}
+          <span class="status-match-count">(${totalItems} title${totalItems === 1 ? "" : "s"})</span>
+          <button id="clear-filters-btn" class="tactile-clear-btn" title="Reset Filters & Search">
+            [x] Reset All
           </button>
         </div>
       `;
     } else {
-      const typeLabel =
-        type === "video" ? "ALL VIDEOS & SERIES" : "BOOKS & PUBLICATIONS";
-      filterStripHtml = `
+      const typeLabel = type === "video" ? "ALL VIDEOS & SERIES" : "BOOKS & PUBLICATIONS";
+      statusStripHtml = `
         <div class="catalog-status-strip">
           <span class="status-section-name">${typeLabel}</span>
-          <span class="status-divider">•</span>
-          <span class="status-total-count">${items.length} TITLES</span>
+          <span class="status-divider">-</span>
+          <span class="status-total-count">${totalItems} TITLES</span>
         </div>
       `;
     }
 
+    // 6. COLLAPSIBLE FILTER DRAWER HTML
+    let filterDrawerHtml = "";
+    if (state.filterExpanded) {
+      const sourcesForType = FLAN_MOCK_DATA.storageSources.filter((s) => s.mediaType === (type === "video" ? "video" : "book"));
+
+      filterDrawerHtml = `
+        <div id="filter-drawer" class="filter-drawer" role="region" aria-label="Catalog Filters">
+          <!-- Format Row -->
+          <div class="filter-drawer-row">
+            <span class="filter-drawer-label">Format:</span>
+            <div class="filter-pills-group" role="group" aria-label="Format filter">
+              <button class="filter-pill ${state.selectedFormat === 'all' ? 'active' : ''}" data-filter-type="format" data-val="all">All</button>
+              ${type === 'video' ? `
+                <button class="filter-pill ${state.selectedFormat === 'movies' ? 'active' : ''}" data-filter-type="format" data-val="movies">Movies</button>
+                <button class="filter-pill ${state.selectedFormat === 'series' ? 'active' : ''}" data-filter-type="format" data-val="series">Series</button>
+              ` : `
+                <button class="filter-pill ${state.selectedFormat === 'epub' ? 'active' : ''}" data-filter-type="format" data-val="epub">EPUB</button>
+                <button class="filter-pill ${state.selectedFormat === 'pdf' ? 'active' : ''}" data-filter-type="format" data-val="pdf">PDF</button>
+              `}
+            </div>
+          </div>
+
+          <!-- Status Row -->
+          <div class="filter-drawer-row">
+            <span class="filter-drawer-label">Status:</span>
+            <div class="filter-pills-group" role="group" aria-label="Status filter">
+              <button class="filter-pill ${state.selectedStatus === 'all' ? 'active' : ''}" data-filter-type="status" data-val="all">All</button>
+              <button class="filter-pill ${state.selectedStatus === 'in-progress' ? 'active' : ''}" data-filter-type="status" data-val="in-progress">In Progress</button>
+              <button class="filter-pill ${state.selectedStatus === 'unwatched' ? 'active' : ''}" data-filter-type="status" data-val="unwatched">${type === 'video' ? 'Unwatched' : 'Unread'}</button>
+            </div>
+          </div>
+
+          <!-- Source Drive Row -->
+          ${sourcesForType.length > 0 ? `
+            <div class="filter-drawer-row">
+              <span class="filter-drawer-label">Drive:</span>
+              <div class="filter-pills-group" role="group" aria-label="Storage source filter">
+                <button class="filter-pill ${state.selectedSource === 'all' ? 'active' : ''}" data-filter-type="source" data-val="all">All Drives</button>
+                ${sourcesForType.map((src) => `
+                  <button class="filter-pill ${String(state.selectedSource) === String(src.id) ? 'active' : ''}" data-filter-type="source" data-val="${src.id}">${src.name}</button>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Sort Row -->
+          <div class="filter-drawer-row">
+            <span class="filter-drawer-label">Sort:</span>
+            <div class="filter-pills-group" role="group" aria-label="Sort order">
+              <button class="filter-pill ${state.sortOrder === 'random' ? 'active' : ''}" data-filter-type="sort" data-val="random">Shuffle / Random</button>
+              <button class="filter-pill ${state.sortOrder === 'recent' ? 'active' : ''}" data-filter-type="sort" data-val="recent">Recently Added</button>
+              <button class="filter-pill ${state.sortOrder === 'az' ? 'active' : ''}" data-filter-type="sort" data-val="az">Title (A-Z)</button>
+              <button class="filter-pill ${state.sortOrder === 'year' ? 'active' : ''}" data-filter-type="sort" data-val="year">Release Year</button>
+            </div>
+            ${hasActiveFilters ? `
+              <button id="drawer-reset-btn" type="button" class="filter-reset-btn">Reset Filters</button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // 7. PAGINATION BAR HTML
+    let paginationHtml = "";
+    if (totalPages > 1) {
+      let pageButtonsHtml = "";
+      for (let p = 1; p <= totalPages; p++) {
+        pageButtonsHtml += `
+          <button class="pagination-btn ${p === state.currentPage ? 'active' : ''}" data-page="${p}" ${p === state.currentPage ? 'aria-current="page"' : ''}>
+            ${p}
+          </button>
+        `;
+      }
+
+      const showingEnd = Math.min(pageStartIndex + ITEMS_PER_PAGE, totalItems);
+      paginationHtml = `
+        <nav class="pagination-bar" aria-label="Catalog Pagination">
+          <button class="pagination-btn prev-page-btn" data-page="${state.currentPage - 1}" ${state.currentPage === 1 ? 'disabled aria-disabled="true"' : ''}>
+            &larr; Prev
+          </button>
+          <div class="pagination-pages">
+            ${pageButtonsHtml}
+          </div>
+          <button class="pagination-btn next-page-btn" data-page="${state.currentPage + 1}" ${state.currentPage === totalPages ? 'disabled aria-disabled="true"' : ''}>
+            Next &rarr;
+          </button>
+          <span class="pagination-info">Showing ${pageStartIndex + 1}-${showingEnd} of ${totalItems}</span>
+        </nav>
+      `;
+    }
+
+    // 8. RENDER INTO MAIN CONTENT
     el.mainContent.innerHTML = `
       <section class="search-section">
         <div class="search-bar-row">
@@ -447,17 +1342,28 @@
               <line x1="16.5" y1="16.5" x2="22" y2="22" />
             </svg>
           </button>
+          <button id="filter-toggle-btn" class="filter-toggle-btn ${state.filterExpanded ? 'active' : ''}" aria-expanded="${state.filterExpanded}" aria-controls="filter-drawer" title="Toggle Filters">
+            <span>Filter</span>
+            <span style="font-size: 0.8rem;">${state.filterExpanded ? '[^]' : '[v]'}</span>
+          </button>
         </div>
 
-        <!-- Compact Tactile Status & Filter Strip -->
-        ${filterStripHtml}
+        <!-- Collapsible Filter Drawer -->
+        ${filterDrawerHtml}
+
+        <!-- Compact Tactile Status Strip -->
+        ${statusStripHtml}
       </section>
 
+      <!-- Continue Watching / Jump Back In Shelf -->
+      ${continueShelfHtml}
+
+      <!-- Catalog Media Grid (7 Columns Max Hard Limit) -->
       <section class="media-grid">
         ${
-          filtered.length === 0
-            ? `<div style="grid-column: 1/-1; text-align:center; padding: 40px; font-weight:700; font-size:1.1rem; color: #555;">No media matching "${state.searchQuery}"</div>`
-            : filtered
+          pageItems.length === 0
+            ? `<div style="grid-column: 1/-1; text-align:center; padding: 40px; font-weight:700; font-size:1.1rem; color: #555;">No media matching your filters.</div>`
+            : pageItems
                 .map((item) => {
                   return `
             <a class="media-card" href="#detail/${type}/${item.id}" data-id="${item.id}" data-type="${type}" role="article" aria-label="${item.title}${item.badge ? ' (' + item.badge + ')' : ''}">
@@ -469,7 +1375,7 @@
                     ${
                       type === "video"
                         ? '<polygon points="5,3 19,12 5,21" fill="none" stroke="currentColor" stroke-width="2"/>'
-                        : '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/> <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'
+                        : '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/> <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill="none" stroke="currentColor" stroke-width="2"/>'
                     }
                   </svg>
                   <span style="font-weight:700; font-size: 0.9rem; color: #333;">${item.title}</span>
@@ -493,28 +1399,107 @@
                 .join("")
         }
       </section>
+
+      <!-- Pagination Bar -->
+      ${paginationHtml}
     `;
 
-    // Bind Search events
+    // 9. EVENT BINDINGS
     const searchInput = document.getElementById("catalog-search");
-    searchInput.focus();
-    searchInput.setSelectionRange(
-      searchInput.value.length,
-      searchInput.value.length
-    );
-
-    searchInput.addEventListener("input", (e) => {
-      state.searchQuery = e.target.value;
-      renderCatalogView(type);
-    });
-
-    const clearSearchBtn = document.getElementById("clear-search-btn");
-    if (clearSearchBtn) {
-      clearSearchBtn.addEventListener("click", () => {
-        state.searchQuery = "";
+    if (searchInput) {
+      searchInput.addEventListener("input", (e) => {
+        state.searchQuery = e.target.value;
+        state.currentPage = 1;
         renderCatalogView(type);
       });
     }
+
+    const filterToggleBtn = document.getElementById("filter-toggle-btn");
+    if (filterToggleBtn) {
+      filterToggleBtn.addEventListener("click", () => {
+        state.filterExpanded = !state.filterExpanded;
+        renderCatalogView(type);
+      });
+    }
+
+    // Filter pills in drawer
+    const filterPills = el.mainContent.querySelectorAll(".filter-pill");
+    filterPills.forEach((pill) => {
+      pill.addEventListener("click", () => {
+        const filterType = pill.getAttribute("data-filter-type");
+        const val = pill.getAttribute("data-val");
+
+        if (filterType === "format") {
+          state.selectedFormat = val;
+        } else if (filterType === "status") {
+          state.selectedStatus = val;
+        } else if (filterType === "source") {
+          state.selectedSource = val;
+        } else if (filterType === "sort") {
+          state.sortOrder = val;
+        }
+        state.currentPage = 1;
+        renderCatalogView(type);
+      });
+    });
+
+    const resetFiltersBtn = document.getElementById("clear-filters-btn") || document.getElementById("drawer-reset-btn");
+    if (resetFiltersBtn) {
+      resetFiltersBtn.addEventListener("click", () => {
+        state.searchQuery = "";
+        state.selectedFormat = "all";
+        state.selectedStatus = "all";
+        state.selectedSource = "all";
+        state.sortOrder = "random";
+        state.currentPage = 1;
+        renderCatalogView(type);
+      });
+    }
+
+    const drawerResetBtn = document.getElementById("drawer-reset-btn");
+    if (drawerResetBtn && drawerResetBtn !== resetFiltersBtn) {
+      drawerResetBtn.addEventListener("click", () => {
+        state.selectedFormat = "all";
+        state.selectedStatus = "all";
+        state.selectedSource = "all";
+        state.sortOrder = "random";
+        state.currentPage = 1;
+        renderCatalogView(type);
+      });
+    }
+
+    // Resume video buttons
+    const resumeVideoBtns = el.mainContent.querySelectorAll(".resume-video-btn");
+    resumeVideoBtns.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const fileId = btn.getAttribute("data-file-id");
+        window.location.hash = `#watch/${fileId}`;
+      });
+    });
+
+    // Resume book buttons
+    const resumeBookBtns = el.mainContent.querySelectorAll(".resume-book-btn");
+    resumeBookBtns.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const bookId = btn.getAttribute("data-book-id");
+        window.location.hash = `#detail/books/${bookId}`;
+      });
+    });
+
+    // Pagination buttons
+    const pageBtns = el.mainContent.querySelectorAll(".pagination-btn");
+    pageBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const targetPage = parseInt(btn.getAttribute("data-page"), 10);
+        if (!isNaN(targetPage) && targetPage >= 1 && targetPage <= totalPages && targetPage !== state.currentPage) {
+          state.currentPage = targetPage;
+          renderCatalogView(type);
+          el.mainContent.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+    });
 
     // Bind Card Click -> Details View
     const cards = el.mainContent.querySelectorAll(".media-card");
@@ -562,7 +1547,17 @@
             </div>
           </div>
           <div class="detail-meta-box">
-            <h1 class="detail-title">${item.title}</h1>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px;">
+              <h1 class="detail-title" style="margin: 0;">${item.title} ${item.releaseYear ? `<span style="font-size: 1.1rem; opacity: 0.7;">(${item.releaseYear})</span>` : ""}</h1>
+              ${
+                state.currentUser && state.currentUser.role === "admin" && type === "video"
+                  ? `<button id="edit-media-btn" class="tactile-action-btn secondary" style="padding: 6px 14px; font-size: 0.85rem; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
+                      <svg style="width:14px; height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      Edit Details
+                    </button>`
+                  : ""
+              }
+            </div>
             ${item.author ? `<div style="font-weight: 600; color: #555;">Author: ${item.author}</div>` : ""}
             <p class="detail-synopsis">${item.overview}</p>
           </div>
@@ -574,6 +1569,7 @@
 
         <div class="playable-items-list">
           ${item.files
+            .filter((f) => !f.isHidden)
             .map((file, idx) => {
               const hasProgress = file.progress > 0 && !file.isFinished;
               return `
@@ -606,7 +1602,7 @@
                       : `
                       ${
                         file.format === "pdf"
-                          ? `<button class="tactile-action-btn read-pdf-btn" data-url="${file.readUrl}" data-title="${file.title}" aria-label="Open PDF: ${file.title}">📖 Open PDF</button>`
+                          ? `<button class="tactile-action-btn read-pdf-btn" data-url="${file.readUrl}" data-title="${file.title}" aria-label="Open PDF: ${file.title}">Open PDF</button>`
                           : ""
                       }
                       <button class="tactile-action-btn download download-book-btn" data-url="${file.downloadUrl}" data-title="${file.title}" aria-label="Download ${file.format.toUpperCase()}: ${file.title}">
@@ -626,6 +1622,13 @@
     document.getElementById("detail-back-btn").addEventListener("click", () => {
       window.location.hash = `#${type}`;
     });
+
+    const editMediaBtn = document.getElementById("edit-media-btn");
+    if (editMediaBtn) {
+      editMediaBtn.addEventListener("click", () => {
+        openMediaEditModal(item);
+      });
+    }
 
     const playBtns = el.mainContent.querySelectorAll(".play-file-btn");
     playBtns.forEach((btn) => {
@@ -762,47 +1765,72 @@
   // =========================================================================
   function renderManageView() {
     el.mainContent.style.padding = "24px 32px";
-    const m = FLAN_MOCK_DATA.serverMetrics;
 
     el.mainContent.innerHTML = `
       <div class="manage-container">
         <h1 style="font-size: 1.8rem; font-weight: 900; letter-spacing: -0.5px;">Manage Server</h1>
 
+        <!-- Media Storage Sources Card -->
         <div class="manage-card">
-          <h2>System Performance & Semaphore</h2>
-          <div class="metrics-row">
-            <div class="metric-box">
-              <span style="font-weight: 700; color: #555;">Active RAM Footprint</span>
-              <span class="metric-val">${m.memoryUsed} / ${m.memoryLimit}</span>
-              <span style="font-size: 0.8rem; color: #666;">Enforced by GOMEMLIMIT=16MiB</span>
-            </div>
-            <div class="metric-box">
-              <span style="font-weight: 700; color: #555;">Video Streams</span>
-              <span class="metric-val">${m.activeStreams} / ${m.maxStreams}</span>
-              <span style="font-size: 0.8rem; color: #666;">Disk Head Thrashing Guard</span>
+          <div class="manage-card-header">
+            <h2>Media Storage Sources</h2>
+            <div class="manage-header-actions">
+              <button id="add-source-btn" class="tactile-action-btn secondary" style="padding: 6px 14px; font-size: 0.85rem;">
+                + Add Storage Folder
+              </button>
+              <button id="open-upload-btn" class="tactile-action-btn" style="padding: 6px 14px; font-size: 0.85rem;">
+                Upload Files
+              </button>
             </div>
           </div>
-        </div>
 
-        <div class="manage-card">
-          <h2>Media Libraries</h2>
-          <p style="color: #444; line-height: 1.4;">
-            Flan uses fixed paths under <code>./media/video</code> and <code>./media/books</code> populated directly via Samba, SCP, or external USB drive.
-          </p>
-          <div style="display: flex; gap: 12px; margin-top: 8px;">
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px;">
+            ${FLAN_MOCK_DATA.storageSources
+              .map(
+                (s) => `
+              <div class="storage-source-item">
+                <div class="storage-source-info">
+                  <div class="storage-source-title-row">
+                    <span class="storage-source-name">${s.name}</span>
+                    <span class="storage-source-badge">${s.mediaType}</span>
+                  </div>
+                  <div class="storage-source-path-row">
+                    ${s.path} • <span style="font-weight: 700; color: #2e7d32;">${s.freeSpace} free</span>
+                  </div>
+                </div>
+                <div class="storage-source-actions">
+                  <button class="tactile-action-btn scan-source-btn" data-source-id="${s.id}" title="Scan storage folder" style="padding: 6px 14px; font-size: 0.85rem;">
+                    Scan
+                  </button>
+                  <button class="tactile-action-btn secondary edit-source-btn" data-source-id="${s.id}" title="Edit Storage Folder Name" style="padding: 6px 12px; font-size: 0.85rem;">
+                    Edit
+                  </button>
+                  <button class="tactile-action-btn secondary delete-source-btn" data-source-id="${s.id}" title="Remove Storage Source" style="padding: 6px 10px; font-size: 0.8rem;">
+                    Remove
+                  </button>
+                </div>
+              </div>
+            `
+              )
+              .join("")}
+          </div>
+
+          <div style="display: flex; gap: 12px; margin-top: 14px; align-items: center;">
             <button id="rescan-btn" class="tactile-action-btn" style="padding: 10px 20px;">
-              ⟳ Rescan All Media
+              ⟳ Rescan All Storage Sources
             </button>
+            <div id="rescan-feedback" role="alert" aria-live="polite" style="font-weight: 700; color: #2e7d32; font-size: 0.9rem;"></div>
           </div>
-          <div id="rescan-feedback" role="alert" aria-live="polite" style="font-weight: 700; color: #2e7d32; min-height: 20px;"></div>
         </div>
 
         <div class="manage-card">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 8px;">
-            <h2 style="border: none; padding: 0; margin: 0;">Household Profiles</h2>
-            <button id="add-user-btn" class="tactile-action-btn" style="padding: 6px 14px; font-size: 0.85rem;">
-              + Add New User
-            </button>
+          <div class="manage-card-header">
+            <h2>Household Profiles</h2>
+            <div class="manage-header-actions">
+              <button id="add-user-btn" class="tactile-action-btn" style="padding: 6px 14px; font-size: 0.85rem;">
+                + Add New User
+              </button>
+            </div>
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
@@ -816,19 +1844,20 @@
                       }</div>`;
 
                 return `
-              <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #fafafa; border: 2px solid #000; border-radius: 6px;">
-                <div style="display: flex; align-items: center; gap: 12px;">
+              <div class="household-user-item">
+                <div class="household-user-info">
                   ${avatarPreview}
-                  <div>
+                  <div style="min-width: 0;">
                     <div style="font-weight: 700; font-size: 1.05rem;">
                       ${u.username} <span style="font-size: 0.8rem; color: #666;">(${u.role})</span>
                     </div>
                     <span style="font-family: monospace; font-size: 0.85rem; color: #555;">PIN: ••••</span>
                   </div>
                 </div>
-                <div style="display: flex; gap: 8px;">
-                  <button class="tactile-action-btn secondary edit-user-btn" data-username="${u.username}" aria-label="Edit Profile for ${u.username}" style="padding: 6px 12px; font-size: 0.85rem;">
-                    ✏️ Edit Profile
+                <div class="household-user-actions">
+                  <button class="tactile-action-btn secondary edit-user-btn" data-username="${u.username}" aria-label="Edit Profile for ${u.username}" style="padding: 6px 12px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <svg style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    Edit Profile
                   </button>
                 </div>
               </div>
@@ -840,17 +1869,63 @@
       </div>
     `;
 
+    // Storage source buttons
+    const addSourceBtn = document.getElementById("add-source-btn");
+    if (addSourceBtn) addSourceBtn.addEventListener("click", openAddSourceModal);
+
+    const openUploadBtn = document.getElementById("open-upload-btn");
+    if (openUploadBtn) openUploadBtn.addEventListener("click", openUploadModal);
+
+    const scanSourceBtns = el.mainContent.querySelectorAll(".scan-source-btn");
+    scanSourceBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = parseInt(btn.getAttribute("data-source-id"));
+        const source = FLAN_MOCK_DATA.storageSources.find((s) => s.id === id);
+        if (source) {
+          openIngestionPipeline(source);
+        }
+      });
+    });
+
+    const editSourceBtns = el.mainContent.querySelectorAll(".edit-source-btn");
+    editSourceBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = parseInt(btn.getAttribute("data-source-id"));
+        const source = FLAN_MOCK_DATA.storageSources.find((s) => s.id === id);
+        if (source) {
+          openEditSourceModal(source);
+        }
+      });
+    });
+
+    const deleteSourceBtns = el.mainContent.querySelectorAll(".delete-source-btn");
+    deleteSourceBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = parseInt(btn.getAttribute("data-source-id"));
+        const source = FLAN_MOCK_DATA.storageSources.find((s) => s.id === id);
+        if (source) {
+          openRemoveSourceModal(source);
+        }
+      });
+    });
+
     // Rescan button
     const rescanBtn = document.getElementById("rescan-btn");
     const feedback = document.getElementById("rescan-feedback");
-    rescanBtn.addEventListener("click", () => {
-      rescanBtn.textContent = "Scanning...";
-      feedback.textContent = "";
-      setTimeout(() => {
-        rescanBtn.textContent = "⟳ Rescan All Media";
-        feedback.textContent = "✓ Library scan complete: 5 video containers, 3 book containers indexed.";
-      }, 500);
-    });
+    if (rescanBtn) {
+      rescanBtn.addEventListener("click", () => {
+        rescanBtn.textContent = "Scanning...";
+        feedback.textContent = "";
+        setTimeout(() => {
+          rescanBtn.textContent = "⟳ Rescan All Storage Sources";
+          if (FLAN_MOCK_DATA.pendingIngestion.length > 0) {
+            openIngestionPipeline(null);
+          } else {
+            feedback.textContent = "✓ Library scan complete: All active storage sources verified and indexed.";
+          }
+        }, 400);
+      });
+    }
 
     // Add user button
     document.getElementById("add-user-btn").addEventListener("click", openAddUserModal);
@@ -928,8 +2003,8 @@
 ./media/books/&lt;Document Title&gt;.pdf</code></pre>
               </div>
               <p class="manual-body-text">
-                <strong>Sub-second Rescanning:</strong> Whenever you add or organize files, go to <strong>Manage Server</strong> and click 
-                <code>[ ⟳ Rescan All Media ]</code>. Flan performs a synchronous file walk and updates its local SQLite database in under 200ms.
+                <strong>Fast Directory Rescanning:</strong> Whenever you add or organize files, go to <strong>Manage Server</strong> and click 
+                <code>[ ⟳ Rescan All Media ]</code>. Flan performs a fast directory walk with batch SQLite transactions and in-memory reconciliation.
               </p>
             </section>
 
@@ -940,8 +2015,8 @@
                 <h2 class="manual-section-title">Direct Video Playback & VLC Fallback</h2>
               </div>
               <p class="manual-body-text">
-                Flan is built for low-power devices like Raspberry Pi single-board computers (15–20 MB RAM budget). 
-                To ensure maximum battery life and zero CPU strain, <strong>Flan never performs server-side video transcoding</strong>.
+                Flan is built for low-power devices, repurposed PCs, and single-board computers (Orange Pi, Raspberry Pi). 
+                To ensure maximum responsiveness and zero CPU strain, <strong>Flan never performs server-side video transcoding</strong>.
               </p>
               <ul class="manual-body-text" style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
                 <li><strong>Native Browser Play:</strong> Videos formatted with H.264 / AAC or WebM play instantly in any web browser using native zero-copy HTTP 206 range requests.</li>
@@ -983,8 +2058,8 @@
                 <pre class="manual-code-pre"><code># Reset administrator PIN to default '0000'
 ./flan --reset-admin
 
-# Run on custom port with bounded memory
-PORT=8080 GOMEMLIMIT=16MiB ./flan</code></pre>
+# Run on custom port
+PORT=8080 ./flan</code></pre>
               </div>
               <p class="manual-body-text">
                 <strong>Storage Portability:</strong> All database state is preserved in <code>./data/flan.db</code> with SQLite WAL mode enabled. To migrate or back up your server, simply copy the <code>data/</code> folder.
@@ -1011,8 +2086,8 @@ PORT=8080 GOMEMLIMIT=16MiB ./flan</code></pre>
                   <td class="spec-val">Wesley Esquivel (<a href="https://github.com/WesleyEsq" target="_blank" style="color: #6d52a8; font-weight: 800;">MechanicalSpeak</a>)</td>
                 </tr>
                 <tr>
-                  <td class="spec-label">Memory Ceiling</td>
-                  <td class="spec-val">15–20 MB Resident RAM (<code>GOMEMLIMIT=16MiB</code>)</td>
+                  <td class="spec-label">Resource Overhead</td>
+                  <td class="spec-val">Lean &amp; Unconstrained (live stats via <code>runtime.ReadMemStats</code>)</td>
                 </tr>
                 <tr>
                   <td class="spec-label">Database</td>
@@ -1138,19 +2213,26 @@ PORT=8080 GOMEMLIMIT=16MiB ./flan</code></pre>
       window.location.hash = "#manage";
     });
 
-    el.brandTitle.addEventListener("click", () => {
-      window.location.hash = "#video";
-    });
-    el.brandTitle.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
+    // Brand title click (top header) -> Go to #video
+    const brandTriggers = new Set([el.brandTitle, ...document.querySelectorAll(".brand-trigger")].filter(Boolean));
+    brandTriggers.forEach((btn) => {
+      btn.addEventListener("click", () => {
         window.location.hash = "#video";
-      }
+      });
+      btn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          window.location.hash = "#video";
+        }
+      });
     });
 
-    // Header avatar click -> Opens Unified My Profile Modal
-    el.userAvatar.addEventListener("click", () => {
-      openProfileModal(state.currentUser);
+    // Avatar click (top header) -> Opens Unified My Profile Modal
+    const avatarTriggers = new Set([el.userAvatar, ...document.querySelectorAll(".user-avatar-trigger")].filter(Boolean));
+    avatarTriggers.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        openProfileModal(state.currentUser);
+      });
     });
 
     // Profile Modal Listeners
@@ -1293,9 +2375,330 @@ PORT=8080 GOMEMLIMIT=16MiB ./flan</code></pre>
       setTimeout(closeAddUserModal, 600);
     });
 
-    // Help Button -> Dedicated Software Manual View
-    el.helpBtn.addEventListener("click", () => {
-      window.location.hash = "#manual";
+    // Media Edit Form Submit & Close
+    el.closeMediaEditBtn.addEventListener("click", closeMediaEditModal);
+    if (el.cancelMediaEditBtn) el.cancelMediaEditBtn.addEventListener("click", closeMediaEditModal);
+    el.mediaEditModal.addEventListener("click", (e) => {
+      if (e.target === el.mediaEditModal) closeMediaEditModal();
+    });
+
+    el.mediaEditForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!currentEditingItem) return;
+
+      const newTitle = el.editVideoTitle.value.trim();
+      const newYear = parseInt(el.editVideoYear.value) || null;
+      const newType = el.editVideoType.value;
+      const newOverview = el.editVideoOverview.value.trim();
+
+      if (!newTitle) {
+        el.mediaEditFeedback.className = "avatar-feedback error";
+        el.mediaEditFeedback.textContent = "Title cannot be empty.";
+        return;
+      }
+
+      currentEditingItem.title = newTitle;
+      currentEditingItem.proposedTitle = newTitle;
+      currentEditingItem.releaseYear = newYear;
+      currentEditingItem.proposedYear = newYear;
+      currentEditingItem.type = newType;
+      currentEditingItem.overview = newOverview;
+      currentEditingItem.metadataLocked = true;
+
+      // Update episode titles & hidden states from table inputs
+      const titleInputs = el.editFilesTableWrap.querySelectorAll(".file-title-edit");
+      titleInputs.forEach((input) => {
+        const fId = parseInt(input.getAttribute("data-file-id"));
+        const file = currentEditingItem.files.find((f) => f.id === fId);
+        if (file) {
+          file.title = input.value.trim() || file.title;
+        }
+      });
+
+      const hideChecks = el.editFilesTableWrap.querySelectorAll(".file-hide-check");
+      hideChecks.forEach((check) => {
+        const fId = parseInt(check.getAttribute("data-file-id"));
+        const file = currentEditingItem.files.find((f) => f.id === fId);
+        if (file) {
+          file.isHidden = check.checked;
+        }
+      });
+
+      el.mediaEditFeedback.className = "avatar-feedback success";
+      el.mediaEditFeedback.textContent = "✓ Changes saved and locked against rescans!";
+
+      setTimeout(() => {
+        closeMediaEditModal();
+        if (window.location.hash.startsWith("#detail/video/")) {
+          renderDetailView("video", currentEditingItem.id);
+        } else if (state.activeTab === "manage") {
+          renderManageView();
+        } else if (state.activeTab === "video") {
+          renderCatalogView("video");
+        }
+      }, 500);
+    });
+
+    // Add Source Form Submit & Close
+    el.closeAddSourceBtn.addEventListener("click", closeAddSourceModal);
+    el.addSourceModal.addEventListener("click", (e) => {
+      if (e.target === el.addSourceModal) closeAddSourceModal();
+    });
+
+    el.addSourceForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = el.sourceNameInput.value.trim();
+      const type = el.sourceTypeSelect.value;
+      const path = el.sourcePathInput.value.trim();
+
+      if (!name || !path) {
+        el.addSourceFeedback.className = "avatar-feedback error";
+        el.addSourceFeedback.textContent = "Please fill in all source fields.";
+        return;
+      }
+
+      const newSource = {
+        id: Date.now(),
+        name: name,
+        mediaType: type,
+        path: path,
+        freeSpace: "2.0 TB / 4.0 TB",
+        isActive: true
+      };
+
+      FLAN_MOCK_DATA.storageSources.push(newSource);
+
+      // Auto-discover candidate items for the new source to feed the pipeline
+      const mockCandidateId = Date.now();
+      if (type === "video") {
+        FLAN_MOCK_DATA.pendingIngestion.push({
+          id: mockCandidateId,
+          sourceId: newSource.id,
+          sourceName: newSource.name,
+          rawFolder: "neon.genesis.evangelion.1995.1080p.bluray.x265",
+          proposedTitle: "Neon Genesis Evangelion",
+          proposedYear: 1995,
+          mediaType: "video",
+          fileCount: 26,
+          coverColor: "#4a148c",
+          badge: "Series",
+          overview: "In 2015, the world stands on the brink of destruction. Humanity's last hope lies in the hands of Nerv, a special United Nations agency.",
+          files: [
+            { id: mockCandidateId + 1, rawFilename: "NGE.E01.Angel.Attack.mkv", title: "EP 01 - Angel Attack", duration: "24m", progress: 0, positionSeconds: 0, isFinished: false, isHidden: false },
+            { id: mockCandidateId + 2, rawFilename: "NGE.E02.Unfamiliar.Ceiling.mkv", title: "EP 02 - Unfamiliar Ceiling", duration: "24m", progress: 0, positionSeconds: 0, isFinished: false, isHidden: false }
+          ]
+        });
+      } else {
+        FLAN_MOCK_DATA.pendingIngestion.push({
+          id: mockCandidateId,
+          sourceId: newSource.id,
+          sourceName: newSource.name,
+          rawFolder: "Foundation.Isaac.Asimov.1951.epub",
+          proposedTitle: "Foundation",
+          proposedAuthor: "Isaac Asimov",
+          proposedYear: 1951,
+          mediaType: "book",
+          fileCount: 1,
+          coverColor: "#1565c0",
+          badge: "EPUB",
+          overview: "For twelve thousand years the Galactic Empire has ruled supreme. Now it is dying.",
+          files: [
+            { id: mockCandidateId + 1, rawFilename: "Foundation - Isaac Asimov.epub", title: "Foundation", format: "epub", size: "1.5 MB" }
+          ]
+        });
+      }
+
+      el.addSourceFeedback.className = "avatar-feedback success";
+      el.addSourceFeedback.textContent = `✓ Storage folder validated and .flan-keep initialized! Launching ingestion pipeline...`;
+
+      setTimeout(() => {
+        closeAddSourceModal();
+        if (state.activeTab === "manage") {
+          renderManageView();
+        }
+        openIngestionPipeline(newSource);
+      }, 700);
+    });
+
+    // Ingestion Pipeline Modal Event Listeners
+    if (el.closePipelineBtn) el.closePipelineBtn.addEventListener("click", closeIngestionPipeline);
+    if (el.cancelPipelineBtn) el.cancelPipelineBtn.addEventListener("click", closeIngestionPipeline);
+    if (el.ingestionPipelineModal) {
+      el.ingestionPipelineModal.addEventListener("click", (e) => {
+        if (e.target === el.ingestionPipelineModal) closeIngestionPipeline();
+      });
+    }
+
+    if (el.pipelineSelectAll) {
+      el.pipelineSelectAll.addEventListener("change", () => {
+        const checked = el.pipelineSelectAll.checked;
+        pipelineCandidates.forEach((item) => {
+          item.selected = checked;
+        });
+        renderPipelineList();
+      });
+    }
+
+    if (el.pipelineFilterInput) {
+      el.pipelineFilterInput.addEventListener("input", () => {
+        renderPipelineList();
+      });
+    }
+
+    if (el.commitPipelineBtn) {
+      el.commitPipelineBtn.addEventListener("click", commitPipeline);
+    }
+
+    // Direct Web Upload Form Submit & Close
+    el.closeUploadBtn.addEventListener("click", closeUploadModal);
+    el.uploadMediaModal.addEventListener("click", (e) => {
+      if (e.target === el.uploadMediaModal) closeUploadModal();
+    });
+
+    el.uploadMediaForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const sourceId = parseInt(el.uploadTargetSource.value);
+      const title = el.uploadTitleInput.value.trim();
+      const file = el.uploadFileInput.files[0];
+
+      if (!title || !file) {
+        el.uploadFeedback.className = "avatar-feedback error";
+        el.uploadFeedback.textContent = "Please provide title and select a file.";
+        return;
+      }
+
+      const source = FLAN_MOCK_DATA.storageSources.find((s) => s.id === sourceId) || FLAN_MOCK_DATA.storageSources[0];
+      el.uploadProgressWrap.style.display = "flex";
+      el.startUploadBtn.disabled = true;
+
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 25;
+        el.uploadProgressFill.style.width = progress + "%";
+        el.uploadPercentText.textContent = progress + "%";
+
+        if (progress >= 100) {
+          clearInterval(interval);
+          el.uploadStatusText.textContent = "Streaming complete! Verifying direct-to-disk write...";
+
+          setTimeout(() => {
+            if (source.mediaType === "video") {
+              FLAN_MOCK_DATA.videos.push({
+                id: Date.now(),
+                title: title,
+                releaseYear: new Date().getFullYear(),
+                type: "movie",
+                overview: `Uploaded file: ${file.name} directly into ${source.name}`,
+                coverColor: "#00695c",
+                badge: "Movie",
+                files: [
+                  {
+                    id: Date.now() + 1,
+                    title: "Feature Playback",
+                    duration: "Direct Upload",
+                    progress: 0,
+                    positionSeconds: 0,
+                    isFinished: false,
+                    isHidden: false,
+                    streamUrl: "#",
+                    downloadUrl: "#"
+                  }
+                ]
+              });
+            } else {
+              FLAN_MOCK_DATA.books.push({
+                id: Date.now(),
+                title: title,
+                author: "Direct Upload",
+                overview: `Uploaded file: ${file.name} directly into ${source.name}`,
+                coverColor: "#d84315",
+                badge: file.name.endsWith(".pdf") ? "PDF" : "EPUB",
+                files: [
+                  {
+                    id: Date.now() + 1,
+                    title: title,
+                    format: file.name.endsWith(".pdf") ? "pdf" : "epub",
+                    size: (file.size ? (file.size / (1024 * 1024)).toFixed(1) + " MB" : "12.4 MB"),
+                    downloadUrl: "#"
+                  }
+                ]
+              });
+            }
+
+            el.uploadFeedback.className = "avatar-feedback success";
+            el.uploadFeedback.textContent = `✓ Successfully streamed "${title}" straight to ${source.path}!`;
+
+            setTimeout(() => {
+              closeUploadModal();
+              if (source.mediaType === "video") {
+                window.location.hash = "#video";
+              } else {
+                window.location.hash = "#books";
+              }
+            }, 600);
+          }, 300);
+        }
+      }, 150);
+    });
+
+    // Remove Storage Source Warning Modal Listeners
+    if (el.closeRemoveSourceBtn) el.closeRemoveSourceBtn.addEventListener("click", closeRemoveSourceModal);
+    if (el.cancelRemoveSourceBtn) el.cancelRemoveSourceBtn.addEventListener("click", closeRemoveSourceModal);
+    if (el.removeSourceModal) {
+      el.removeSourceModal.addEventListener("click", (e) => {
+        if (e.target === el.removeSourceModal) closeRemoveSourceModal();
+      });
+    }
+    if (el.confirmRemoveSourceBtn) {
+      el.confirmRemoveSourceBtn.addEventListener("click", () => {
+        if (pendingRemoveSource) {
+          const idx = FLAN_MOCK_DATA.storageSources.findIndex((s) => s.id === pendingRemoveSource.id);
+          if (idx !== -1) {
+            FLAN_MOCK_DATA.storageSources.splice(idx, 1);
+          }
+          closeRemoveSourceModal();
+          renderManageView();
+        }
+      });
+    }
+
+    // Edit Storage Source Modal Listeners
+    if (el.closeEditSourceBtn) el.closeEditSourceBtn.addEventListener("click", closeEditSourceModal);
+    if (el.cancelEditSourceBtn) el.cancelEditSourceBtn.addEventListener("click", closeEditSourceModal);
+    if (el.editSourceModal) {
+      el.editSourceModal.addEventListener("click", (e) => {
+        if (e.target === el.editSourceModal) closeEditSourceModal();
+      });
+    }
+    if (el.editSourceForm) {
+      el.editSourceForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const newName = el.editSourceNameInput.value.trim();
+        if (!newName) {
+          el.editSourceFeedback.className = "avatar-feedback error";
+          el.editSourceFeedback.textContent = "Folder name cannot be blank.";
+          return;
+        }
+
+        if (pendingEditSource) {
+          pendingEditSource.name = newName;
+          el.editSourceFeedback.className = "avatar-feedback success";
+          el.editSourceFeedback.textContent = `✓ Storage folder name updated!`;
+
+          setTimeout(() => {
+            closeEditSourceModal();
+            renderManageView();
+          }, 400);
+        }
+      });
+    }
+
+    // Help Button (top header) -> Dedicated Software Manual View
+    const helpTriggers = new Set([el.helpBtn, ...document.querySelectorAll(".help-trigger-btn")].filter(Boolean));
+    helpTriggers.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        window.location.hash = "#manual";
+      });
     });
   }
 

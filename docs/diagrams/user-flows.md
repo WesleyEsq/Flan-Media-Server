@@ -6,18 +6,20 @@ Visual workflows and interaction journeys for key user tasks in Flan Media Serve
 
 ## 1. First-Time Setup & Onboarding Flow
 
-On initial boot with an empty database, the server routes to the onboarding form on the Start screen to create the primary administrator.
+On initial boot with an empty database, the server outputs a one-time bootstrap setup token to stdout/journal and routes visits to the setup screen.
 
 ```mermaid
 flowchart TD
     Start["User visits server at http://<ip>:4907"] --> CheckDB{"Are there any users in database?"}
-    CheckDB -- "No (Initial Boot)" --> ShowSetup["Display Admin Account Creation on Start Screen"]
-    CheckDB -- "Yes" --> ShowLogin["Display Split Start Screen /login"]
+    CheckDB -- "No (Initial Boot)" --> ShowSetup["Display First-Run Setup Screen /setup"]
+    CheckDB -- "Yes" --> ShowLogin["Display Login Screen /login"]
 
-    ShowSetup --> Form["Admin enters username and 4 to 6-digit numeric PIN"]
-    Form --> Submit["Submit Account Creation"]
+    ShowSetup --> Form["Admin enters terminal bootstrap token, username, and 4 to 6-digit PIN"]
+    Form --> Submit["Submit Account Creation (POST /api/setup)"]
 
-    Submit --> CreateAdmin["1. Hash PIN with bcrypt<br/>2. Create Admin user in SQLite<br/>3. Verify or create ./media/video and ./media/books"]
+    Submit --> VerifyToken{"Token matches server bootstrap secret?"}
+    VerifyToken -- "No" --> Reject["Return 401 Unauthorized (Invalid setup token)"]
+    VerifyToken -- "Yes" --> CreateAdmin["1. Hash PIN with bcrypt<br/>2. Create Admin user in SQLite<br/>3. Verify .flan-keep in ./data and ./media"]
     CreateAdmin --> StartScan["Trigger initial scan of ./media/"]
     StartScan --> IssueSession["Issue HMAC-signed session cookie"]
     IssueSession --> Catalog["Redirect to Video Catalog /video"]
@@ -25,10 +27,10 @@ flowchart TD
 
 ---
 
-## 2. Split-Screen Start & PIN Authentication (Image 1)
-
-Returning users select their name from the dropdown and enter their numeric PIN, protected by PIN lockout (Safeguard 2).
-
+## 2. 2-Step Sequential Login & PIN Authentication
+ 
+Returning users first select their profile avatar (Step 1), then enter their numeric PIN (Step 2), protected by PIN lockout (Safeguard 2).
+ 
 ```mermaid
 sequenceDiagram
     autonumber
@@ -39,18 +41,20 @@ sequenceDiagram
 
     User->>Browser: Opens app at http://<ip>:4907
     Browser->>Server: GET /login
-    Server->>DB: Query user list (usernames, IDs)
+    Server->>DB: Query user list (usernames, IDs, avatars)
     DB-->>Server: Return users
-    Server-->>Browser: Render Split Start Screen (Welcome + User Dropdown & PIN Input)
-    User->>Browser: Selects User from dropdown, enters PIN, clicks [ Access ]
+    Server-->>Browser: Render Step 1: Profile Selection ("Who is watching?")
+    User->>Browser: Taps Profile Avatar (e.g. Wesley)
+    Browser->>Browser: Transition to Step 2: Dedicated PIN Prompt
+    User->>Browser: Enters 4-digit PIN, clicks [ Access Library → ]
     Browser->>Server: POST /api/login (user_id, pin)
     Server->>Server: Check PIN lockout (IP & User ID)
-    alt Locked out (5+ failed attempts)
+    alt Locked out (5+ failed attempts from IP)
         Server-->>Browser: HTTP 429 Too Many Requests (Lockout active)
     else Attempt allowed
         Server->>DB: Fetch user pin_hash
         DB-->>Server: Return bcrypt hash
-        Server->>Server: Verify bcrypt hash against PIN
+        Server->>Server: Verify bcrypt hash (throttled concurrency)
         alt PIN is incorrect
             Server->>Server: Increment failed attempts counter
             Server-->>Browser: HTTP 401 Unauthorized
@@ -66,7 +70,7 @@ sequenceDiagram
 
 ## 3. Media Streaming & Progress Sync
 
-Zero-copy `sendfile` video delivery and automated 5-second watch progress syncing.
+Zero-copy `sendfile` video delivery and automated 15-second watch progress syncing.
 
 ```mermaid
 sequenceDiagram
@@ -85,7 +89,7 @@ sequenceDiagram
     Browser->>Server: GET /stream/video/{file_id} (Range: bytes=0-)
     Server->>Kernel: Call sendfile from file descriptor to socket
     Kernel-->>Browser: HTTP 206 Partial Content (streams video bytes)
-    loop Every 5 seconds during playback
+    loop Every 15 seconds during playback & on pause
         Browser->>Server: POST /api/progress {media_type: "video", file_id, position_data}
         Server->>DB: UPSERT progress
         DB-->>Server: Updated
@@ -96,19 +100,19 @@ sequenceDiagram
 
 ---
 
-## 4. Media Ingestion & Synchronous Rescan Flow
+## 4. Media Ingestion & Reconciliation Flow
 
-Media files are populated directly onto host storage via network shares (SMB/NFS), SCP/rsync, or USB drives, followed by synchronous SQLite indexing.
+Media files are populated directly onto host storage via network shares (SMB/NFS), SCP/rsync, or USB drives, followed by asynchronous reconciliation indexing.
 
 ```mermaid
 flowchart TD
     A1["Place media into ./media/video/<Container>/ or ./media/books/<Container>/<br/>(via Samba, NFS, SCP, rsync, or USB drive)"] --> A2["Admin clicks 'Rescan All Media' in Manage Server"]
-    A2 --> A3["Scanner verifies mount liveness (folder exists & not empty)"]
-    A3 --> A4["Walk directory tree synchronously without external network requests"]
-    A4 --> A5["Look for local poster.jpg or cover.jpg artwork"]
-    A5 --> A6["Parse clean title & file metadata (size, format, index)"]
-    A6 --> A7["Batch upsert into SQLite videos/books and file tables"]
-    A7 --> A8["Catalog updated instantly with zero background queue delay"]
+    A2 --> A3["Scanner verifies mount marker (.flan-keep exists and directory not empty)"]
+    A3 --> A4["Singleflight crawler begins background walk; returns HTTP 202 Accepted"]
+    A4 --> A5["Discover files, poster.jpg/cover.jpg, and check mtime/size"]
+    A5 --> A6["Reconcile against SQLite:<br/>• Insert new files<br/>• Update modified files<br/>• Mark missing files without purging watch history<br/>• Preserve custom titles if metadata_locked == 1"]
+    A6 --> A7["Batch commit on dedicated writer DB connection"]
+    A7 --> A8["Manage console polls GET /api/scan/status and displays completion toast"]
 ```
 
 ---

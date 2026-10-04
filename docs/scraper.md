@@ -1,46 +1,92 @@
 # Local-First Metadata Engine
 
-Flan Media Server adopts a **strictly 100% offline, zero-overhead metadata strategy**. External APIs (such as TMDB) have been completely removed, eliminating API keys, outbound HTTP requests, network timeouts, and background worker queues.
+Flan Media Server uses an offline, directory-based metadata strategy. External metadata APIs (such as TMDB) are completely omitted, eliminating external network dependencies, API keys, and outbound network traffic.
 
 ---
 
-## 1. Core Principles
+## 1. Operating Principles
 
-* **100% Local-First by Default:** Titles and covers come straight from your folder structure:
-  * **Container Title:** Inferred from the folder name (e.g., `Breaking Bad` or `Blade Runner (1982)`).
-  * **Playable Items:** Inferred from media filenames inside the folder (e.g., `S01E01 - Pilot.mp4` or `Theatrical Cut.mp4`), sorted naturally.
-  * **Cover Artwork:** Looked up locally in the container folder as `poster.jpg` or `cover.jpg`, or extracted from embedded EPUB metadata.
-* **Offline Autonomy:** Operates completely offline with zero network latency. If no local image exists, Flan displays an embedded high-contrast SVG mascot.
-* **Zero Background Scraping Queues:** No background workers, retry loops, or upstream rate-limit timers. Crawling a library is a simple, synchronous filesystem walk that inserts records directly into SQLite.
+* **Decoupled Architecture:** Physical filesystem paths are treated strictly as immutable byte locators (`folder_path` and `relative_path`). Display metadata (`title`, `release_year`, `overview`, episode names, `order_index`) is stored independently in SQLite.
+* **Intelligent Filename Cleaning:** When discovering unformatted torrent or scene releases, the crawler automatically strips release noise (`1080p`, `x264`, `BluRay`, `WEBRip`, `[eztv]`) and detects season/episode numbers (`S01E02` $\to$ Season 1, Episode 2) to propose human-readable defaults.
+* **Natural Alphanumeric Sorting:** Files within a container are sorted using human natural ordering (`Episode 1`, `Episode 2`, ..., `Episode 10`) rather than standard ASCII lexicographical sort.
+* **On-Demand Ingestion Pipeline:** Ingestion is triggered explicitly when adding a storage source or clicking `[ Scan ]`. Discovered items are presented in an on-demand review wizard where administrators can check/uncheck candidates, fix typos inline, expand episode lists, and commit only chosen items to SQLite.
+* **Clean Database Guarantee:** The database is never polluted with unapproved or rejected candidate rows. Only items explicitly selected and ingested are written to SQLite.
+* **Preservation of User Edits:** Once an item is ingested or manually edited, `metadata_locked = 1` is enforced. Future maintenance rescans will **never** overwrite user-edited titles, descriptions, episode titles, or order indices.
 
 ---
 
-## 2. Ingestion Pipeline
+## 2. Ingestion Pipeline & Synchronization Algorithm
 
 ```text
-[Filesystem Directory under ./media/video or ./media/books]
+User Triggers [ Scan ] on Storage Source
        │
        ▼
-1. Walk Directory Tree ──────► Discovers container folder and media files
+1. Marker Check ───────────► Verifies .flan-keep in source directory
        │
        ▼
-2. Local Art Check ──────────► Looks for poster.jpg / cover.jpg / embedded EPUB art
+2. Ephemeral Crawler Walk ─► Discovers container folders and media files (handles seasons)
        │
        ▼
-3. Clean Title & Insert ─────► Container title = folder name; files = sorted items
+3. Local Artwork Check ────► Identifies poster.jpg / cover.jpg / embedded EPUB art
        │
        ▼
-4. Database Persistence ─────► Inserts into `videos` & `video_files` (or `books` & `book_files`)
+4. Name Cleaner & Parse ───► Strips scene noise, detects SxxExx, applies natural sorting
+       │
+       ▼
+5. Interactive Review ─────► Presents gathered items in Ingestion Pipeline Wizard (modal):
+       │                     • Checkbox per item (uncheck sample clips or unwanted folders)
+       │                     • Inline title & year editing to fix typos
+       │                     • Expandable file & episode list preview
+       │
+       ▼
+6. Ingest Selected ────────► POST /api/sources/{id}/ingest commits ONLY checked items to SQLite
+       │                     with metadata_locked = 1
 ```
+
+### Synchronization & Presentation Rules
+
+1. **Identity Resolution:**
+   * Containers are uniquely identified by `(source_id, folder_path)`.
+   * Files are uniquely identified by `(video_id, relative_path)` or `(book_id, relative_path)`.
+   * Titles on disk can differ completely from the catalog display title without issue.
+
+2. **Fixing Typos in the UI (Zero Disk Pain):**
+   * If a folder on disk is named `spirted.away.2001.1080p`, the administrator can fix the title to `Spirited Away (2001)` in the web UI.
+   * This updates the database record directly and sets `metadata_locked = 1`.
+   * The physical folder on disk is **never** renamed, preventing file lock errors and preserving active torrent seeds or backup sync tools.
+   * During subsequent rescans, the crawler verifies that the files still exist via `folder_path`, but leaves the custom title untouched.
+
+3. **Intelligent Filename Cleaning Regex:**
+   * **Container Cleaners:** Removes bracketed groups (`[...]`, `(-...)`), release years, resolution tags (`720p`, `1080p`, `4k`), audio tags (`DTS`, `AAC`, `5.1`), and replaces dots/underscores with clean spaces.
+   * **Episode Cleaners:** Extracts `(?i)s(\d+)e(\d+)` or `(\d+)x(\d+)` to assign `order_index` and format clean episode labels (`S01E01 - Episode 1`).
+
+4. **Missing vs. Deleted Files:**
+   * If a file disappears from disk while `.flan-keep` is verified, it is marked `is_missing = 1` rather than deleted immediately.
+   * If the file reappears in a subsequent scan, `is_missing` is reset to `0`.
+   * Administrators can permanently purge missing records from the `/manage` console.
 
 ---
 
-## 3. Supported Folder Conventions
+## 3. Directory Conventions
 
-| Media Type | Recommended Folder Structure | Example |
-| :--- | :--- | :--- |
-| **Video (Series or Movie)** | `./media/video/<Title>/<file1>.<ext>`<br>`./media/video/<Title>/poster.jpg`<br>or flat `./media/video/<Title>.<ext>` | `video/Breaking Bad/S01E01.mp4`<br>`video/Breaking Bad/poster.jpg`<br>`video/Spirited Away (2001).mp4` |
-| **Books** | `./media/books/<Title>/<file1>.<ext>`<br>or flat `./media/books/<Title>.<ext>` | `books/Dune/Book 1.epub`<br>`books/Linux Kernel.pdf` |
+### Video Media
+
+* **Series with Episodes:**
+  `./media/video/Breaking Bad/S01E01.mp4`
+  `./media/video/Breaking Bad/poster.jpg`
+* **Single Movie / Feature:**
+  `./media/video/Blade Runner (1982)/Final Cut.mp4`
+  `./media/video/Blade Runner (1982)/poster.jpg`
+* **Flat File:**
+  `./media/video/Documentary.mp4`
+
+### Book Media
+
+* **Multi-Volume Series:**
+  `./media/books/Dune/Book 1.epub`
+  `./media/books/Dune/poster.jpg`
+* **Single Document:**
+  `./media/books/Linux Kernel.pdf`
 
 ---
 
@@ -48,4 +94,4 @@ Flan Media Server adopts a **strictly 100% offline, zero-overhead metadata strat
 
 * [Master System Architecture](design.md)
 * [Storage Architecture](storage.md)
-* [Simplified Database Schema (6 Tables)](database.md)
+* [Database Schema & Queries](database.md)

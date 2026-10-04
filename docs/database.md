@@ -1,43 +1,57 @@
 # Database Schema & Query Procedures
 
-Flan Media Server uses embedded SQLite3 via Go's `database/sql` and the pure-Go driver `modernc.org/sqlite` (zero CGo, instant cross-compilation).
+Flan Media Server uses an embedded SQLite3 via Go's `database/sql` and the pure-Go driver `modernc.org/sqlite` (no CGo, standalone cross-compilation).
 
-The schema is reduced to **6 straightforward tables** centered on containers, file lists, and unified progress tracking.
+The database contains 6 relational tables representing users, media containers, media files, and user progress.
 
 ---
 
-## 1. Storage Location & Wear-Leveling Pragmas
+## 1. Storage Location & Connection Pragmas
 
 * **Database File (`DB_PATH`):** Defaults to `./data/flan.db` on fast flash storage (eMMC, NVMe, or root micro-SD).
-* **Ghost Mount Defense (`.flan-keep`):** Before initializing an external DB path, Flan verifies that `.flan-keep` exists in the folder. If missing, startup halts immediately to prevent writing a blank database to an unmounted root card.
+* **Mount Marker Verification:** Before initializing SQLite, Flan verifies that `.flan-keep` exists in the database directory. If missing, startup halts immediately to prevent writing a blank database to an unmounted mount point.
 
-### Connection Pooling & Pragmas
+### Connection Configuration
+
+In SQLite WAL mode, concurrent readers do not block writers, and writers do not block readers. To support parallel page rendering without write contention, Flan separates database handles:
 
 ```go
-// internal/database/database.go
-db.SetMaxOpenConns(1) // Single serialized connection avoids write contention & saves RAM
-db.SetMaxIdleConns(1)
-db.SetConnMaxLifetime(0)
+// Dedicated Writer DB handle (serialized writes)
+writerDB.SetMaxOpenConns(1)
+writerDB.SetMaxIdleConns(1)
+
+// Dedicated Reader DB handle (parallel HTTP reads)
+readerDB.SetMaxOpenConns(3)
+readerDB.SetMaxIdleConns(3)
+readerDB.SetConnMaxLifetime(0)
 ```
 
-| Pragma | Value | Purpose |
-| :--- | :--- | :--- |
-| `journal_mode` | `WAL` | Enables non-blocking concurrent reads while writes occur. |
-| `synchronous` | `NORMAL` | Reduces `fsync` calls; safe in WAL mode; extends micro-SD card lifespan. |
-| `cache_size` | `-2000` | Limits SQLite page cache strictly to ~2 MB of RAM. |
-| `busy_timeout` | `5000` | Automatically waits up to 5 seconds for write locks to clear. |
-| `foreign_keys` | `ON` | Enforces relational integrity and cascading deletes. |
+### Essential Pragmas
+
+The following pragmas are executed on every connection initialization:
+
+* `PRAGMA journal_mode = WAL;`
+  Enables Write-Ahead Logging for non-blocking concurrent reads during active writes.
+* `PRAGMA synchronous = NORMAL;`
+  Reduces `fsync` system calls; safe in WAL mode and extends flash memory (micro-SD / eMMC) lifespan.
+* `PRAGMA cache_size = -2000;`
+  Constrains SQLite memory cache strictly to ~2 MB of RAM per connection.
+* `PRAGMA busy_timeout = 5000;`
+  Instructs queries to wait up to 5 seconds for write locks to clear before failing.
+* `PRAGMA foreign_keys = ON;`
+  Enforces relational foreign key constraints and cascading deletes.
 
 ---
 
-## 2. Ultra-Streamlined Relational Schema (6 Tables)
+## 2. Relational Schema (7 Tables)
 
 ```sql
 -- 1. User Profiles & Lockouts
 CREATE TABLE IF NOT EXISTS users (
-    user_id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER PRIMARY KEY,
     username        TEXT NOT NULL UNIQUE,
-    pin_hash        TEXT NOT NULL,
+    display_name    TEXT,                   -- optional friendly household nickname
+    pin_hash        TEXT NOT NULL,          -- bcrypt hash of 4-6 digit numeric PIN
     role            TEXT NOT NULL CHECK(role IN ('admin', 'user')),
     token_version   INTEGER NOT NULL DEFAULT 1,
     avatar_icon     TEXT DEFAULT 'default', -- bundled SVG icon name
@@ -47,63 +61,94 @@ CREATE TABLE IF NOT EXISTS users (
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Video Containers (Represents a Movie or TV Series)
-CREATE TABLE IF NOT EXISTS videos (
-    video_id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    title           TEXT NOT NULL UNIQUE,
-    overview        TEXT,
-    cover_path      TEXT,
-    folder_path     TEXT NOT NULL UNIQUE, -- Relative path under ./media/video/
+-- 2. Configurable Storage Sources (Multi-Drive Roots)
+CREATE TABLE IF NOT EXISTS storage_sources (
+    source_id       INTEGER PRIMARY KEY,
+    name            TEXT NOT NULL,          -- e.g. "Main USB Movies", "TV Drive", "Books"
+    media_type      TEXT NOT NULL CHECK(media_type IN ('video', 'book')),
+    folder_path     TEXT NOT NULL UNIQUE,   -- Absolute or root-relative directory path
+    is_active       INTEGER NOT NULL DEFAULT 1,
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Playable Video Files (Episodes of a Series OR Versions/Cuts of a Movie)
-CREATE TABLE IF NOT EXISTS video_files (
-    file_id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    video_id         INTEGER NOT NULL REFERENCES videos(video_id) ON DELETE CASCADE,
-    title            TEXT NOT NULL, -- e.g. "S01E01 - Pilot" or "Director's Cut" or "Movie"
-    relative_path    TEXT NOT NULL UNIQUE, -- Path under ./media/video/
-    file_size        INTEGER NOT NULL,
-    format           TEXT NOT NULL, -- 'mp4', 'webm', 'mkv'
-    duration_seconds INTEGER DEFAULT 0,
-    order_index      INTEGER DEFAULT 0
+-- 3. Video Containers (Represents a Movie or TV Series)
+CREATE TABLE IF NOT EXISTS videos (
+    video_id        INTEGER PRIMARY KEY,
+    source_id       INTEGER NOT NULL REFERENCES storage_sources(source_id) ON DELETE CASCADE,
+    title           TEXT NOT NULL,          -- Display title (freely editable, protected from rescan)
+    release_year    INTEGER,                -- e.g. 1982 or 2008
+    overview        TEXT,
+    cover_path      TEXT,                   -- Path to cached or uploaded poster art
+    folder_path     TEXT NOT NULL,          -- Relative path within storage source
+    is_hidden       INTEGER NOT NULL DEFAULT 0, -- 1 = hidden from catalog by administrator
+    metadata_locked INTEGER NOT NULL DEFAULT 1, -- 1 = preserve user/admin edits against rescan overwrite
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_id, folder_path)
 );
 
--- 4. Book Containers (Represents a Book or Multi-Volume Series)
+-- 4. Playable Video Files (Episodes of a Series OR Versions/Cuts of a Movie)
+CREATE TABLE IF NOT EXISTS video_files (
+    file_id          INTEGER PRIMARY KEY,
+    video_id         INTEGER NOT NULL REFERENCES videos(video_id) ON DELETE CASCADE,
+    title            TEXT NOT NULL,         -- Auto-detected or fallback title
+    custom_title     TEXT,                  -- User-specified title override (e.g. "S01E01 - Pilot")
+    relative_path    TEXT NOT NULL,         -- Relative path within container
+    file_size        INTEGER NOT NULL,
+    mtime            INTEGER DEFAULT 0,     -- Unix timestamp for fast change detection
+    format           TEXT NOT NULL,         -- 'mp4', 'webm', 'mkv'
+    duration_seconds INTEGER DEFAULT 0,
+    order_index      INTEGER DEFAULT 0,
+    is_hidden        INTEGER NOT NULL DEFAULT 0, -- 1 = hide extras/sample clips from public listing
+    is_missing       INTEGER NOT NULL DEFAULT 0, -- 1 = temporarily missing from disk
+    UNIQUE(video_id, relative_path)
+);
+
+-- 5. Book Containers (Represents a Book or Multi-Volume Series)
 CREATE TABLE IF NOT EXISTS books (
-    book_id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    title           TEXT NOT NULL UNIQUE,
+    book_id         INTEGER PRIMARY KEY,
+    source_id       INTEGER NOT NULL REFERENCES storage_sources(source_id) ON DELETE CASCADE,
+    title           TEXT NOT NULL,
     author          TEXT,
     overview        TEXT,
     cover_path      TEXT,
-    folder_path     TEXT NOT NULL UNIQUE, -- Relative path under ./media/books/
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+    folder_path     TEXT NOT NULL,          -- Relative path within storage source
+    is_hidden       INTEGER NOT NULL DEFAULT 0, -- 1 = hidden from catalog by administrator
+    metadata_locked INTEGER NOT NULL DEFAULT 1, -- 1 = preserve admin edits against rescan overwrite
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_id, folder_path)
 );
 
--- 5. Book Files (Volumes, Editions, or Single Files)
+-- 6. Book Files (Volumes, Editions, or Single Files)
 CREATE TABLE IF NOT EXISTS book_files (
-    file_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_id          INTEGER PRIMARY KEY,
     book_id          INTEGER NOT NULL REFERENCES books(book_id) ON DELETE CASCADE,
     title            TEXT NOT NULL,
-    relative_path    TEXT NOT NULL UNIQUE, -- Path under ./media/books/
+    custom_title     TEXT,                  -- User-specified volume title override
+    relative_path    TEXT NOT NULL,         -- Relative path within container
     file_size        INTEGER NOT NULL,
+    mtime            INTEGER DEFAULT 0,     -- Unix timestamp for fast change detection
     format           TEXT NOT NULL CHECK(format IN ('epub', 'pdf')),
-    order_index      INTEGER DEFAULT 0
+    order_index      INTEGER DEFAULT 0,
+    is_hidden        INTEGER NOT NULL DEFAULT 0,
+    is_missing       INTEGER NOT NULL DEFAULT 0, -- 1 = temporarily missing from disk
+    UNIQUE(book_id, relative_path)
 );
 
--- 6. Unified Progress Tracking (Video & Books)
+-- 7. Unified Progress Tracking (Video & Books)
 CREATE TABLE IF NOT EXISTS progress (
     user_id          INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     media_type       TEXT NOT NULL CHECK(media_type IN ('video', 'book')),
     file_id          INTEGER NOT NULL,
-    position_data    TEXT NOT NULL, -- Seconds string (e.g. "1450") or EPUB CFI / Page string
+    position_data    TEXT NOT NULL,         -- Video: seconds string (e.g. "1450.5"); Book: "unread", "reading", "finished"
     percentage       REAL DEFAULT 0.0,
     is_finished      INTEGER NOT NULL DEFAULT 0,
     updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, media_type, file_id)
 );
 
--- Fast Index Lookups
+-- Indices for Catalog Lookups & Scans
+CREATE INDEX IF NOT EXISTS idx_videos_source ON videos(source_id, is_hidden);
+CREATE INDEX IF NOT EXISTS idx_books_source ON books(source_id, is_hidden);
 CREATE INDEX IF NOT EXISTS idx_video_files_video ON video_files(video_id, order_index);
 CREATE INDEX IF NOT EXISTS idx_book_files_book ON book_files(book_id, order_index);
 CREATE INDEX IF NOT EXISTS idx_progress_lookup ON progress(user_id, media_type, updated_at DESC);
@@ -111,20 +156,25 @@ CREATE INDEX IF NOT EXISTS idx_progress_lookup ON progress(user_id, media_type, 
 
 ---
 
-## 3. Core Query Patterns
+## 3. Common Query Procedures
 
 ### Video Catalog List
+
 ```sql
-SELECT video_id, title, cover_path FROM videos ORDER BY title ASC;
+SELECT video_id, title, cover_path FROM videos WHERE video_id NOT IN (
+    SELECT video_id FROM video_files WHERE is_missing = 1 GROUP BY video_id HAVING count(*) = (SELECT count(*) FROM video_files vf2 WHERE vf2.video_id = videos.video_id)
+) ORDER BY title ASC;
 ```
 
 ### Video Detail with Playable File List
+
 ```sql
 SELECT 
     f.file_id,
     f.title,
     f.duration_seconds,
     f.order_index,
+    f.is_missing,
     COALESCE(p.position_data, '0') AS position_data,
     COALESCE(p.is_finished, 0) AS is_finished
 FROM video_files f
@@ -134,6 +184,7 @@ ORDER BY f.order_index ASC, f.title ASC;
 ```
 
 ### Unified Progress Upsert
+
 ```sql
 INSERT INTO progress (user_id, media_type, file_id, position_data, percentage, is_finished, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -144,9 +195,13 @@ ON CONFLICT(user_id, media_type, file_id) DO UPDATE SET
     updated_at = CURRENT_TIMESTAMP;
 ```
 
-### Zero-Lock Backups & Health Checks
-* **Integrity Check (Boot):** `PRAGMA quick_check;` validates file consistency on startup.
-* **Daily Hot Backup:** `VACUUM INTO 'data/flan.db.backup';` takes an atomic non-blocking snapshot every 24 hours.
+### Integrity Checks and Backups
+
+* **Startup Health Check:** `PRAGMA quick_check;` runs during startup to verify database consistency.
+* **Safe Snapshot Backup:**
+  1. Run `VACUUM INTO 'data/flan.db.tmp';` via a background worker.
+  2. Atomically rename `data/flan.db.tmp` to `data/flan.db.backup` via `os.Rename`.
+  This guarantees a consistent point-in-time copy without blocking active database readers.
 
 ---
 

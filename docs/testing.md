@@ -1,26 +1,24 @@
-# Testing Strategy & TDD Guidelines
+# Testing Strategy & Guidelines
 
-Flan Media Server enforces a fast, hermetic testing suite that runs in sub-100ms times without spinning up live TCP servers, creating real files on disk, or requiring a running database.
-
----
-
-## 1. Core Testing Philosophy
-
-| Principle | Rule | Implementation |
-| :--- | :--- | :--- |
-| **Zero Disk I/O** | Unit tests must never touch the physical filesystem. | Scanners and parsers accept Go's standard `io/fs.FS` interface. Tests run against in-memory virtual filesystems via `testing/fstest.MapFS`. |
-| **Zero DB Coupling in Handlers** | HTTP controllers must never depend directly on `*sql.DB`. | Controllers accept narrow consumer-driven interfaces (e.g. `UserStore`, `VideoStore`, `BookStore`). Unit tests mock these in memory. |
-| **Network-Free Handlers** | Never spin up live TCP servers on port 4907 for testing. | Endpoints and middlewares are verified using standard `net/http/httptest`. |
-| **Sub-Second Execution** | The entire suite must execute in milliseconds. | Allows continuous test-driven development (`TDD`) without friction. |
+Flan Media Server uses a fast, hermetic testing suite that runs in-memory without spawning live network servers, writing temporary files to physical disks, or requiring an external database process.
 
 ---
 
-## 2. Decoupled Filesystem: In-Memory Virtual FS
+## 1. Testing Principles
 
-Production code consumes `io/fs.FS`, while tests use `testing/fstest.MapFS`:
+* **Zero Disk I/O:** Unit tests do not touch the physical filesystem. Scanners and file readers accept Go's standard `io/fs.FS` interface. Tests run against in-memory virtual filesystems using `testing/fstest.MapFS`.
+* **Decoupled Handlers:** Controllers never depend directly on concrete database handles (`*sql.DB`). They interact with service interfaces that can be mocked in memory during testing.
+* **Network-Free Handlers:** HTTP endpoints and middleware filters are tested using Go's standard `net/http/httptest` package without opening network ports.
+* **Isolated Database Tests:** Repository integration tests run against ephemeral in-memory SQLite instances (`file::memory:?cache=shared`), executing full migrations and SQL queries without leaving artifacts on disk.
+
+---
+
+## 2. In-Memory Virtual Filesystem Testing
+
+Production scanning logic consumes `io/fs.FS`, allowing tests to simulate arbitrary folder layouts with `testing/fstest.MapFS`:
 
 ```go
-// internal/scraper/scanner_test.go
+// internal/service/scanner_service_test.go
 func TestScanDirectory_DetectsContainerAndFiles(t *testing.T) {
     mockFS := fstest.MapFS{
         "Breaking Bad/S01E01.mp4": &fstest.MapFile{Data: []byte("fake video data")},
@@ -43,34 +41,31 @@ func TestScanDirectory_DetectsContainerAndFiles(t *testing.T) {
 
 ---
 
-## 3. Decoupled Handlers: Consumer-Driven Interfaces
+## 3. Controller Unit Testing with Mocks
 
-Controllers accept small interfaces containing only the methods they invoke:
+Controllers accept service interfaces, allowing testing HTTP status codes, headers, and payload serialization with `net/http/httptest`:
 
 ```go
-// Controller Interface
-type UserStore interface {
-    VerifyPIN(userID int, pin string) (bool, error)
+type mockAuthService struct {
+    verifyPINFunc func(userID int64, pin string) (bool, error)
 }
 
-// Unit Test Mock
-type mockUserStore struct {
-    verifyPINFunc func(userID int, pin string) (bool, error)
-}
-
-func (m *mockUserStore) VerifyPIN(id int, pin string) (bool, error) {
-    return m.verifyPINFunc(id, pin)
+func (m *mockAuthService) VerifyPIN(userID int64, pin string) (bool, error) {
+    return m.verifyPINFunc(userID, pin)
 }
 
 func TestLoginController_RejectsInvalidPIN(t *testing.T) {
-    store := &mockUserStore{
-        verifyPINFunc: func(id int, pin string) (bool, error) { return false, nil },
+    authService := &mockAuthService{
+        verifyPINFunc: func(userID int64, pin string) (bool, error) { 
+            return false, nil 
+        },
     }
-    controller := NewAuthController(store)
-    req := httptest.NewRequest("POST", "/api/login", strings.NewReader(`{"pin":"0000"}`))
+    controller := NewAuthController(authService)
+    
+    req := httptest.NewRequest("POST", "/api/login", strings.NewReader(`{"user_id":1,"pin":"0000"}`))
     rec := httptest.NewRecorder()
 
-    controller.ServeHTTP(rec, req)
+    controller.handleLogin(rec, req)
 
     if rec.Code != http.StatusUnauthorized {
         t.Errorf("expected 401 Unauthorized, got %d", rec.Code)
@@ -80,23 +75,23 @@ func TestLoginController_RejectsInvalidPIN(t *testing.T) {
 
 ---
 
-## 4. Pure Function Testing
+## 4. Pure Function & Cryptographic Testing
 
-Core utilities are implemented as pure, zero-dependency functions:
+Core algorithms and security utilities are implemented as pure, zero-dependency functions:
 
-* **Filename Sanitizer:** `CleanFilename(raw string) (title string, year int, season int, episode int)` — tested with table-driven tests against messy real-world filenames.
-* **HTTP Range Parser:** `ParseByteRange(header string, size int64) (start int64, length int64, err error)` — tested against boundary and overflow conditions.
-* **EPUB Identifier & CFI Validator:** `ValidateCFI(cfi string) bool` — tested against valid and malformed CFIs.
+* **Filename Sanitization:** `CleanFilename(raw string) (title string, year int, season int, episode int)` — tested with table-driven test cases against real-world media release formats.
+* **Signed URL Verification:** `VerifySignedURL(secret []byte, fileID int64, userID int64, exp int64, sigHex string) bool` — tested against expired timestamps, modified user IDs, tampered signatures, and constant-time execution.
+* **Reconciliation Diff Engine:** `DiffCatalog(disk []DiscoveredItem, db []StoredItem) ReconciliationPlan` — tested against new files, missing files, drive unmounts, and metadata lock preservation.
 
 ---
 
-## 5. Running Tests
+## 5. Executing Tests
 
 ```bash
 # Run all unit tests
 go test -v ./...
 
-# Run tests with race condition detection
+# Run tests with race detector enabled
 go test -race ./...
 ```
 
@@ -105,5 +100,5 @@ go test -race ./...
 ## 6. Related Documentation
 
 * [Master System Architecture](design.md)
-* [Directory Structure](directories.md)
-* [Simplified Database Schema](database.md)
+* [Directory Structure & Architecture](directories.md)
+* [Database Schema & Queries](database.md)

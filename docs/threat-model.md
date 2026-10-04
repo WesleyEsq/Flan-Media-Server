@@ -1,44 +1,99 @@
-# Security Threat Model & Defensive Mitigations
+# Security Threat Model & Mitigations
 
-Security boundaries, attack vectors, and defensive postures for Flan Media Server running in homelabs, VPN overlays, and local networks.
-
----
-
-## 1. Operating Environment & Threat Actors
-
-* **Operating Context:** Isolated LANs, overlay mesh networks (Tailscale, WireGuard), or behind reverse proxies (Nginx, Cloudflare).
-* **Threat Actors:** Compromised IoT devices or guests on local Wi-Fi, untrusted household users seeking elevated permissions, or automated internet scanners.
-* **Zero Outbound Attack Surface:** Because external scraper integrations (TMDB) are eliminated, Server-Side Request Forgery (SSRF) risks are non-existent.
+Security boundaries, attack vectors, and defensive postures for Flan Media Server operating in private homelab networks, VPN mesh overlays (Tailscale, WireGuard), or behind reverse proxies.
 
 ---
 
-## 2. Threat Vector Matrix
+## 1. Operating Environment & Threat Context
 
-| # | Attack Vector | Threat & Impact | Defensive Mitigation |
-| :- | :--- | :--- | :--- |
-| **1** | **Path Traversal** | Attacker accesses sensitive host files (`/etc/shadow`, SSH keys) via file parameters. *(Critical)* | • **Opaque IDs:** Endpoints accept typed numeric IDs (`/stream/video/42`), never file paths.<br>• **Canonical Path Check:** Resolves symlinks via `filepath.EvalSymlinks` and asserts that the target resides inside the verified media directory.<br>• **Embedded Static Files:** Web assets are served from `embed.FS`, completely isolated from the host root filesystem. |
-| **2** | **PIN Brute-Forcing** | 4–6 digit numeric PINs are automated over the local network. *(High)* | • **Bcrypt Hashing:** PINs are salted and hashed with bcrypt.<br>• **Progressive Lockout:** 5 failed attempts trigger a 5-minute lockout with exponential backoff on subsequent failures (Safeguard 2). |
-| **3** | **Malicious Avatar Uploads** | Attacker attempts to upload large files to exhaust storage or upload HTML/scripts disguised as images. *(Medium)* | • **Size Ceiling:** Hard 2 MB ceiling enforced via `http.MaxBytesReader`.<br>• **Magic Byte Validation:** Validates image magic headers (JPEG, PNG, WebP) and rejects executable/SVG content.<br>• **Sandboxed Storage:** Saved to `data/avatars/{user_id}.ext` with non-executable `0644` permissions and served with `X-Content-Type-Options: nosniff`. |
-| **4** | **Session Tampering & Privilege Escalation** | Attacker tampers with cookies to elevate role or access deleted accounts. *(High)* | • **HMAC-SHA256 Signing:** Cookie payload formatted as `userID:role:tokenVersion:issuedAt:signature`, verified in constant time (`hmac.Equal`).<br>• **Instant In-Memory Revocation:** Server caches `token_version` in RAM (`map[int]int`). Resetting a PIN increments the version, revoking old sessions instantly without DB queries.<br>• **Key Security:** 32-byte secret loaded from `SESSION_SECRET` or `data/.session_secret` (`0600` permissions).<br>• **Cookie Flags:** `HttpOnly`, `SameSite=Lax`, and `Secure` when TLS is active. |
-| **5** | **Ghost Database Hijacking** | External media/DB mount fails on boot; server initializes on root flash card, causing split-brain. *(High)* | • **Marker File (`.flan-keep`):** Startup halts if the DB path lacks `.flan-keep`.<br>• **Scanner Mount Check:** Scans abort safely without purging database records if a media folder is empty or absent. |
+* **Network Environment:** Private local area networks (LANs), overlay networks (Tailscale, WireGuard), or reverse proxies (Nginx, Caddy, Cloudflare Tunnels).
+* **Threat Actors:** Compromised IoT devices or guest devices on the local Wi-Fi, untrusted household members attempting privilege escalation, or automated vulnerability scanners.
+* **Eliminated Attack Surfaces:** Because third-party API integrations (such as TMDB) are completely omitted, Server-Side Request Forgery (SSRF) and external credential leakage risks do not exist.
+
+---
+
+## 2. Threat Analysis & Mitigations
+
+### 1. Path Traversal
+
+* **Threat:** An attacker attempts to read arbitrary files from the host system (such as `/etc/shadow` or SSH keys) using directory traversal payloads (`../../`) in media request parameters.
+* **Mitigations:**
+  * **Opaque Numeric Identifiers:** Public endpoints accept only integer IDs (`/stream/video/42`), never client-supplied filesystem paths.
+  * **Canonical Path Validation:** File paths resolved from the database are verified using `filepath.EvalSymlinks`, asserting that the target resides strictly within the verified media root directory.
+  * **Embedded Web Assets:** Static assets and templates are served from Go's `embed.FS`, fully isolated from the host filesystem.
+
+### 2. PIN Brute-Force Attacks
+
+* **Threat:** An attacker automates rapid login attempts against short numeric PINs (4 to 6 digits) over the local network.
+* **Mitigations:**
+  * **Bcrypt Hashing:** PINs are stored as salted bcrypt hashes.
+  * **Progressive Lockout:** 5 consecutive failed attempts trigger a 5-minute lockout with exponential backoff on subsequent failures.
+  * **CPU Throttling:** Concurrent bcrypt hashing operations are serialized (maximum 1 concurrent comparison) to prevent CPU starvation on low-power devices.
+
+### 3. Malicious Avatar Uploads
+
+* **Threat:** An attacker uploads excessively large files to exhaust disk space, or uploads malicious scripts disguised as images to execute cross-site scripting (XSS).
+* **Mitigations:**
+  * **Size Limitation:** A strict 2 MB upload ceiling is enforced via `http.MaxBytesReader`.
+  * **Format & Magic Byte Validation:** File headers are validated against allowed image formats (JPEG, PNG, WebP). SVG and HTML formats are rejected.
+  * **Isolated Storage:** Files are written to `data/avatars/{user_id}.ext` with non-executable permissions (`0644`) and served with `X-Content-Type-Options: nosniff`.
+
+### 4. Session Tampering & Privilege Escalation
+
+* **Threat:** An attacker modifies session cookies to impersonate an administrator or bypass authorization checks.
+* **Mitigations:**
+  * **HMAC-SHA256 Signing:** Cookie payloads are formatted as `userID:role:tokenVersion:issuedAt:signature` and verified in constant time (`hmac.Equal`).
+  * **Instant Token Revocation:** The server tracks `token_version` in memory. Modifying a PIN increments the user's version, instantly invalidating all existing cookies without requiring database lookups.
+  * **Secure Cookie Attributes:** Cookies are set with `HttpOnly`, `SameSite=Lax`, and the `__Host-` prefix when TLS is active.
+  * **Cross-Origin Protection:** Cross-origin request forgery is prevented using Go standard origin and fetch metadata checks (`Sec-Fetch-Site`).
+
+### 5. Unmounted Media Hijacking
+
+* **Threat:** An external drive fails to mount at boot, causing the server to initialize against an empty folder on root flash and corrupting the media catalog.
+* **Mitigations:**
+  * **Marker Verification:** Startup terminates immediately if `.flan-keep` is missing from either `./data/` or `./media/`.
+  * **Safe Scanner Abort:** The scanner verifies marker files prior to crawling and halts safely without purging database records if a media directory is unavailable.
+
+### 6. First-Run Admin Takeover
+
+* **Threat:** An unauthorized user on the local network visits the web interface before the administrator and registers the primary administrative account.
+* **Mitigations:**
+  * **Terminal Bootstrap Token:** On initial boot with zero users, Flan outputs a random 6-character bootstrap setup token to the terminal/systemd journal. The setup endpoint (`/setup`) strictly requires this token to create the initial administrator account.
+
+### 7. Denial-of-Service via Account Lockout
+
+* **Threat:** A malicious user deliberately enters bad PINs to lock other family members out of their accounts.
+* **Mitigations:**
+  * **Dual-Key Isolation:** Lockout state is tracked using a combined key of Client IP address and Target User ID. A lockout triggered from one device does not affect users accessing their accounts from other household devices.
+  * **Proxy Awareness:** When running behind a reverse proxy, the client IP is extracted from `X-Forwarded-For` only when requests originate from configured `TRUSTED_PROXIES`.
+
+### 8. External Player URL Tampering
+
+* **Threat:** An attacker attempts to forge or replay signed download URLs used for VLC/MPV streaming.
+* **Mitigations:**
+  * **HMAC Signed URLs:** URLs carry `exp`, `u`, and `sig` query parameters validated in constant time.
+  * **Time Expiration:** Signed URLs expire after 4 hours.
 
 ---
 
 ## 3. Account Recovery & Failsafes
 
-Because Flan runs in self-contained homelabs without email infrastructure, recovery uses a two-tier model:
+Because Flan runs in self-contained homelabs without external email infrastructure, recovery relies on local host access:
 
-1. **Standard Users:** The administrator can change or reset any user's PIN from `/manage`.
-2. **Administrator CLI Failsafe:** If the admin forgets their PIN, host shell access allows resetting it directly:
-   ```bash
-   ./flan --reset-admin
-   ```
-   This interactive CLI command prompts for a new PIN, hashes it with bcrypt, updates SQLite, and increments `token_version` to invalidate any compromised sessions.
+* **Standard Accounts:** Administrators can reset user PINs directly through the `/manage` console.
+* **Administrator Recovery:** If the administrator forgets their PIN, host shell access allows resetting it directly:
+
+  ```bash
+  ./flan --reset-admin
+  ```
+
+  This command updates the PIN in SQLite, hashes it with bcrypt, and increments `token_version` to invalidate all active sessions.
 
 ---
 
 ## 4. Related Documentation
 
-* [Rate Limiting Architecture](rate-limiting.md)
+* [Master System Architecture](design.md)
+* [Rate Limiting & Throttling](rate-limiting.md)
 * [Storage Architecture](storage.md)
-* [Simplified Database Schema (6 Tables)](database.md)
+* [Database Schema & Queries](database.md)

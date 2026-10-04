@@ -1,31 +1,31 @@
 # Web Client Design System & Foundations
 
-Visual tokens, typography scale, sidebar-only layout, and tactile interaction principles for Flan Media Server's web client.
+Visual tokens, typography scale, sidebar layout, and interaction principles for Flan Media Server's web client.
 
 ---
 
 ## 1. Core Visual Principles
 
-* **Sidebar-Only Navigation:** Platform navigation is strictly consolidated into the left sidebar (`Video`, `Books`, and `Manage Server`). The top header bar contains zero navigation links.
-* **High-Contrast Neo-Tactile Aesthetic:** Bold 2px/3px black borders (`#000000`), solid purple header and sidebar, and high-readability surfaces.
-* **No Random Hovers or Delayed Transitions:** Zero bouncy float transforms, no hover scale delays, and no blur filters (`backdrop-filter`). Controls give instant, crisp visual feedback.
-* **Clicks In Place:** Physical, tactile button feel. Buttons depress slightly on `:active` (`transform: translateY(2px)`), making interaction immediately obvious and accessible on touchscreens, mice, and TV remotes.
-* **Zero Emojis:** Pure SVG vector icons are used exclusively for all buttons, avatars, and indicators. No OS-dependent emoji rendering.
-* **System Font Stack:** Uses the device's native system font stack with zero external font network requests (`font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`).
-
-* **WCAG 2.1 AA Accessibility Compliant:** Verified color contrast ratios $\ge 4.5:1$ on all text surfaces, visible tactile focus rings (`:focus-visible`), support for `prefers-reduced-motion: reduce`, unrestricted user text selection, and skip-to-content links.
+* **Sidebar Navigation:** Platform navigation is consolidated into the left sidebar (`Video`, `Books`, and `Manage Server`). The top header bar contains no page navigation links.
+* **High-Contrast Styling:** 2px and 3px solid black borders (`#000000`), solid purple header and sidebar, and clean, high-readability surfaces.
+* **Instant Transitions:** No float transforms, hover scale delays, or blur filters (`backdrop-filter`). Controls provide immediate visual feedback.
+* **Tactile Buttons:** Buttons depress slightly on `:active` (`transform: translateY(2px)`), making interaction evident on touchscreens, mice, and TV remotes.
+* **Zero Emojis:** Standard SVG vector icons are used for buttons, indicators, and controls.
+* **System Font Stack:** Uses native system fonts with zero external font network requests:
+  `font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
+* **Accessibility Compliance:** WCAG 2.1 AA compliant contrast ratios ($\ge 4.5:1$) on text surfaces, visible keyboard focus rings (`:focus-visible`), support for `prefers-reduced-motion: reduce`, unrestricted user text selection, and skip-to-content links.
 
 ---
 
 ## 2. Color Palette & Design Tokens
 
-All styles are declared as CSS variables in `web/static/css/style.css`:
+Styles are declared as CSS variables in `web/static/css/style.css`:
 
 ```css
 :root {
     /* Brand & Structural Surfaces (WCAG AA Compliant) */
     --brand-purple:     #724799; /* Header bar background (contrast >= 6.8:1 with pure white text) */
-    --brand-active:     #6d4ca6; /* Active/selected button background (contrast 6.5:1 with white text) */
+    --brand-active:     #6d4ca6; /* Active button background (contrast 6.5:1 with white text) */
     --brand-access:     #5b3794; /* Login Access button (contrast 8.7:1 with white text) */
     --bg-main:          #f4f0fa; /* Main content area (pale lavender) */
     --surface-card:     #ffffff; /* Card background */
@@ -52,116 +52,110 @@ All styles are declared as CSS variables in `web/static/css/style.css`:
 
 ---
 
-## 3. Sidebar-Only Global Layout
+## 3. Dedicated Top Header & Streamlined Rail Sidebar Layout
 
-All navigation across the entire platform occurs through the left sidebar. The top header is reserved exclusively for branding and utility tools.
-
-```text
-+-------------------------------------------------------------------------+
-| Flan Media Server                                           ( ? )   [Avatar]|
-+----------+--------------------------------------------------------------+
-| ←─────── |                                                              |
-| [ Video] |   +---------------------------------------------+  [ 🔍 ]    |
-|          |   | Search input...                             |            |
-| [ Books] |   +---------------------------------------------+            |
-| ────────►|                                                              |
-|          |   +---------------+  +---------------+  +---------------+    |
-|          |   | [Poster Area] |  | [Poster Area] |  | [Poster Area] |    |
-|          |   |---------------|  |---------------|  |---------------|    |
-|          |   | [Purple Band] |  | [Purple Band] |  | [Purple Band] |    |
-| [Manage] |   +---------------+  +---------------+  +---------------+    |
-+----------+--------------------------------------------------------------+
-```
-
-### 1. Top Header Bar (`header.top-bar`)
-* **Background:** Solid purple (`--brand-purple: #9c7cd8`). Height: 60px.
-* **Left Title:** Bold text `Flan Media Server` (white, high-contrast, ~1.5rem).
-* **Right Utility Controls (No navigation links):**
-  * `( ? )` **Software Manual Button:** White circle, 36px diameter, thick 2px black border. Navigates to the dedicated Software Handbook view (`/manual`).
-  * `[Avatar]` **User Profile Badge:** 40px rounded rectangle with thick 2px black border, displaying user's selected SVG avatar or custom image. Depresses on click to open the "My Profile" modal.
-
-### 2. Exclusive Left Navigation Sidebar (`aside.sidebar`)
-* **Background:** Solid purple (`--brand-purple: #9c7cd8`). Width: ~200px.
-* **Divider:** `3px solid #000000` vertical border separating sidebar from main content.
-* **Tactile Navigation Buttons:**
-  * **`Video`**: Navigates to `/video`. When active, fills with solid darker purple (`#6d52a8`) and white text. When inactive, light gray (`#eae8f2`) with black text.
-  * **`Books`**: Navigates to `/books`. Same active/inactive tactile states.
-  * **`Manage Server`** *(bottom)*: Navigates to `/manage`.
-* All buttons have a thick `2px solid #000000` border and `8px` rounded corners.
-
-### 3. Main Content Area (`main.content`)
-* **Background:** Pale lavender (`--bg-main: #f4f0fa`).
-* **Search Bar:** Large white input field with `2px solid #000000` border, followed by a square `🔍` search button.
-* **Media Grid:** Direct grid of high-contrast cards. Each card has a white poster area and a **solid purple footer band** (`#6d52a8`) at the bottom.
-
----
-
-## 4. Split-Screen Start & Login (`login.html` - Image 1)
-
-Unauthenticated users see a split-panel screen with zero on-screen keypad bloat:
+A dedicated top header bar (`header.top-header`, 56px height) sits at the top of the interface across both desktop and mobile viewports, providing persistent brand identity and utility controls (`?` manual button and user avatar). Platform navigation is streamlined into a clean left rail sidebar on desktop (shifting to a fixed bottom rail on mobile). Scoped search remains within the catalog canvas.
 
 ```text
-+-------------------------------------------------------------------------+
-| Flan Media Server                                                       |
-+------------------------------------------+------------------------------+
-|                                          | User:                        |
-|   ←───────────────────────────           | +--------------------------+ |
-|                                          | | mike                   v | |
-|        Welcome                           | +--------------------------+ |
-|                                          | Pin:                         |
-|   ───────────────────────────►           | +--------------------------+ |
-|                                          | |                          | |
-|                                          | +--------------------------+ |
-|                                          |                              |
-|                                          | +--------------------------+ |
-|                                          | | Access                   | |
-|                                          | +--------------------------+ |
-+------------------------------------------+------------------------------+
++-------------------------------------------------------------------------------------+
+| Flan Media Server                                                   ( ? )  [Avatar] |
++----------+--------------------------------------------------------------------------+
+|          |                                                                          |
+| [ Video] |   +---------------------------------------+  [Search]  [ Filter [v] ]    |
+| (Active) |   | Search input...                       |                              |
+|          |   +---------------------------------------+                              |
+| [ Books] |                                                                          |
+|          |   === CONTINUE WATCHING ==============================================   |
+|          |   +--------------------------+   +--------------------------+            |
+|          |   | [Thumb] In-Progress Item |   | [Thumb] In-Progress Item |            |
+|          |   |         [== Progress ==] |   |         [== Progress ==] |            |
+|          |   |         [ Resume > ]     |   |         [ Resume > ]     |            |
+|          |   +--------------------------+   +--------------------------+            |
+|          |                                                                          |
+|          |   === MEDIA GRID (7 Columns Max Hard Limit) ==========================   |
+|          |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+  |
+|          |   | Poster| | Poster| | Poster| | Poster| | Poster| | Poster| | Poster|  |
+|          |   |-------| |-------| |-------| |-------| |-------| |-------| |-------|  |
+|          |   | Title | | Title | | Title | | Title | | Title | | Title | | Title |  |
+|          |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+  |
+|          |                                                                          |
+|          |   [ <- Prev ]   [ 1 ]   [ 2 ]   [ Next -> ]    Showing 1-21 of 23        |
+| [Manage] |                                                                          |
++----------+--------------------------------------------------------------------------+
 ```
 
-* **Left Panel:** Light lavender background with bold slanted *"Welcome"* between arrows.
-* **Right Panel:** Solid purple background with thick 3px black divider border, containing:
-  * `User:` dropdown `<select>` of existing user profiles.
-  * `Pin:` input `<input type="password">`.
-  * `[ Access ]` purple button with white text and thick 2px black border.
+### 1. Top Header Bar (`header.top-header`)
+* **Height:** 56px (sticky top across desktop and mobile).
+* **Background:** Deep purple (`var(--header-purple): #6d4ca6`) with `2.5px solid #000000` bottom border.
+* **Left:** Interactive brand title `Flan Media Server` linking back to the `#video` catalog on click/Enter.
+* **Right:** Utility tools group containing circular `(?)` software manual button (38px) and user avatar profile badge (40px).
+
+### 2. Streamlined Left Rail Sidebar (`aside.left-sidebar`)
+* **Width:** 160px (height `calc(100vh - 56px)` on desktop).
+* **Background:** Soft lilac surface (`var(--sidebar-lilac): #e2d9f3`) with `2.5px solid #000000` right border.
+* **Navigation Rail:** Minimalist industrial buttons for `Video` and `Books` at the top, and pinned `Manage Server` at the bottom.
+* **Zero Distractions:** Zero decorative arrows (`.sidebar-arrow`) and zero counter badges.
+
+### 3. Main Content Canvas & Media Grid
+* **Background:** Pale lavender canvas (`var(--canvas-lavender): #f4f0fa`).
+* **Search & Filter Drawer:** In-canvas search bar paired with tactile `[ Filter [v] ]` toggle button revealing format, status, source drive, and sort order options.
+* **Continue Watching Top Shelf:** Surfaces in-progress items sorted by interaction date (`last_watched_at DESC`). Collapses cleanly if 0 items are in progress.
+* **7-Column Max Hard Limit:** `.media-grid` is capped at a strict maximum of 7 columns (`max-width: 1680px; @media (min-width: 1680px) { grid-template-columns: repeat(7, 1fr); }`) to ensure cards remain comfortably readable on 4K and ultra-wide displays.
+* **21 Items Max / Page Pagination:** Strict chunking to 21 items max per page ($7 \times 3 = 21$) with tactile numbered pagination controls.
 
 ---
 
-## 5. Software Manual & System Handbook (`manual.html` - `GET /manual`)
+## 4. 2-Step Sequential Login (`login.html`)
 
-Accessible via the `( ? )` button as a dedicated 2-column view with a sticky Table of Contents and 1-click terminal copy blocks (100% offline).
+Unauthenticated visitors experience a clean, sequential 2-step authentication flow:
 
-### Keyboard Shortcuts (Video Player)
-| Key | Action |
-| :--- | :--- |
-| `Space` / `K` | Play / Pause |
-| `F` | Toggle fullscreen |
-| `M` | Mute / Unmute audio |
-| `←` / `→` | Skip backward / forward 10 seconds |
-| `↑` / `↓` | Volume up / down (5% increments) |
+1. **Step 1 (Profile Selection):**
+   * Displays the brand title and generous household profile cards with 72px avatar frames and role pills.
+   * Selecting an avatar triggers a smooth transition into Step 2.
+2. **Step 2 (Dedicated PIN Prompt):**
+   * Displays the chosen user's identity banner (`.login-user-banner`), framed avatar, and role tag.
+   * Auto-focuses the numeric PIN input (`inputmode="numeric"`).
+   * Provides a primary **`[ Access Library → ]`** action button and a secondary **`[ ← Switch Profile ]`** tactile button.
+   * Wrong PIN entries shake the input field (`.shake`) with high-contrast error messaging.
 
-### Direct Play Media Guidelines
-* **Video:** MP4 (H.264/AAC), WebM (VP9/Opus, AV1), and web-safe MKV. Plus 1-click `[ ⬇ VLC / Download ]` fallback for unsupported audio codecs (AC3, EAC3, DTS).
-* **Books:** PDF (browser-native viewer in new tab) and EPUB (instant direct download for native reader apps like Apple Books, Moon+ Reader, Kindle).
+Both states render inside a centered console card (`.login-pad-card`) with solid 2px black borders and a 4px shadow offset on pale lavender canvas (`--bg-main: #f4f0fa`).
 
 ---
 
-## 6. Whimsical Preset & Custom Avatars
+## 5. Software Manual & Keyboard Shortcuts (`/manual`)
 
-* **Bundled High-Contrast SVG Presets:** Shipped directly inside `web/static/assets/avatars/` as clean high-contrast SVGs:
+The manual view provides direct guidance for video playback and file formats:
+
+### Video Player Shortcuts
+* `Space` / `K`: Play or Pause
+* `F`: Toggle fullscreen
+* `M`: Mute or unmute audio
+* `Left` / `Right Arrow`: Skip backward or forward 10 seconds
+* `Up` / `Down Arrow`: Adjust volume in 5% increments
+
+### Supported Media Formats
+* **Video:** Direct-play MP4 (H.264/AAC), WebM (VP9/Opus, AV1), and web-safe MKV. A signed `[ VLC / Download ]` link is available for external playback of multi-channel AC3 or DTS audio.
+* **Books:** PDF (browser-native viewer tab) and EPUB (direct file download).
+
+---
+
+## 6. Avatar Options
+
+* **Preset SVG Icons:** Included in `web/static/assets/avatars/`:
   * Mascot (Flan boy)
-  * Flan (Caramel pudding)
+  * Flan (Custard)
   * Cat
   * Ghost
   * Robot
   * Star
-* **Custom Avatar Uploads:** Users can upload a personalized photo via `/manage` or the "My Profile" modal (JPEG, PNG, WebP up to 2MB), saved to `data/avatars/{user_id}.ext`.
+* **Custom Photo Avatars:** Users can upload a personalized photo via `/manage` or the profile modal (JPEG, PNG, WebP up to 2MB).
 
 ---
 
 ## 7. Related Documentation
 
-* [Tactile Components](components.md)
+* [Component Specifications](components.md)
 * [Page Templates & Wireframes](pages.md)
-* [Accessibility & WCAG Compliance Guide](../accessibility.md)
+* [Accessibility Guide](accessibility.md)
+* [Mobile Responsiveness](responsiveness.md)
 * [Master System Architecture](../design.md)

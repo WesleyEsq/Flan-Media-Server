@@ -1,85 +1,103 @@
 # Flan Media Server
 
-An ultra-simple, lightweight personal media server for streaming videos and reading books. Designed specifically for low-power single-board computers (Raspberry Pi Zero, 1–5, Orange Pi, Rock Pi) and Linux homelabs.
-
-Flan eliminates complexity: 100% offline, zero external APIs, fixed storage directories, a 6-table database, and a tactile high-contrast UI with a **sidebar-only navigation system**. It operates strictly within a **15 to 20 MB RAM** footprint for 1 to 5 household users.
+Flan is a self-hosted personal media server written in Go for streaming video files and reading digital books. It is designed to run efficiently on low-resource hardware—such as single-board computers (Raspberry Pi, Orange Pi) and repurposed personal computers—with a low memory footprint and direct file delivery.
 
 ---
 
-## At a Glance
+## Key Characteristics
 
-| Feature | Specification |
-| :--- | :--- |
-| **Target Memory** | ~15–20 MB RAM (`GOMEMLIMIT=16MiB`, `GOGC=30`) |
-| **Navigation System** | **Sidebar-Only (Desktop) & Bottom Bar (Mobile):** All platform navigation is consolidated strictly into the left sidebar (`Video`, `Books`, `Manage Server`), shifting to a thumb-accessible fixed bottom bar on mobile screens. The top header contains only the brand title, `(?)` manual, and user profile avatar. |
-| **Interface Style** | High-contrast neo-tactile layout with thick black borders, split Start screen, purple card footers, zero emojis, and pure CSS mobile responsiveness |
-| **Media Architecture** | **Unified Containers (100% Local-First):**<br>• **Video (`./media/video`):** Series with episode lists, or movies with version lists<br>• **Books (`./media/books`):** Multi-volume series or single books (EPUB/PDF) |
-| **Metadata Engine** | Zero-network, 100% offline (Folder name = title; `poster.jpg` = cover; no TMDB dependencies) |
-| **Concurrent Streams**| Max 3 active video streams (governed by semaphore) |
-| **Video Delivery** | Linux kernel `sendfile` zero-copy transfer (HTTP 206 Range requests) + 1-click VLC / Direct Download fallback for unsupported audio codecs (AC3/DTS) |
-| **Supported Formats** | Direct-play: MP4 (H.264/AAC), WebM (VP9/Opus/AV1), web-safe MKV; Books: EPUB, PDF (direct download & browser view) |
-| **Avatars** | Whimsical preset SVG companions (Flan mascot, cat, robot, ghost, etc.) or custom user photo uploads (max 2MB) |
-| **Database** | Pure-Go SQLite3 (`modernc.org/sqlite`) running in WAL mode (~2 MB cache, 6 tables) |
-| **Web Client** | Server-rendered Go `html/template` + vanilla JS/CSS embedded via `embed.FS` |
+* **Direct Streaming (No Transcoding):** Video delivery uses HTTP 206 Range requests delegating to the Linux `sendfile` system call for zero-copy file transfers. Transcoding is omitted to avoid heavy CPU and disk load on low-power devices.
+* **Local-First Metadata:** Operates completely offline with zero external metadata APIs (no TMDB or third-party service dependencies). Directory names define container titles, and local `poster.jpg` files provide cover art.
+* **Embedded Storage:** Uses an embedded SQLite database (`modernc.org/sqlite`, CGO-free) operating in WAL mode with a bounded memory cache (~2 MB).
+* **Single Static Binary:** The server compiles into a standalone binary with all web templates, stylesheets, scripts, and default avatars embedded via Go's `embed.FS`.
+* **Layered Architecture:** Organized into a clean Controller-Service-Repository-Model structure with constructor dependency injection.
+* **Playback Capacity Governor:** Limits active concurrent video streams to 3 via an in-memory lease tracker to prevent I/O thrashing on attached USB mechanical drives.
+* **Authentication & Recovery:** User accounts are protected by 4 to 6-digit numeric PINs with brute-force lockout safeguards. Forgotten administrator credentials can be reset from the host terminal via a CLI flag.
 
 ---
 
 ## Quickstart
 
-### Build & Run Locally
+### Prerequisites
+
+* Go 1.22 or newer (for building from source)
+* Linux host (x86_64, ARM64, or ARMv7)
+
+### Build and Run
 
 ```bash
-# Compile single standalone binary
+# 1. Clone the repository
+git clone https://github.com/WesleyEsq/Flan-Media-Server.git
+cd Flan-Media-Server
+
+# 2. Build standalone binary
 go build -o flan ./cmd/flan
 
-# Run with tuned memory bounds
-GOMEMLIMIT=16MiB GOGC=30 ./flan
+# 3. Start the server
+./flan
 ```
 
-Default access is at `http://localhost:4907` (configurable via `.env`).
+By default, the server listens on `http://localhost:4907`. Configuration can be overridden using a `.env` file or environment variables.
 
-* **Start / Login Screen:** Split screen with a "Welcome" graphic on the left and a dropdown user selector + numeric PIN field + `[ Access ]` button on the right.
-* **First Run:** If no users exist, automatically prompts to create the initial admin account.
-* **CLI Account Recovery:** Reset a forgotten admin PIN directly from the host terminal with `./flan --reset-admin`.
+### Initial Setup and Account Recovery
 
-For cross-compiling to Raspberry Pi boards (ARMv6, ARMv7, ARM64) and systemd deployment, see the [Deployment Guide](docs/compilation.md).
+* **First Boot:** On initial startup with an empty database, the server generates a one-time 6-character bootstrap setup token and prints it to the terminal/journal. Visit `http://localhost:4907/setup` and enter the token to configure the initial administrator account.
+* **Admin PIN Reset:** If the administrator PIN is lost, run `./flan --reset-admin` directly on the host to generate a temporary recovery token.
+
+For cross-compiling to ARM targets or setting up a systemd service, see [docs/compilation.md](docs/compilation.md).
 
 ---
 
-## Core Principles
+## Media Directory Layout
 
-1. **Sidebar-Only Platform Navigation:** Every page inside the platform uses a unified left sidebar containing only **`Video`**, **`Books`**, and **`Manage Server`** (at the bottom).
-2. **Unified Container + List Model:** Everything is either a **Video** (series with episodes, or movie with cut versions) or a **Book** (series with volumes, or single title).
-3. **100% Offline & Zero-Network:** No external metadata APIs (no TMDB), no API keys, no network timeouts. Folder name is the title; `poster.jpg` is the cover.
-4. **Fixed Storage Paths:** Fixed directories at `./media/video` and `./media/books`. No complex `libraries` database table or dynamic mount management.
-5. **High-Contrast Tactile UI:** Thick 2px black borders, purple footer card bands, instant button clicks (`translateY(2px)`), zero emojis, and zero hover float delays.
-6. **Zero-Copy Streaming:** Video delivery uses Go's `http.ServeContent` and Linux `sendfile`. Bytes travel directly from the filesystem cache to the network socket, bypassing the Go heap.
+Flan relies on fixed, deterministic storage directories under `./media` (configurable via `MEDIA_DIR`):
+
+```text
+media/
+├── video/
+│   ├── Breaking Bad/
+│   │   ├── S01E01.mp4
+│   │   ├── S01E02.mp4
+│   │   └── poster.jpg
+│   └── Blade Runner (1982)/
+│       ├── Final Cut.mp4
+│       └── poster.jpg
+└── books/
+    ├── Dune/
+    │   ├── Book 1.epub
+    │   └── poster.jpg
+    └── Operating Systems.pdf
+```
+
+To prevent data corruption if an external drive unmounts, Flan requires a marker file named `.flan-keep` inside `./data/` and `./media/`. The server halts startup if these markers are missing.
 
 ---
 
 ## Documentation
 
-* **Architecture & System Design:**
-  * [Master System Architecture](docs/design.md)
-  * [Directory Structure & Package Anatomy](docs/directories.md)
-  * [Streamlined 6-Table Database Schema](docs/database.md)
-  * [Storage Architecture & Resilience](docs/storage.md)
-  * [Local-First Metadata Engine](docs/scraper.md)
-* **Security & Traffic Control:**
-  * [Two-Safeguard Rate Limiting](docs/rate-limiting.md)
-  * [Security Threat Model & Mitigations](docs/threat-model.md)
-* **Operations & Engineering:**
-  * [Cross-Compilation & SBC Deployment Guide](docs/compilation.md)
-  * [Testing Strategy & TDD Guidelines](docs/testing.md)
-* **Web Client & UX:**
-  * [Design System & High-Contrast Foundations](docs/client/design-system.md)
-  * [Tactile Component Specifications](docs/client/components.md)
-  * [Page Templates & Wireframes (9 Templates)](docs/client/pages.md)
-  * [Mobile Responsiveness & Adaptive Navigation](docs/responsiveness.md)
-  * [Accessibility & WCAG 2.1 AA Compliance Guide](docs/accessibility.md)
+Comprehensive technical documentation is maintained in the `docs/` directory. See the [Documentation Index](docs/README.md) for full details:
+
+* **Architecture & Backend:**
+  * [Master System Architecture](docs/design.md): System constraints, MVC layered design, and HTTP routes.
+  * [Directory Structure & Architecture](docs/directories.md): Package layout, responsibilities, and Java-to-Go concept mapping.
+  * [Database Schema](docs/database.md): 6-table SQLite schema, WAL mode pragmas, and migrations.
+  * [Storage Architecture](docs/storage.md): Drive decoupling, mount safety, and media directory conventions.
+  * [Local Metadata Engine](docs/scraper.md): Filesystem scanner and database reconciliation logic.
+* **Security & Traffic:**
+  * [Rate Limiting & Throttling](docs/rate-limiting.md): 3-stream playback governor and PIN lockout rules.
+  * [Threat Model & Mitigations](docs/threat-model.md): Security analysis, cookie authentication, and CSRF protection.
+* **Operations:**
+  * [Compilation & Deployment](docs/compilation.md): Cross-compilation commands and systemd unit configuration.
+  * [Testing Strategy](docs/testing.md): Unit testing guidelines, in-memory SQLite, and virtual filesystems.
+* **Web Client & Interface:**
+  * [Design System](docs/client/design-system.md): Layout grid, color palette, and CSS foundations.
+  * [Component Specifications](docs/client/components.md): Modal dialogs, card components, and form controls.
+  * [Page Templates](docs/client/pages.md): Structure and wireframes for all 9 application views.
+  * [Accessibility Guide](docs/client/accessibility.md): WCAG 2.1 AA requirements and focus management.
+  * [Mobile Responsiveness](docs/client/responsiveness.md): Breakpoint specifications and mobile bottom navigation.
 * **Diagrams:**
-  * [Data Flow & Architecture](docs/diagrams/data-flow.md)
-  * [User Journeys & Technical Flows](docs/diagrams/user-flows.md)
+  * [Data Flow & Architecture](docs/diagrams/data-flow.md): Sequence diagrams for requests, streaming, and scanning.
+  * [User Journeys](docs/diagrams/user-flows.md): Interaction flows for setup, login, and playback.
 
 ---
 
