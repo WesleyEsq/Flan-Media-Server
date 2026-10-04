@@ -16,6 +16,7 @@ import (
 	"github.com/WesleyEsq/Flan-Media-Server/internal/model"
 	"github.com/WesleyEsq/Flan-Media-Server/internal/repository"
 	"github.com/WesleyEsq/Flan-Media-Server/internal/service"
+	"github.com/WesleyEsq/Flan-Media-Server/web"
 )
 
 type StreamController struct {
@@ -50,6 +51,7 @@ func (c *StreamController) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /stream/book/{file_id}", c.handleStreamBook)
 	mux.HandleFunc("GET /stream/subtitles/{file_id}/{track_id}", c.handleStreamSubtitles)
 	mux.HandleFunc("GET /download/{type}/{file_id}", c.handleDownload)
+	mux.HandleFunc("GET /stream/vlc/{type}/{file_id}/playlist.m3u", c.handleVLCPlaylist)
 	mux.HandleFunc("GET /covers/{type}/{id}", c.handleCover)
 	mux.HandleFunc("GET /avatars/{user_id}", c.handleAvatar)
 	mux.HandleFunc("POST /api/upload", c.handleDirectUpload)
@@ -281,12 +283,12 @@ func (c *StreamController) handleDownload(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// For external players (VLC, MPV) streaming signed URLs, allow Range requests and inline delivery
+	// Allow byte-range requests for external streaming
 	w.Header().Set("Accept-Ranges", "bytes")
-	if strings.Contains(r.UserAgent(), "VLC") || strings.Contains(r.UserAgent(), "mpv") {
-		w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", filename))
-	} else {
+	if r.URL.Query().Get("dl") == "1" || r.URL.Query().Get("download") == "1" {
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	} else {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", filename))
 	}
 
 	switch strings.ToLower(format) {
@@ -363,14 +365,82 @@ func (c *StreamController) handleAvatar(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	// Fallback to preset SVG
+	// Fallback to preset SVG from embedded StaticFS
 	iconName := user.AvatarIcon
 	if iconName == "" || iconName == "default" {
 		iconName = "flan"
 	}
-	svgPath := filepath.Join("web", "static", "assets", "avatars", iconName+".svg")
+
+	data, err := web.StaticFS.ReadFile("static/assets/avatars/" + iconName + ".svg")
+	if err != nil {
+		// Fallback to flan.svg
+		data, err = web.StaticFS.ReadFile("static/assets/avatars/flan.svg")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "image/svg+xml")
-	http.ServeFile(w, r, svgPath)
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(data)
+}
+
+func (c *StreamController) handleVLCPlaylist(w http.ResponseWriter, r *http.Request) {
+	mediaType := model.MediaType(r.PathValue("type"))
+	fileIDStr := r.PathValue("file_id")
+	fileID, err := strconv.ParseInt(fileIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid file ID", http.StatusBadRequest)
+		return
+	}
+
+	user := middleware.UserFromContext(r.Context())
+	if user == nil {
+		q := r.URL.Query()
+		expStr := q.Get("exp")
+		uStr := q.Get("u")
+		sig := q.Get("sig")
+		if expStr == "" || uStr == "" || sig == "" {
+			http.Error(w, "Unauthorized: valid session or signed parameters required", http.StatusUnauthorized)
+			return
+		}
+		exp, err1 := strconv.ParseInt(expStr, 10, 64)
+		u, err2 := strconv.ParseInt(uStr, 10, 64)
+		if err1 != nil || err2 != nil || !c.authService.VerifySignedURL(r.Context(), mediaType, fileID, u, exp, sig) {
+			http.Error(w, "Unauthorized: invalid or expired stream link", http.StatusUnauthorized)
+			return
+		}
+	}
+
+	var title string
+	if mediaType == model.MediaTypeVideo {
+		f, err := c.videoRepo.GetFileByID(r.Context(), fileID)
+		if err != nil || f == nil {
+			http.NotFound(w, r)
+			return
+		}
+		title = f.DisplayTitle()
+	} else {
+		http.Error(w, "M3U streaming only supported for video", http.StatusBadRequest)
+		return
+	}
+
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	host := r.Host
+
+	streamURL := fmt.Sprintf("%s://%s/download/%s/%d", scheme, host, mediaType, fileID)
+	if r.URL.RawQuery != "" {
+		streamURL += "?" + r.URL.RawQuery
+	}
+
+	w.Header().Set("Content-Type", "audio/x-mpegurl; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", "stream-"+fileIDStr+".m3u"))
+
+	playlist := fmt.Sprintf("#EXTM3U\n#EXTINF:-1,%s\n%s\n", title, streamURL)
+	w.Write([]byte(playlist))
 }
 
 func (c *StreamController) handleDirectUpload(w http.ResponseWriter, r *http.Request) {

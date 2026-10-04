@@ -8,8 +8,13 @@ document.addEventListener("DOMContentLoaded", () => {
   initProfileModal();
   initManageView();
   initMediaEditModal();
+  initBookEditModal();
   initSearchPage();
   initVideoPlayer();
+  initEpisodeSorting();
+  initFileExplorerModal();
+  initManualView();
+  initVLCModal();
   initBookActions();
   initKeyboardShortcuts();
 });
@@ -19,14 +24,17 @@ document.addEventListener("DOMContentLoaded", () => {
    ========================================================================= */
 function initModals() {
   document.querySelectorAll("dialog.modal-dialog").forEach((dialog) => {
-    // Close on click outside (backdrop)
+    // Close on click outside (backdrop only)
     dialog.addEventListener("click", (e) => {
+      if (e.target !== dialog) return;
       const rect = dialog.getBoundingClientRect();
-      const isInDialog = (
-        rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
-        rect.left <= e.clientX && e.clientX <= rect.left + rect.width
+      const isBackdropClick = (
+        e.clientY < rect.top ||
+        e.clientY > rect.bottom ||
+        e.clientX < rect.left ||
+        e.clientX > rect.right
       );
-      if (!isInDialog) {
+      if (isBackdropClick) {
         dialog.close();
       }
     });
@@ -602,45 +610,379 @@ function initMediaEditModal() {
     editBtn.addEventListener("click", () => openModal("media-edit-modal"));
   }
 
+  const quickCoverBtn = document.getElementById("btn-quick-change-cover");
+  if (quickCoverBtn) {
+    quickCoverBtn.addEventListener("click", () => openModal("media-edit-modal"));
+  }
+
   const editForm = document.getElementById("media-edit-form");
-  if (editForm) {
-    editForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
+  if (!editForm) return;
+
+  const browseBtn = document.getElementById("btn-browse-cover");
+  const fileInput = document.getElementById("edit-cover-file-input");
+  const removeBtn = document.getElementById("btn-remove-cover");
+  const urlInput = document.getElementById("edit-cover-url-input");
+  const loadUrlBtn = document.getElementById("btn-load-cover-url");
+  const previewImg = document.getElementById("edit-cover-preview-img");
+  const previewEmpty = document.getElementById("edit-cover-preview-empty");
+  const fileLabel = document.getElementById("edit-cover-file-label");
+  const feedback = document.getElementById("media-edit-feedback");
+
+  const deleteBtn = document.getElementById("btn-delete-video");
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", async () => {
       const videoId = document.getElementById("edit-video-id").value;
       const title = document.getElementById("edit-video-title").value.trim();
-      const year = parseInt(document.getElementById("edit-video-year").value, 10) || 0;
-      const videoType = document.getElementById("edit-video-type").value;
-      const overview = document.getElementById("edit-video-overview").value.trim();
-      const feedback = document.getElementById("media-edit-feedback");
-
-      // Playable files
-      const files = [];
-      document.querySelectorAll(".edit-file-row").forEach((row) => {
-        files.push({
-          file_id: parseInt(row.dataset.fileId, 10),
-          custom_title: row.querySelector(".edit-file-title").value.trim(),
-          order_index: parseInt(row.querySelector(".edit-file-order").value, 10) || 0,
-          is_hidden: row.querySelector(".edit-file-hidden").checked,
-        });
-      });
-
+      if (!confirm(`Are you sure you want to remove "${title}" from Flan?\n\nThis will remove it from the catalog and delete its database records.`)) {
+        return;
+      }
       try {
-        const res = await fetch(`/api/media/video/${videoId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, release_year: year, video_type: videoType, overview, files }),
-        });
+        const res = await fetch(`/api/media/video/${videoId}`, { method: "DELETE" });
         if (res.ok) {
           closeModal("media-edit-modal");
-          window.location.reload();
+          window.location.href = "/video";
         } else {
-          feedback.textContent = "Failed to save changes";
+          if (feedback) feedback.textContent = "Failed to delete video";
         }
       } catch (err) {
-        feedback.textContent = "Network error";
+        if (feedback) feedback.textContent = "Network error";
       }
     });
   }
+
+  let pendingCoverFile = null;
+  let pendingCoverUrl = null;
+  let pendingRemoveCover = false;
+
+  if (browseBtn && fileInput) {
+    browseBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        if (feedback) feedback.textContent = "Image must be under 5MB";
+        return;
+      }
+      pendingCoverFile = file;
+      pendingCoverUrl = null;
+      pendingRemoveCover = false;
+      if (urlInput) urlInput.value = "";
+      if (previewImg) {
+        previewImg.src = URL.createObjectURL(file);
+        previewImg.style.display = "block";
+      }
+      if (previewEmpty) previewEmpty.style.display = "none";
+      if (fileLabel) {
+        fileLabel.textContent = `Selected: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+        fileLabel.style.display = "block";
+      }
+      if (removeBtn) removeBtn.style.display = "inline-block";
+    });
+  }
+
+  if (loadUrlBtn && urlInput) {
+    const handleUrlPreview = () => {
+      const url = urlInput.value.trim();
+      if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) {
+        if (feedback) feedback.textContent = "Please enter a valid HTTP/HTTPS URL";
+        return;
+      }
+      pendingCoverUrl = url;
+      pendingCoverFile = null;
+      pendingRemoveCover = false;
+      if (fileInput) fileInput.value = "";
+      if (previewImg) {
+        previewImg.src = url;
+        previewImg.style.display = "block";
+      }
+      if (previewEmpty) previewEmpty.style.display = "none";
+      if (fileLabel) {
+        fileLabel.textContent = `URL staged: ${url.length > 40 ? url.substring(0, 37) + "..." : url}`;
+        fileLabel.style.display = "block";
+      }
+      if (removeBtn) removeBtn.style.display = "inline-block";
+    };
+
+    loadUrlBtn.addEventListener("click", handleUrlPreview);
+    urlInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleUrlPreview();
+      }
+    });
+  }
+
+  if (removeBtn) {
+    removeBtn.addEventListener("click", () => {
+      pendingCoverFile = null;
+      pendingCoverUrl = null;
+      pendingRemoveCover = true;
+      if (fileInput) fileInput.value = "";
+      if (urlInput) urlInput.value = "";
+      if (previewImg) {
+        previewImg.src = "";
+        previewImg.style.display = "none";
+      }
+      if (previewEmpty) previewEmpty.style.display = "block";
+      if (fileLabel) {
+        fileLabel.textContent = "Cover artwork will be removed on save";
+        fileLabel.style.display = "block";
+      }
+    });
+  }
+
+  editForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const videoId = document.getElementById("edit-video-id").value;
+    const title = document.getElementById("edit-video-title").value.trim();
+    const year = parseInt(document.getElementById("edit-video-year").value, 10) || 0;
+    const videoType = document.getElementById("edit-video-type").value;
+    const overview = document.getElementById("edit-video-overview").value.trim();
+
+    // Playable files
+    const files = [];
+    document.querySelectorAll(".edit-file-row").forEach((row) => {
+      files.push({
+        file_id: parseInt(row.dataset.fileId, 10),
+        custom_title: row.querySelector(".edit-file-title").value.trim(),
+        order_index: parseInt(row.querySelector(".edit-file-order").value, 10) || 0,
+        is_hidden: row.querySelector(".edit-file-hidden").checked,
+      });
+    });
+
+    if (feedback) feedback.textContent = "Saving changes...";
+
+    try {
+      const res = await fetch(`/api/media/video/${videoId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, release_year: year, video_type: videoType, overview, files }),
+      });
+      if (!res.ok) {
+        if (feedback) feedback.textContent = "Failed to save details";
+        return;
+      }
+
+      // Handle Cover Artwork upload / URL / removal if changed
+      if (pendingCoverFile) {
+        const fd = new FormData();
+        fd.append("cover", pendingCoverFile);
+        const coverRes = await fetch(`/api/media/video/${videoId}/cover`, {
+          method: "POST",
+          body: fd,
+        });
+        if (!coverRes.ok) {
+          const errText = await coverRes.text();
+          if (feedback) feedback.textContent = `Saved details, but cover upload failed: ${errText}`;
+          return;
+        }
+      } else if (pendingCoverUrl) {
+        const coverRes = await fetch(`/api/media/video/${videoId}/cover`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: pendingCoverUrl }),
+        });
+        if (!coverRes.ok) {
+          const errText = await coverRes.text();
+          if (feedback) feedback.textContent = `Saved details, but cover URL failed: ${errText}`;
+          return;
+        }
+      } else if (pendingRemoveCover) {
+        await fetch(`/api/media/video/${videoId}/cover`, {
+          method: "DELETE",
+        });
+      }
+
+      closeModal("media-edit-modal");
+      window.location.reload();
+    } catch (err) {
+      if (feedback) feedback.textContent = "Network error";
+    }
+  });
+}
+
+function initBookEditModal() {
+  const editBtn = document.getElementById("open-book-edit-btn");
+  if (editBtn) {
+    editBtn.addEventListener("click", () => openModal("book-edit-modal"));
+  }
+
+  const quickCoverBtn = document.getElementById("btn-quick-change-book-cover");
+  if (quickCoverBtn) {
+    quickCoverBtn.addEventListener("click", () => openModal("book-edit-modal"));
+  }
+
+  const editForm = document.getElementById("book-edit-form");
+  if (!editForm) return;
+
+  const browseBtn = document.getElementById("btn-browse-book-cover");
+  const fileInput = document.getElementById("edit-book-cover-file-input");
+  const removeBtn = document.getElementById("btn-remove-book-cover");
+  const urlInput = document.getElementById("edit-book-cover-url-input");
+  const loadUrlBtn = document.getElementById("btn-load-book-cover-url");
+  const previewImg = document.getElementById("edit-book-cover-preview-img");
+  const previewEmpty = document.getElementById("edit-book-cover-preview-empty");
+  const fileLabel = document.getElementById("edit-book-cover-file-label");
+  const feedback = document.getElementById("book-edit-feedback");
+
+  const deleteBtn = document.getElementById("btn-delete-book");
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", async () => {
+      const bookId = document.getElementById("edit-book-id").value;
+      const title = document.getElementById("edit-book-title").value.trim();
+      if (!confirm(`Are you sure you want to remove "${title}" from Flan?\n\nThis will remove it from the catalog and delete its database records.`)) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/media/book/${bookId}`, { method: "DELETE" });
+        if (res.ok) {
+          closeModal("book-edit-modal");
+          window.location.href = "/books";
+        } else {
+          if (feedback) feedback.textContent = "Failed to delete book";
+        }
+      } catch (err) {
+        if (feedback) feedback.textContent = "Network error";
+      }
+    });
+  }
+
+  let pendingCoverFile = null;
+  let pendingCoverUrl = null;
+  let pendingRemoveCover = false;
+
+  if (browseBtn && fileInput) {
+    browseBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        if (feedback) feedback.textContent = "Image must be under 5MB";
+        return;
+      }
+      pendingCoverFile = file;
+      pendingCoverUrl = null;
+      pendingRemoveCover = false;
+      if (urlInput) urlInput.value = "";
+      if (previewImg) {
+        previewImg.src = URL.createObjectURL(file);
+        previewImg.style.display = "block";
+      }
+      if (previewEmpty) previewEmpty.style.display = "none";
+      if (fileLabel) {
+        fileLabel.textContent = `Selected: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+        fileLabel.style.display = "block";
+      }
+      if (removeBtn) removeBtn.style.display = "inline-block";
+    });
+  }
+
+  if (loadUrlBtn && urlInput) {
+    const handleUrlPreview = () => {
+      const url = urlInput.value.trim();
+      if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) {
+        if (feedback) feedback.textContent = "Please enter a valid HTTP/HTTPS URL";
+        return;
+      }
+      pendingCoverUrl = url;
+      pendingCoverFile = null;
+      pendingRemoveCover = false;
+      if (fileInput) fileInput.value = "";
+      if (previewImg) {
+        previewImg.src = url;
+        previewImg.style.display = "block";
+      }
+      if (previewEmpty) previewEmpty.style.display = "none";
+      if (fileLabel) {
+        fileLabel.textContent = `URL staged: ${url.length > 40 ? url.substring(0, 37) + "..." : url}`;
+        fileLabel.style.display = "block";
+      }
+      if (removeBtn) removeBtn.style.display = "inline-block";
+    };
+
+    loadUrlBtn.addEventListener("click", handleUrlPreview);
+    urlInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleUrlPreview();
+      }
+    });
+  }
+
+  if (removeBtn) {
+    removeBtn.addEventListener("click", () => {
+      pendingCoverFile = null;
+      pendingCoverUrl = null;
+      pendingRemoveCover = true;
+      if (fileInput) fileInput.value = "";
+      if (urlInput) urlInput.value = "";
+      if (previewImg) {
+        previewImg.src = "";
+        previewImg.style.display = "none";
+      }
+      if (previewEmpty) previewEmpty.style.display = "block";
+      if (fileLabel) {
+        fileLabel.textContent = "Cover artwork will be removed on save";
+        fileLabel.style.display = "block";
+      }
+    });
+  }
+
+  editForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const bookId = document.getElementById("edit-book-id").value;
+    const title = document.getElementById("edit-book-title").value.trim();
+    const author = document.getElementById("edit-book-author").value.trim();
+    const overview = document.getElementById("edit-book-overview").value.trim();
+
+    if (feedback) feedback.textContent = "Saving changes...";
+
+    try {
+      const res = await fetch(`/api/media/book/${bookId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, author, overview }),
+      });
+      if (!res.ok) {
+        if (feedback) feedback.textContent = "Failed to save details";
+        return;
+      }
+
+      if (pendingCoverFile) {
+        const fd = new FormData();
+        fd.append("cover", pendingCoverFile);
+        const coverRes = await fetch(`/api/media/book/${bookId}/cover`, {
+          method: "POST",
+          body: fd,
+        });
+        if (!coverRes.ok) {
+          const errText = await coverRes.text();
+          if (feedback) feedback.textContent = `Saved details, but cover upload failed: ${errText}`;
+          return;
+        }
+      } else if (pendingCoverUrl) {
+        const coverRes = await fetch(`/api/media/book/${bookId}/cover`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: pendingCoverUrl }),
+        });
+        if (!coverRes.ok) {
+          const errText = await coverRes.text();
+          if (feedback) feedback.textContent = `Saved details, but cover URL failed: ${errText}`;
+          return;
+        }
+      } else if (pendingRemoveCover) {
+        await fetch(`/api/media/book/${bookId}/cover`, {
+          method: "DELETE",
+        });
+      }
+
+      closeModal("book-edit-modal");
+      window.location.reload();
+    } catch (err) {
+      if (feedback) feedback.textContent = "Network error";
+    }
+  });
 }
 
 /* =========================================================================
@@ -788,7 +1130,15 @@ function initVideoPlayer() {
   }, 15000);
 
   player.on("pause", () => syncProgress(false));
-  player.on("ended", () => syncProgress(true));
+  player.on("ended", () => {
+    syncProgress(true);
+    const nextId = playerEl.dataset.nextId;
+    if (nextId) {
+      setTimeout(() => {
+        window.location.href = `/watch/${nextId}`;
+      }, 1500);
+    }
+  });
 
   // Handle format errors
   player.on("error", () => {
@@ -839,3 +1189,340 @@ function initKeyboardShortcuts() {
     }
   });
 }
+
+/* =========================================================================
+   12. INTERACTIVE EPISODE SORTING & ORDER SAVING
+   ========================================================================= */
+function initEpisodeSorting() {
+  const sortSelect = document.getElementById("ep-sort-select");
+  const container = document.getElementById("playable-files-container");
+  const saveBtn = document.getElementById("btn-save-order");
+  if (!sortSelect || !container) return;
+
+  const videoId = container.dataset.videoId;
+
+  sortSelect.addEventListener("change", () => {
+    const mode = sortSelect.value;
+    const rows = Array.from(container.querySelectorAll(".file-row"));
+
+    rows.sort((a, b) => {
+      const idxA = parseInt(a.dataset.orderIndex, 10) || 0;
+      const idxB = parseInt(b.dataset.orderIndex, 10) || 0;
+      const titleA = (a.dataset.title || "").trim();
+      const titleB = (b.dataset.title || "").trim();
+      const fileA = (a.dataset.filename || "").trim();
+      const fileB = (b.dataset.filename || "").trim();
+
+      switch (mode) {
+        case "index-asc":
+          return idxA !== idxB ? idxA - idxB : titleA.localeCompare(titleB, undefined, { numeric: true });
+        case "index-desc":
+          return idxA !== idxB ? idxB - idxA : titleB.localeCompare(titleA, undefined, { numeric: true });
+        case "title-asc":
+          return titleA.localeCompare(titleB, undefined, { numeric: true });
+        case "title-desc":
+          return titleB.localeCompare(titleA, undefined, { numeric: true });
+        case "filename-asc":
+          return fileA.localeCompare(fileB, undefined, { numeric: true });
+        default:
+          return 0;
+      }
+    });
+
+    rows.forEach((r) => container.appendChild(r));
+
+    if (saveBtn) {
+      saveBtn.style.display = "inline-flex";
+    }
+  });
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", async () => {
+      const rows = Array.from(container.querySelectorAll(".file-row"));
+      const filesPayload = rows.map((r, i) => ({
+        file_id: parseInt(r.dataset.fileId, 10),
+        order_index: i + 1,
+      }));
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving...";
+
+      try {
+        const resp = await fetch(`/api/media/video/${videoId}/files`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ files: filesPayload }),
+        });
+
+        if (!resp.ok) {
+          throw new Error("Failed to save episode order");
+        }
+
+        // Update in-memory data attributes
+        rows.forEach((r, i) => {
+          r.dataset.orderIndex = (i + 1).toString();
+        });
+
+        saveBtn.textContent = "✓ Order Saved!";
+        setTimeout(() => {
+          saveBtn.textContent = "💾 Save Order";
+          saveBtn.disabled = false;
+        }, 2000);
+      } catch (err) {
+        alert("Failed to save order: " + err.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = "💾 Save Order";
+      }
+    });
+  }
+}
+
+/* =========================================================================
+   13. SERVER FILE EXPLORER & USB MOUNT DISCOVERY
+   ========================================================================= */
+function initFileExplorerModal() {
+  const openBtn = document.getElementById("btn-open-fs-explorer");
+  const modal = document.getElementById("fs-explorer-modal");
+  const mountsContainer = document.getElementById("fs-mounts-container");
+  const breadcrumbContainer = document.getElementById("fs-breadcrumb");
+  const entriesContainer = document.getElementById("fs-entries-container");
+  const pathDisplay = document.getElementById("fs-selected-path-display");
+  const selectBtn = document.getElementById("btn-fs-select");
+  const cancelBtn = document.getElementById("btn-fs-cancel");
+  const sourcePathInput = document.getElementById("source-path-input");
+  const sourceNameInput = document.getElementById("source-name-input");
+
+  if (!openBtn || !modal) return;
+
+  let currentBrowsedPath = "/";
+
+  async function loadDirectory(targetPath) {
+    entriesContainer.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted);">Scanning host filesystem...</div>';
+    try {
+      const url = targetPath ? `/api/system/fs/browse?path=${encodeURIComponent(targetPath)}` : `/api/system/fs/browse`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error("Failed to read server path");
+      }
+      const data = await res.json();
+      currentBrowsedPath = data.current_path;
+      pathDisplay.textContent = currentBrowsedPath;
+
+      // Render Detected Mounts
+      mountsContainer.innerHTML = "";
+      if (data.mounts && data.mounts.length > 0) {
+        data.mounts.forEach((m) => {
+          const pill = document.createElement("button");
+          pill.type = "button";
+          pill.className = "fs-mount-pill";
+          pill.innerHTML = `<span>💾</span> <span>${m.mount_point}</span> <small style="color: #666;">(${m.fs_type})</small>`;
+          pill.title = `Device: ${m.device}`;
+          pill.addEventListener("click", () => loadDirectory(m.mount_point));
+          mountsContainer.appendChild(pill);
+        });
+      } else {
+        mountsContainer.innerHTML = '<span style="font-size: 0.8rem; color: #777;">No external mounts found under /media or /mnt</span>';
+      }
+
+      // Render Breadcrumbs
+      breadcrumbContainer.innerHTML = "";
+      const rootBtn = document.createElement("button");
+      rootBtn.type = "button";
+      rootBtn.className = "fs-crumb-btn";
+      rootBtn.textContent = "/";
+      rootBtn.addEventListener("click", () => loadDirectory("/"));
+      breadcrumbContainer.appendChild(rootBtn);
+
+      const parts = currentBrowsedPath.split("/").filter(Boolean);
+      let cumulativePath = "";
+      parts.forEach((part) => {
+        cumulativePath += "/" + part;
+        const sep = document.createElement("span");
+        sep.textContent = " › ";
+        sep.style.color = "#999";
+        breadcrumbContainer.appendChild(sep);
+
+        const crumb = document.createElement("button");
+        crumb.type = "button";
+        crumb.className = "fs-crumb-btn";
+        crumb.textContent = part;
+        const thisPath = cumulativePath;
+        crumb.addEventListener("click", () => loadDirectory(thisPath));
+        breadcrumbContainer.appendChild(crumb);
+      });
+
+      // Render Directory Entries
+      entriesContainer.innerHTML = "";
+      if (data.parent_path) {
+        const upItem = document.createElement("div");
+        upItem.className = "fs-folder-item";
+        upItem.innerHTML = `<div class="fs-folder-item-left"><span>📁</span> <span>.. (Parent Directory)</span></div>`;
+        upItem.addEventListener("click", () => loadDirectory(data.parent_path));
+        entriesContainer.appendChild(upItem);
+      }
+
+      if (!data.entries || data.entries.length === 0) {
+        const emptyNotice = document.createElement("div");
+        emptyNotice.style.padding = "20px";
+        emptyNotice.style.color = "var(--text-muted)";
+        emptyNotice.style.textAlign = "center";
+        emptyNotice.textContent = "No subdirectories found in this folder.";
+        entriesContainer.appendChild(emptyNotice);
+      } else {
+        data.entries.forEach((entry) => {
+          const item = document.createElement("div");
+          item.className = "fs-folder-item";
+          const markerBadge = entry.has_marker
+            ? '<span style="font-size: 0.75rem; background: #c8e6c9; color: #1b5e20; padding: 2px 6px; border-radius: 4px; font-weight: 700;">✓ .flan-keep</span>'
+            : "";
+          item.innerHTML = `
+            <div class="fs-folder-item-left">
+              <span>📁</span>
+              <span>${entry.name}</span>
+            </div>
+            ${markerBadge}
+          `;
+
+          // Single click selects / highlights, double click navigates
+          item.addEventListener("click", () => {
+            entriesContainer.querySelectorAll(".fs-folder-item").forEach((el) => el.classList.remove("selected"));
+            item.classList.add("selected");
+            currentBrowsedPath = entry.path;
+            pathDisplay.textContent = entry.path;
+          });
+
+          item.addEventListener("dblclick", () => {
+            loadDirectory(entry.path);
+          });
+
+          entriesContainer.appendChild(item);
+        });
+      }
+    } catch (err) {
+      entriesContainer.innerHTML = `<div style="padding: 20px; color: var(--color-danger); text-align: center;">Error loading directory: ${err.message}</div>`;
+    }
+  }
+
+  openBtn.addEventListener("click", () => {
+    modal.showModal();
+    const existing = (sourcePathInput.value || "").trim();
+    loadDirectory(existing);
+  });
+
+  selectBtn.addEventListener("click", () => {
+    if (sourcePathInput) {
+      sourcePathInput.value = currentBrowsedPath;
+    }
+    if (sourceNameInput && !sourceNameInput.value.trim()) {
+      const parts = currentBrowsedPath.split("/").filter(Boolean);
+      if (parts.length > 0) {
+        sourceNameInput.value = parts[parts.length - 1];
+      }
+    }
+    modal.close();
+  });
+
+  cancelBtn?.addEventListener("click", () => {
+    modal.close();
+  });
+}
+
+/* =========================================================================
+   14. USER HANDBOOK / MANUAL INTERACTIONS
+   ========================================================================= */
+function initManualView() {
+  const tocLinks = document.querySelectorAll(".manual-toc-sidebar .toc-nav-link");
+  if (!tocLinks || tocLinks.length === 0) return;
+
+  tocLinks.forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      tocLinks.forEach((l) => l.classList.remove("active"));
+      link.classList.add("active");
+      const targetId = link.getAttribute("href").substring(1);
+      const targetEl = document.getElementById(targetId);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  });
+
+  // Bind code box copy buttons
+  document.querySelectorAll(".manual-copy-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const text = btn.getAttribute("data-copy");
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        const original = btn.textContent;
+        btn.textContent = "✓ Copied";
+        setTimeout(() => {
+          btn.textContent = original;
+        }, 1500);
+      });
+    });
+  });
+}
+
+/* =========================================================================
+   15. VLC & EXTERNAL PLAYER STREAMING MODAL
+   ========================================================================= */
+function initVLCModal() {
+  const modal = document.getElementById("vlc-stream-modal");
+  const fileTitleEl = document.getElementById("vlc-modal-file-title");
+  const streamUrlInput = document.getElementById("vlc-stream-url-input");
+  const copyBtn = document.getElementById("btn-copy-vlc-url");
+  const appLaunchBtn = document.getElementById("vlc-btn-app-launch");
+  const m3uBtn = document.getElementById("vlc-btn-m3u");
+  const rawDownloadBtn = document.getElementById("vlc-btn-raw-download");
+
+  if (!modal) return;
+
+  document.querySelectorAll(".btn-open-vlc-modal").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const fileId = btn.dataset.fileId;
+      const title = btn.dataset.title || "Media Stream";
+      const signedUrl = btn.dataset.signedUrl || "";
+
+      // Compute absolute HTTP stream URL
+      const fullStreamUrl = window.location.origin + signedUrl;
+
+      if (fileTitleEl) fileTitleEl.textContent = title;
+      if (streamUrlInput) streamUrlInput.value = fullStreamUrl;
+
+      // 1. Direct VLC app launch protocol (vlc://http://...)
+      if (appLaunchBtn) {
+        appLaunchBtn.href = "vlc://" + fullStreamUrl;
+      }
+
+      // 2. Stream playlist (.m3u) file download
+      if (m3uBtn) {
+        const queryParams = signedUrl.includes("?") ? signedUrl.substring(signedUrl.indexOf("?")) : "";
+        m3uBtn.href = `/stream/vlc/video/${fileId}/playlist.m3u${queryParams}`;
+      }
+
+      // 3. Raw file download with &dl=1
+      if (rawDownloadBtn) {
+        const sep = signedUrl.includes("?") ? "&" : "?";
+        rawDownloadBtn.href = signedUrl + sep + "dl=1";
+      }
+
+      modal.showModal();
+    });
+  });
+
+  if (copyBtn && streamUrlInput) {
+    copyBtn.addEventListener("click", () => {
+      const url = streamUrlInput.value;
+      if (!url) return;
+      navigator.clipboard.writeText(url).then(() => {
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = "✓ Copied!";
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+        }, 1800);
+      });
+    });
+  }
+}
+

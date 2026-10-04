@@ -202,6 +202,12 @@ func (r *BookRepository) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (r *BookRepository) DeleteFile(ctx context.Context, fileID int64) error {
+	query := `DELETE FROM book_files WHERE file_id = ?;`
+	_, err := r.db.Writer.ExecContext(ctx, query, fileID)
+	return err
+}
+
 func (r *BookRepository) ListFilesByBookID(ctx context.Context, bookID int64, userID int64, showHidden bool) ([]*model.BookFile, error) {
 	query := `
 	SELECT 

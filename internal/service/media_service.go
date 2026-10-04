@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/WesleyEsq/Flan-Media-Server/internal/model"
 	"github.com/WesleyEsq/Flan-Media-Server/internal/repository"
@@ -138,4 +139,36 @@ func (s *MediaService) SaveCoverArt(ctx context.Context, mediaType model.MediaTy
 	}
 
 	return relPath, nil
+}
+
+func (s *MediaService) RemoveCoverArt(ctx context.Context, mediaType model.MediaType, id int64) error {
+	var oldCover string
+	if mediaType == model.MediaTypeVideo {
+		v, err := s.videoRepo.GetByID(ctx, id)
+		if err != nil || v == nil {
+			return fmt.Errorf("video not found: %w", err)
+		}
+		oldCover = v.CoverPath
+		v.CoverPath = ""
+		if err := s.videoRepo.UpdateMetadata(ctx, v); err != nil {
+			return err
+		}
+	} else {
+		b, err := s.bookRepo.GetByID(ctx, id)
+		if err != nil || b == nil {
+			return fmt.Errorf("book not found: %w", err)
+		}
+		oldCover = b.CoverPath
+		b.CoverPath = ""
+		if err := s.bookRepo.UpdateMetadata(ctx, b); err != nil {
+			return err
+		}
+	}
+
+	if oldCover != "" && strings.HasPrefix(oldCover, "data/covers/") {
+		baseName := filepath.Base(oldCover)
+		_ = os.Remove(filepath.Join(s.dataDir, "covers", string(mediaType), baseName))
+	}
+
+	return nil
 }

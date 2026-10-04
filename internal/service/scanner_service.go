@@ -88,6 +88,9 @@ func (s *ScannerService) ScanSource(ctx context.Context, source *model.StorageSo
 		return nil, fmt.Errorf("%w in %s", model.ErrMissingMarker, source.FolderPath)
 	}
 
+	// 2. Prune any previously ingested containers that no longer exist on disk
+	_ = s.pruneDeletedContainersForSource(ctx, source)
+
 	if source.MediaType == model.MediaTypeVideo {
 		return s.scanVideoSource(source)
 	}
@@ -208,7 +211,12 @@ func (s *ScannerService) scanVideoDirectory(sourceRoot, dirName string) (*model.
 				hasMultipleEpisodes = true
 			}
 
-			orderIndex := (season * 1000) + episode
+			var orderIndex int
+			if season <= 1 {
+				orderIndex = episode
+			} else {
+				orderIndex = (season * 1000) + episode
+			}
 			fileTitle, _ := CleanTitleAndYear(name)
 			dur := s.probeVideoDuration(path, ext)
 
@@ -543,25 +551,46 @@ func (s *ScannerService) MaintenanceScan(ctx context.Context) (*model.ScanStatus
 					if v.SourceID != src.ID {
 						continue
 					}
+
+					var containerDir string
+					if v.FolderPath == "" {
+						containerDir = src.FolderPath
+					} else {
+						containerDir = filepath.Join(src.FolderPath, v.FolderPath)
+					}
+
+					// If the entire container folder on disk was deleted, remove from DB
+					if _, err := os.Stat(containerDir); os.IsNotExist(err) {
+						_ = s.videoRepo.Delete(ctx, v.ID)
+						continue
+					}
+
 					files, err := s.videoRepo.ListFilesByVideoID(ctx, v.ID, 0, true)
 					if err != nil {
 						continue
 					}
 
+					activeCount := 0
 					for _, f := range files {
 						totalScanned++
 						var diskPath string
 						if f.RelativePath == "" {
-							diskPath = filepath.Join(src.FolderPath, v.FolderPath)
+							diskPath = containerDir
 						} else {
-							diskPath = filepath.Join(src.FolderPath, v.FolderPath, f.RelativePath)
+							diskPath = filepath.Join(containerDir, f.RelativePath)
 						}
 
 						if _, err := os.Stat(diskPath); os.IsNotExist(err) {
-							_ = s.videoRepo.SetFileMissing(ctx, f.ID, true)
+							_ = s.videoRepo.DeleteFile(ctx, f.ID)
 						} else {
 							_ = s.videoRepo.SetFileMissing(ctx, f.ID, false)
+							activeCount++
 						}
+					}
+
+					// If all files were removed, delete the container
+					if len(files) > 0 && activeCount == 0 {
+						_ = s.videoRepo.Delete(ctx, v.ID)
 					}
 				}
 			} else {
@@ -575,25 +604,45 @@ func (s *ScannerService) MaintenanceScan(ctx context.Context) (*model.ScanStatus
 					if b.SourceID != src.ID {
 						continue
 					}
+
+					var containerDir string
+					if b.FolderPath == "" {
+						containerDir = src.FolderPath
+					} else {
+						containerDir = filepath.Join(src.FolderPath, b.FolderPath)
+					}
+
+					// If the container folder on disk was deleted, remove from DB
+					if _, err := os.Stat(containerDir); os.IsNotExist(err) {
+						_ = s.bookRepo.Delete(ctx, b.ID)
+						continue
+					}
+
 					files, err := s.bookRepo.ListFilesByBookID(ctx, b.ID, 0, true)
 					if err != nil {
 						continue
 					}
 
+					activeCount := 0
 					for _, f := range files {
 						totalScanned++
 						var diskPath string
 						if f.RelativePath == "" {
-							diskPath = filepath.Join(src.FolderPath, b.FolderPath)
+							diskPath = containerDir
 						} else {
-							diskPath = filepath.Join(src.FolderPath, b.FolderPath, f.RelativePath)
+							diskPath = filepath.Join(containerDir, f.RelativePath)
 						}
 
 						if _, err := os.Stat(diskPath); os.IsNotExist(err) {
-							_ = s.bookRepo.SetFileMissing(ctx, f.ID, true)
+							_ = s.bookRepo.DeleteFile(ctx, f.ID)
 						} else {
 							_ = s.bookRepo.SetFileMissing(ctx, f.ID, false)
+							activeCount++
 						}
+					}
+
+					if len(files) > 0 && activeCount == 0 {
+						_ = s.bookRepo.Delete(ctx, b.ID)
 					}
 				}
 			}
@@ -613,3 +662,89 @@ func (s *ScannerService) MaintenanceScan(ctx context.Context) (*model.ScanStatus
 	}
 	return val.(*model.ScanStatus), nil
 }
+
+func (s *ScannerService) pruneDeletedContainersForSource(ctx context.Context, source *model.StorageSource) error {
+	if source.MediaType == model.MediaTypeVideo {
+		videos, err := s.videoRepo.List(ctx, "all", true)
+		if err != nil {
+			return err
+		}
+		for _, v := range videos {
+			if v.SourceID != source.ID {
+				continue
+			}
+			containerDir := filepath.Join(source.FolderPath, v.FolderPath)
+			if v.FolderPath == "" {
+				containerDir = source.FolderPath
+			}
+			if _, err := os.Stat(containerDir); os.IsNotExist(err) {
+				_ = s.videoRepo.Delete(ctx, v.ID)
+				continue
+			}
+
+			files, err := s.videoRepo.ListFilesByVideoID(ctx, v.ID, 0, true)
+			if err != nil {
+				continue
+			}
+			activeCount := 0
+			for _, f := range files {
+				var diskPath string
+				if f.RelativePath == "" {
+					diskPath = containerDir
+				} else {
+					diskPath = filepath.Join(containerDir, f.RelativePath)
+				}
+				if _, err := os.Stat(diskPath); os.IsNotExist(err) {
+					_ = s.videoRepo.DeleteFile(ctx, f.ID)
+				} else {
+					activeCount++
+				}
+			}
+			if len(files) > 0 && activeCount == 0 {
+				_ = s.videoRepo.Delete(ctx, v.ID)
+			}
+		}
+	} else {
+		books, err := s.bookRepo.List(ctx, "all", true)
+		if err != nil {
+			return err
+		}
+		for _, b := range books {
+			if b.SourceID != source.ID {
+				continue
+			}
+			containerDir := filepath.Join(source.FolderPath, b.FolderPath)
+			if b.FolderPath == "" {
+				containerDir = source.FolderPath
+			}
+			if _, err := os.Stat(containerDir); os.IsNotExist(err) {
+				_ = s.bookRepo.Delete(ctx, b.ID)
+				continue
+			}
+
+			files, err := s.bookRepo.ListFilesByBookID(ctx, b.ID, 0, true)
+			if err != nil {
+				continue
+			}
+			activeCount := 0
+			for _, f := range files {
+				var diskPath string
+				if f.RelativePath == "" {
+					diskPath = containerDir
+				} else {
+					diskPath = filepath.Join(containerDir, f.RelativePath)
+				}
+				if _, err := os.Stat(diskPath); os.IsNotExist(err) {
+					_ = s.bookRepo.DeleteFile(ctx, f.ID)
+				} else {
+					activeCount++
+				}
+			}
+			if len(files) > 0 && activeCount == 0 {
+				_ = s.bookRepo.Delete(ctx, b.ID)
+			}
+		}
+	}
+	return nil
+}
+

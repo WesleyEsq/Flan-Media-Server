@@ -284,15 +284,31 @@ func (c *PageController) handleWatchPage(w http.ResponseWriter, r *http.Request)
 
 	signedURL := c.authService.GenerateSignedURL(model.MediaTypeVideo, fileID, user.ID, user.TokenVersion)
 
+	files, _ := c.videoRepo.ListFilesByVideoID(r.Context(), video.ID, user.ID, false)
+	var prevFile, nextFile *model.VideoFile
+	for i, f := range files {
+		if f.ID == fileID {
+			if i > 0 {
+				prevFile = files[i-1]
+			}
+			if i < len(files)-1 {
+				nextFile = files[i+1]
+			}
+			break
+		}
+	}
+
 	data := map[string]interface{}{
-		"PageTitle":          file.DisplayTitle(),
-		"ActiveTab":          "video",
-		"CurrentUser":        user,
-		"Video":              video,
-		"File":               file,
-		"PositionSeconds":    posSec,
-		"FormattedPos":       formattedPos,
-		"SignedDownloadURL":  signedURL,
+		"PageTitle":         file.DisplayTitle(),
+		"ActiveTab":         "video",
+		"CurrentUser":       user,
+		"Video":             video,
+		"File":              file,
+		"PrevFile":          prevFile,
+		"NextFile":          nextFile,
+		"PositionSeconds":   posSec,
+		"FormattedPos":      formattedPos,
+		"SignedDownloadURL": signedURL,
 	}
 	c.render(w, "watch.html", data)
 }

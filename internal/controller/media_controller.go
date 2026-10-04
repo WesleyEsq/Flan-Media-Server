@@ -1,13 +1,18 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/WesleyEsq/Flan-Media-Server/internal/middleware"
 	"github.com/WesleyEsq/Flan-Media-Server/internal/model"
@@ -53,7 +58,11 @@ func (c *MediaController) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/progress", c.handleSaveProgress)
 	mux.HandleFunc("GET /api/search", c.handleSearch)
 
+	mux.HandleFunc("PUT /api/media/{type}/{id}", c.handleUpdateMedia)
 	mux.HandleFunc("PUT /api/media/video/{id}", c.handleUpdateVideo)
+	mux.HandleFunc("POST /api/media/{type}/{id}/cover", c.handleUpdateCover)
+	mux.HandleFunc("DELETE /api/media/{type}/{id}/cover", c.handleDeleteCover)
+	mux.HandleFunc("PUT /api/media/video/{id}/files", c.handleBatchUpdateVideoFiles)
 	mux.HandleFunc("DELETE /api/media/{type}/{id}", c.handleDeleteMedia)
 }
 
@@ -399,6 +408,277 @@ func (c *MediaController) handleUpdateVideo(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (c *MediaController) handleUpdateMedia(w http.ResponseWriter, r *http.Request) {
+	user := middleware.UserFromContext(r.Context())
+	if user == nil || user.Role != model.RoleAdmin {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	mediaType := r.PathValue("type")
+	if mediaType == "video" {
+		c.handleUpdateVideo(w, r)
+		return
+	}
+
+	if mediaType == "book" {
+		idStr := r.PathValue("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid ID", http.StatusBadRequest)
+			return
+		}
+
+		var req struct {
+			Title    string `json:"title"`
+			Author   string `json:"author"`
+			Overview string `json:"overview"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid payload", http.StatusBadRequest)
+			return
+		}
+
+		book, err := c.bookRepo.GetByID(r.Context(), id)
+		if err != nil {
+			http.Error(w, "Book not found", http.StatusNotFound)
+			return
+		}
+
+		if strings.TrimSpace(req.Title) != "" {
+			book.Title = strings.TrimSpace(req.Title)
+		}
+		book.Author = strings.TrimSpace(req.Author)
+		book.Overview = strings.TrimSpace(req.Overview)
+		book.MetadataLocked = true
+
+		if err := c.mediaService.UpdateBookMetadata(r.Context(), book); err != nil {
+			http.Error(w, "Failed to update book", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
+		return
+	}
+
+	http.Error(w, "Unsupported media type", http.StatusBadRequest)
+}
+
+func (c *MediaController) handleBatchUpdateVideoFiles(w http.ResponseWriter, r *http.Request) {
+	user := middleware.UserFromContext(r.Context())
+	if user == nil || user.Role != model.RoleAdmin {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify video exists
+	if _, err := c.videoRepo.GetByID(r.Context(), id); err != nil {
+		http.Error(w, "Video not found", http.StatusNotFound)
+		return
+	}
+
+	var req struct {
+		Files []*model.VideoFile `json:"files"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	for _, f := range req.Files {
+		f.VideoID = id
+	}
+
+	if err := c.videoRepo.BatchUpdateFiles(r.Context(), req.Files); err != nil {
+		http.Error(w, "Failed to update video files", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func downloadImageFromURL(ctx context.Context, rawURL string) ([]byte, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return nil, fmt.Errorf("invalid URL scheme, must be http or https")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "FlanMediaServer/1.0 (Artwork Fetcher)")
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed fetching image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP error %d fetching image", resp.StatusCode)
+	}
+
+	// Limit to max 5MB
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > 5*1024*1024 {
+		return nil, fmt.Errorf("image exceeds 5MB limit")
+	}
+	return data, nil
+}
+
+func (c *MediaController) handleUpdateCover(w http.ResponseWriter, r *http.Request) {
+	user := middleware.UserFromContext(r.Context())
+	if user == nil || user.Role != model.RoleAdmin {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	mediaType := r.PathValue("type")
+	if mediaType != "video" && mediaType != "book" {
+		http.Error(w, "Invalid media type", http.StatusBadRequest)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	// Max 5 MB for cover artwork
+	r.Body = http.MaxBytesReader(w, r.Body, 5*1024*1024)
+
+	var imgBytes []byte
+	var ext string
+
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		if err := r.ParseMultipartForm(5 * 1024 * 1024); err != nil {
+			http.Error(w, "File exceeds 5MB limit", http.StatusBadRequest)
+			return
+		}
+		file, _, err := r.FormFile("cover")
+		if err == nil {
+			defer file.Close()
+			imgBytes, err = io.ReadAll(file)
+			if err != nil {
+				http.Error(w, "Failed reading image data", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			coverURL := strings.TrimSpace(r.FormValue("cover_url"))
+			if coverURL != "" {
+				imgBytes, err = downloadImageFromURL(r.Context(), coverURL)
+				if err != nil {
+					http.Error(w, "Failed downloading image from URL: "+err.Error(), http.StatusBadRequest)
+					return
+				}
+			} else {
+				http.Error(w, "Missing cover file or cover_url in form", http.StatusBadRequest)
+				return
+			}
+		}
+	} else if strings.HasPrefix(contentType, "application/json") {
+		var req struct {
+			URL string `json:"url"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.URL) == "" {
+			http.Error(w, "Missing url in JSON payload", http.StatusBadRequest)
+			return
+		}
+		imgBytes, err = downloadImageFromURL(r.Context(), strings.TrimSpace(req.URL))
+		if err != nil {
+			http.Error(w, "Failed downloading image from URL: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+	} else {
+		var err error
+		imgBytes, err = io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed reading request body", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if len(imgBytes) == 0 {
+		http.Error(w, "Empty cover image", http.StatusBadRequest)
+		return
+	}
+
+	// Validate magic bytes
+	detected := http.DetectContentType(imgBytes)
+	switch detected {
+	case "image/jpeg":
+		ext = ".jpg"
+	case "image/png":
+		ext = ".png"
+	case "image/webp":
+		ext = ".webp"
+	default:
+		http.Error(w, "Unsupported image format. Allowed formats: JPEG, PNG, WebP", http.StatusBadRequest)
+		return
+	}
+
+	relPath, err := c.mediaService.SaveCoverArt(r.Context(), model.MediaType(mediaType), id, imgBytes, ext)
+	if err != nil {
+		http.Error(w, "Failed to save cover artwork", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success":    true,
+		"cover_path": relPath,
+	})
+}
+
+func (c *MediaController) handleDeleteCover(w http.ResponseWriter, r *http.Request) {
+	user := middleware.UserFromContext(r.Context())
+	if user == nil || user.Role != model.RoleAdmin {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	mediaType := r.PathValue("type")
+	if mediaType != "video" && mediaType != "book" {
+		http.Error(w, "Invalid media type", http.StatusBadRequest)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := c.mediaService.RemoveCoverArt(r.Context(), model.MediaType(mediaType), id); err != nil {
+		http.Error(w, "Failed to remove cover artwork", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 func (c *MediaController) handleDeleteMedia(w http.ResponseWriter, r *http.Request) {

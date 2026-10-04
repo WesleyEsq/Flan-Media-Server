@@ -14,11 +14,13 @@ import (
 var (
 	seasonEpRegex1 = regexp.MustCompile(`(?i)[sS](\d+)[eE](\d+)`)
 	seasonEpRegex2 = regexp.MustCompile(`(?i)(\d+)x(\d+)`)
-	epOnlyRegex    = regexp.MustCompile(`(?i)(?:ep|episode|e)\s*(\d+)`)
+	seasonRegex    = regexp.MustCompile(`(?i)\b(?:season|temporada|s)\s*(\d+)\b`)
+	epWordRegex    = regexp.MustCompile(`(?i)\b(?:episodio|episode|capitulo|capítulo|cap|ep|e)\s*[-_.]*\s*(\d{1,4})\b`)
+	dashNumRegex   = regexp.MustCompile(`(?:^|[\s_.\-\(\[])(?:#|no\.?|n°|ep\.?)?\s*(\d{1,4})(?:[\s_.\-\)\]]|$)`)
 	yearRegex      = regexp.MustCompile(`\b(19\d\d|20\d\d)\b`)
 
 	// Noise tokens to strip from scene/torrent names
-	noiseRegex = regexp.MustCompile(`(?i)\b(1080p|720p|480p|2160p|4k|uhd|bluray|bdrip|brrip|web-?dl|webrip|hdtv|x264|x265|hevc|h\.?264|h\.?265|aac|dts|ac3|e-?ac3|ddp?5\.1|truehd|remux|repack|proper|unrated|extended|directors\.cut|multi|sub|dub|dual|yify|eztv|rarbg|psa|galaxytv|vxt)\b`)
+	noiseRegex   = regexp.MustCompile(`(?i)\b(1080p|720p|480p|2160p|4k|uhd|bluray|bdrip|brrip|web-?dl|webrip|hdtv|x264|x265|hevc|h\.?264|h\.?265|aac|dts|ac3|e-?ac3|ddp?5\.1|truehd|remux|repack|proper|unrated|extended|directors\.cut|multi|sub|dub|dual|yify|eztv|rarbg|psa|galaxytv|vxt)\b`)
 	bracketRegex = regexp.MustCompile(`\[.*?\]|\(.*?\)|-.*$`)
 )
 
@@ -68,7 +70,7 @@ func CleanTitleAndYear(raw string) (string, int) {
 	return cleanedTitle, year
 }
 
-// ParseEpisodeInfo detects SxxExx or episode numbers from filenames
+// ParseEpisodeInfo detects SxxExx, multilingual episode terms (Episodio, Capítulo, Ep) or episode numbers from filenames
 func ParseEpisodeInfo(filename string) (season int, episode int, hasEpisode bool) {
 	if m := seasonEpRegex1.FindStringSubmatch(filename); len(m) == 3 {
 		s, _ := strconv.Atoi(m[1])
@@ -80,11 +82,35 @@ func ParseEpisodeInfo(filename string) (season int, episode int, hasEpisode bool
 		e, _ := strconv.Atoi(m[2])
 		return s, e, true
 	}
-	if m := epOnlyRegex.FindStringSubmatch(filename); len(m) == 2 {
-		e, _ := strconv.Atoi(m[1])
-		return 1, e, true
+
+	season = 1
+	if sMatch := seasonRegex.FindStringSubmatch(filename); len(sMatch) == 2 {
+		if s, err := strconv.Atoi(sMatch[1]); err == nil && s > 0 {
+			season = s
+		}
 	}
-	return 1, 0, false
+
+	if m := epWordRegex.FindStringSubmatch(filename); len(m) == 2 {
+		e, _ := strconv.Atoi(m[1])
+		return season, e, true
+	}
+
+	// Clean out year so year is not confused with episode number
+	cleanWithoutYear := yearRegex.ReplaceAllString(filename, " ")
+	// Clean out video/codec noise tokens
+	cleanWithoutNoise := noiseRegex.ReplaceAllString(cleanWithoutYear, " ")
+
+	if matches := dashNumRegex.FindAllStringSubmatch(cleanWithoutNoise, -1); len(matches) > 0 {
+		for _, m := range matches {
+			if len(m) == 2 {
+				if num, err := strconv.Atoi(m[1]); err == nil && num >= 1 && num <= 9999 {
+					return season, num, true
+				}
+			}
+		}
+	}
+
+	return season, 0, false
 }
 
 // NaturalLess compares two strings using natural alphanumeric ordering

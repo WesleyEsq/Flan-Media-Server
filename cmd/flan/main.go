@@ -105,6 +105,7 @@ func main() {
 	userController := controller.NewUserController(userRepo, authService, cfg.DataDir)
 	mediaController := controller.NewMediaController(mediaService, scannerService, sourceRepo, videoRepo, bookRepo)
 	streamController := controller.NewStreamController(videoRepo, bookRepo, sourceRepo, userRepo, authService, cfg.DataDir)
+	systemController := controller.NewSystemController()
 	pageController, err := controller.NewPageController(mediaService, authService, userRepo, sourceRepo, videoRepo, bookRepo)
 	if err != nil {
 		log.Fatalf("FATAL: Failed to initialize page controller: %v", err)
@@ -116,6 +117,7 @@ func main() {
 	userController.RegisterRoutes(mux)
 	mediaController.RegisterRoutes(mux)
 	streamController.RegisterRoutes(mux)
+	systemController.RegisterRoutes(mux)
 	pageController.RegisterRoutes(mux)
 
 	// 9. Attach Middleware Pipeline

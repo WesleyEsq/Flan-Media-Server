@@ -95,7 +95,7 @@
     {{end}}
 
     <!-- Main Content Canvas -->
-    <main id="main-content" class="main-content" tabindex="-1">
+    <main id="main-content" class="main-content {{if eq .ActiveTab "manual"}}manual-mode{{end}}" tabindex="-1">
       {{template "content" .}}
     </main>
   </div>
@@ -141,6 +141,61 @@
     </form>
   </dialog>
   {{end}}
+
+  <!-- VLC & EXTERNAL PLAYER STREAMING MODAL -->
+  <dialog id="vlc-stream-modal" class="modal-dialog" aria-labelledby="vlc-modal-title" style="max-width: 520px; width: 92%;">
+    <div class="modal-header" style="background: #e65100; color: #fff;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 1.25rem;">🎬</span>
+        <h3 id="vlc-modal-title" style="margin: 0; font-size: 1.15rem; font-weight: 800;">External Player & VLC Streaming</h3>
+      </div>
+      <button type="button" class="modal-close-btn" style="color: #fff;" aria-label="Close dialog">✕</button>
+    </div>
+    <div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+      <div>
+        <div style="font-size: 0.8rem; color: #666; font-weight: 700; text-transform: uppercase;">Media File</div>
+        <div id="vlc-modal-file-title" style="font-weight: 800; font-size: 1.05rem; margin-top: 2px;"></div>
+      </div>
+
+      <div style="background: #fff8e1; border: 1.5px solid #ffa000; border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; line-height: 1.45; color: #5d4037;">
+        <strong>Browser codec limit?</strong> Some videos contain audio (AC3, 5.1, DTS) browsers cannot play. Streaming in VLC bypasses browser limits with 100% audio compatibility.
+      </div>
+
+      <!-- ACTION 1: LAUNCH VLC APP DIRECTLY -->
+      <a id="vlc-btn-app-launch" href="#" class="tactile-action-btn" style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: #ff6d00; color: #fff; font-size: 0.95rem; font-weight: 800;">
+        <span>🚀</span>
+        <span>Launch in VLC App (vlc://)</span>
+      </a>
+
+      <!-- ACTION 2: DOWNLOAD STREAM PLAYLIST (.M3U) -->
+      <a id="vlc-btn-m3u" href="#" class="tactile-action-btn secondary" style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; font-size: 0.9rem; font-weight: 700;">
+        <span>🎵</span>
+        <span>Open via Stream Playlist (.m3u)</span>
+      </a>
+
+      <!-- ACTION 3: COPY NETWORK STREAM URL -->
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 2px;">
+        <label for="vlc-stream-url-input" style="font-size: 0.8rem; font-weight: 800; color: #444;">VLC Network Stream URL:</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="vlc-stream-url-input" class="tactile-text-input" readonly style="font-family: monospace; font-size: 0.82rem; background: #f5f5f5;" />
+          <button type="button" id="btn-copy-vlc-url" class="tactile-action-btn secondary" style="padding: 0 16px; white-space: nowrap; font-size: 0.85rem; font-weight: 700;">
+            📋 Copy
+          </button>
+        </div>
+        <div style="font-size: 0.76rem; color: #777;">
+          In VLC: Menu → <strong>Media</strong> → <strong>Open Network Stream</strong> (<kbd>Ctrl+N</kbd>) → Paste & Play.
+        </div>
+      </div>
+
+      <!-- ACTION 4: DIRECT FILE DOWNLOAD -->
+      <div style="border-top: 1.5px solid #eee; padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.82rem; color: #666;">Need the offline file instead?</span>
+        <a id="vlc-btn-raw-download" href="#" class="tactile-action-btn secondary" style="text-decoration: none; padding: 6px 12px; font-size: 0.8rem;">
+          📥 Download File
+        </a>
+      </div>
+    </div>
+  </dialog>
 
   <script src="/static/js/app.js"></script>
   {{block "scripts" .}}{{end}}

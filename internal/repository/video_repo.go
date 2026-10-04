@@ -215,6 +215,12 @@ func (r *VideoRepository) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (r *VideoRepository) DeleteFile(ctx context.Context, fileID int64) error {
+	query := `DELETE FROM video_files WHERE file_id = ?;`
+	_, err := r.db.Writer.ExecContext(ctx, query, fileID)
+	return err
+}
+
 func (r *VideoRepository) ListFilesByVideoID(ctx context.Context, videoID int64, userID int64, showHidden bool) ([]*model.VideoFile, error) {
 	query := `
 	SELECT 

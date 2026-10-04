@@ -118,12 +118,52 @@
       </div>
     </div>
     <div>
-      <label class="form-field-label" for="source-path-input">Folder Path on Host:</label>
-      <input type="text" id="source-path-input" class="tactile-text-input" placeholder="e.g. ./media/video or /mnt/storage/movies" required />
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <label class="form-field-label" for="source-path-input" style="margin: 0;">Folder Path on Host:</label>
+        <button type="button" id="btn-open-fs-explorer" class="tactile-action-btn secondary" style="padding: 4px 10px; font-size: 0.8rem;">
+          📁 Browse Host Drives...
+        </button>
+      </div>
+      <input type="text" id="source-path-input" class="tactile-text-input" placeholder="e.g. /media/orangepi/USB_DRIVE or /mnt/storage" required />
     </div>
     <div id="add-source-feedback" class="avatar-feedback" role="alert" aria-live="polite"></div>
     <button type="submit" class="tactile-action-btn" style="width: 100%;">Register & Validate Storage Folder</button>
   </form>
+</dialog>
+
+<!-- SERVER FILE EXPLORER MODAL -->
+<dialog id="fs-explorer-modal" class="modal-dialog fs-explorer-dialog" aria-labelledby="fs-explorer-title">
+  <div class="fs-explorer-header">
+    <h3 id="fs-explorer-title">Server Storage & Folder Explorer</h3>
+    <button type="button" class="modal-close-btn" style="color: #fff;" aria-label="Close dialog">✕</button>
+  </div>
+
+  <!-- DETECTED MOUNTS / DISKS BAR -->
+  <div class="fs-mounts-section" id="fs-mounts-section">
+    <div class="fs-mounts-label">Detected USB & Storage Mounts:</div>
+    <div class="fs-mounts-pills" id="fs-mounts-container">
+      <!-- Injected dynamically via JS -->
+    </div>
+  </div>
+
+  <!-- BREADCRUMB NAVIGATION -->
+  <div class="fs-breadcrumb" id="fs-breadcrumb">
+    <!-- Injected dynamically via JS -->
+  </div>
+
+  <!-- SUBDIRECTORIES LIST -->
+  <div class="fs-entries-list" id="fs-entries-container">
+    <!-- Injected dynamically via JS -->
+  </div>
+
+  <!-- EXPLORER FOOTER -->
+  <div class="fs-explorer-footer">
+    <div class="fs-selected-path" id="fs-selected-path-display">/</div>
+    <div style="display: flex; gap: 8px;">
+      <button type="button" class="tactile-action-btn secondary" id="btn-fs-cancel" style="padding: 6px 14px;">Cancel</button>
+      <button type="button" class="tactile-action-btn" id="btn-fs-select" style="padding: 6px 16px;">Select This Folder</button>
+    </div>
+  </div>
 </dialog>
 
 <!-- EDIT STORAGE SOURCE MODAL -->

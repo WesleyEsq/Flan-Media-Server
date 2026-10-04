@@ -43,7 +43,7 @@ Domain Entities (internal/model): Pure data structures shared across layers.
 * **Service Layer (`internal/service`):** Business rules and workflow orchestration (`AuthService`, `MediaService`, `ScannerService`).
 * **Controller Layer (`internal/controller`):** HTTP transport adapters, request decoders, status code mapping, ViewModel assembly, and route registration onto `http.ServeMux`.
 * **Middleware Layer (`internal/middleware`):** Request filters: HMAC session authentication and CSRF/origin verification.
-* **View Layer (`web/templates`, `web/static`):** 9 server-rendered HTML templates and vanilla CSS/JS packaged directly into the binary via `embed.FS`.
+* **View Layer (`web/templates`, `web/static`):** 11 server-rendered HTML templates and vanilla CSS/JS packaged directly into the binary via `embed.FS`.
 
 ---
 
@@ -52,7 +52,7 @@ Domain Entities (internal/model): Pure data structures shared across layers.
 ### Sidebar Navigation & Utility Controls
 
 * **Header Controls:** The top header contains the platform brand title on the left, and utility controls on the right: the software manual (`/manual`) and user profile avatar. No general navigation links reside in the header.
-* **Persistent Sidebar:** All main navigation occurs through three buttons: `Video` (`/video`), `Books` (`/books`), and `Manage Server` (`/manage`). On screens 768px wide or smaller, CSS transitions this sidebar into a fixed 56px bottom navigation bar.
+* **Persistent Sidebar:** All main navigation occurs through three buttons: `Video` (`/video`), `Books` (`/books`), and `Manage Server` (`/manage`). On screens 768px wide or smaller, CSS transitions this sidebar into a fixed 64px bottom navigation bar.
 * **User Profile Dialog:** Selecting the avatar opens a dialog where users can update their display name, select a preset SVG avatar or upload a custom image (max 2MB), modify their numeric PIN, or log out.
 
 ### Authentication & Bootstrap Token
@@ -77,7 +77,7 @@ Domain Entities (internal/model): Pure data structures shared across layers.
 
 ## 4. Server Endpoints
 
-### HTML Views (10 Server-Rendered Templates)
+### HTML Views (11 Server-Rendered Templates)
 
 * `GET /login`: Tactile profile keypad & login screen.
 * `GET /setup`: Initial admin initialization screen (requires bootstrap token).

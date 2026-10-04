@@ -16,7 +16,7 @@ Prevents automated brute-force attacks against 4 to 6-digit numeric account PINs
 
 ### Mechanics
 
-* **Dual-Key In-Memory Tracking:** Tracked strictly in-memory using a combined key of `(Client IP, Target User ID)`. This prevents an attacker from locking out legitimate users on other household devices, and prevents database write amplification during brute-force attempts. The in-memory lockout map is bounded to 1,000 entries with automatic TTL expiration.
+* **Dual-Key In-Memory Tracking:** Tracked strictly in-memory using a combined key of `(Client IP, Target User ID)`. This prevents an attacker from locking out legitimate users on other household devices, and prevents database write amplification during brute-force attempts. Expired records are safely evicted on subsequent access and periodic sweeps to bound memory consumption under 1,000 active entries.
 * **Proxy Support:** Respects `X-Forwarded-For` when `TRUSTED_PROXIES` is configured.
 * **Lockout Progression:**
   * 1 to 3 failed attempts: Standard invalid credentials response (`HTTP 401 Unauthorized`).

@@ -88,6 +88,13 @@ Security boundaries, attack vectors, and defensive postures for Flan Media Serve
   * **Per-Route Context Timeouts:** Standard HTML rendering and API endpoints enforce a 15-second `context.WithTimeout`.
   * **Streaming Passthrough:** Media streaming (`sendfile`) and upload endpoints bypass short context deadlines, relying on client TCP disconnect detection (`r.Context().Done()`).
 
+### 10. Subtitle Traversal & Content Sanitization
+
+* **Threat:** An attacker manipulates subtitle track requests (`/stream/subtitles/{file_id}/{track_id}`) to traverse outside storage roots or inject malicious scripts via WebVTT payloads.
+* **Mitigations:**
+  * **Canonical Directory Bounds:** Subtitle tracks are identified by integer index from discovered sidecar files. Target paths are verified with `filepath.EvalSymlinks`, asserting they reside strictly inside the verified storage source.
+  * **Pure-Go WebVTT Translation:** The converter formats timecodes and emits clean `WEBVTT` with `Content-Type: text/vtt; charset=utf-8` and `X-Content-Type-Options: nosniff`, preventing browsers from interpreting subtitle streams as executable HTML or script contexts.
+
 ---
 
 ## 3. Account Recovery & Failsafes

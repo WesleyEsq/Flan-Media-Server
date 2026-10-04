@@ -45,14 +45,14 @@ Used in the 108px chunky industrial rail sidebar for `Search`, `Video`, `Books`,
 ### HTML Structure
 ```html
 <nav class="sidebar-nav" aria-label="Media Library">
-    <!-- Search Item (Triggers Spotlight Modal) -->
-    <button id="nav-search-btn" class="sidebar-nav-item" title="Search Library (/)" aria-label="Search Library" aria-haspopup="dialog">
+    <!-- Search Item (Navigates to /search) -->
+    <a href="/search" id="nav-search-btn" class="sidebar-nav-item" title="Search Library (/)" aria-label="Search Library">
         <div class="nav-indicator-pill" aria-hidden="true"></div>
         <div class="nav-squircle">
             <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
         </div>
         <span class="nav-rail-label">Search</span>
-    </button>
+    </a>
 
     <!-- Video Item -->
     <button id="nav-video-btn" class="sidebar-nav-item active" aria-current="page" title="Videos & Movies">

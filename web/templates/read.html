@@ -1,10 +1,10 @@
 {{define "content"}}
 <div class="read-view-container" style="max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; height: calc(100vh - 120px);">
-  <div style="display: flex; justify-content: space-between; align-items: center;">
-    <a href="/books/{{.Book.ID}}" class="tactile-switch-btn" style="text-decoration: none; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;">
+  <div class="watch-header">
+    <a href="/books/{{.Book.ID}}" class="tactile-back-btn">
       ← Back to {{.Book.Title}}
     </a>
-    <h1 style="font-size: 1.15rem; font-weight: 800; margin: 0;">{{.File.DisplayTitle}}</h1>
+    <h1 class="watch-header-title">{{.File.DisplayTitle}}</h1>
   </div>
 
   <div class="reader-wrapper" style="flex: 1; border: 2.5px solid #000; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 3px 3px 0 #000;">

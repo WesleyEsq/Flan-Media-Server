@@ -273,3 +273,86 @@ func TestRequireAdminMiddleware(t *testing.T) {
 		t.Errorf("Expected 'admin access granted', got %q", string(body))
 	}
 }
+
+func TestAvatarServing(t *testing.T) {
+	mux, _, _, adminUser, _, _ := setupStreamServer(t)
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/avatars/%d", adminUser.ID), nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for avatar, got %d", rec.Code)
+	}
+
+	ct := rec.Header().Get("Content-Type")
+	if ct != "image/svg+xml" {
+		t.Errorf("Expected image/svg+xml, got %q", ct)
+	}
+
+	body, _ := io.ReadAll(rec.Body)
+	if len(body) == 0 {
+		t.Fatalf("Avatar body should not be empty")
+	}
+}
+
+func TestVLCPlaylistM3U(t *testing.T) {
+	mux, authSvc, _, adminUser, fileID, _ := setupStreamServer(t)
+	handler := middleware.Authenticate(authSvc)(mux)
+
+	cookieVal, _ := authSvc.CreateSessionCookie(adminUser)
+	req := httptest.NewRequest("GET", fmt.Sprintf("/stream/vlc/video/%d/playlist.m3u", fileID), nil)
+	req.AddCookie(&http.Cookie{Name: "flan_session", Value: cookieVal})
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for M3U playlist, got %d", rec.Code)
+	}
+
+	ct := rec.Header().Get("Content-Type")
+	if ct != "audio/x-mpegurl; charset=utf-8" {
+		t.Errorf("Expected audio/x-mpegurl, got %q", ct)
+	}
+
+	body, _ := io.ReadAll(rec.Body)
+	strBody := string(body)
+	if len(strBody) == 0 || strBody[:7] != "#EXTM3U" {
+		t.Errorf("Expected #EXTM3U header in playlist, got: %s", strBody)
+	}
+}
+
+func TestDownloadDisposition(t *testing.T) {
+	mux, authSvc, _, adminUser, fileID, _ := setupStreamServer(t)
+	handler := middleware.Authenticate(authSvc)(mux)
+	cookieVal, _ := authSvc.CreateSessionCookie(adminUser)
+
+	// 1. Without dl=1, should be inline
+	reqInline := httptest.NewRequest("GET", fmt.Sprintf("/download/video/%d", fileID), nil)
+	reqInline.AddCookie(&http.Cookie{Name: "flan_session", Value: cookieVal})
+	recInline := httptest.NewRecorder()
+	handler.ServeHTTP(recInline, reqInline)
+
+	if recInline.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK, got %d", recInline.Code)
+	}
+	dispInline := recInline.Header().Get("Content-Disposition")
+	if dispInline[:6] != "inline" {
+		t.Errorf("Expected inline disposition, got %q", dispInline)
+	}
+
+	// 2. With dl=1, should be attachment
+	reqAttach := httptest.NewRequest("GET", fmt.Sprintf("/download/video/%d?dl=1", fileID), nil)
+	reqAttach.AddCookie(&http.Cookie{Name: "flan_session", Value: cookieVal})
+	recAttach := httptest.NewRecorder()
+	handler.ServeHTTP(recAttach, reqAttach)
+
+	if recAttach.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK, got %d", recAttach.Code)
+	}
+	dispAttach := recAttach.Header().Get("Content-Disposition")
+	if dispAttach[:10] != "attachment" {
+		t.Errorf("Expected attachment disposition, got %q", dispAttach)
+	}
+}
+

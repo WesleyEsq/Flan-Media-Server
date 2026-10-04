@@ -89,6 +89,10 @@ User Triggers [ Scan ] on Storage Source
      * **MP4 Files:** Duration is parsed directly from the MP4 `mvhd` box in pure Go using `io.ReadSeeker` to skip box payloads without buffering media bytes.
      * **MKV / WebM Files:** Duration is parsed directly from the Matroska EBML header (`Segment -> Info -> Duration`) in pure Go in under 1 millisecond. This ensures 100% offline, immediate duration discovery without relying on browser HTML5 `<video>` events (which fail on browsers lacking native MKV support).
 
+9. **Digital Books & EPUB Package Inspection (Zero External Tools):**
+   * **EPUB Archive Inspection:** EPUB files are standard ZIP archives containing a root descriptor defined in `META-INF/container.xml`. In pure Go using standard library `archive/zip` and `encoding/xml`, the crawler inspects the `.opf` package file to extract Dublin Core metadata (`<dc:title>`, `<dc:creator>`) and identify the designated cover image (`<item properties="cover-image" ...>`) without userspace disk wear or external binaries.
+   * **Fallback Cover & Title:** If an EPUB lacks an embedded cover image or if the file is a PDF document, the engine cleans the container or file name via `CleanTitleAndYear()` and searches for a sibling `poster.jpg` or `cover.jpg` in the container directory.
+
 ---
 
 ## 3. Directory Conventions

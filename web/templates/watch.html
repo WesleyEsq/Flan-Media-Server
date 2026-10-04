@@ -4,11 +4,23 @@
 
 {{define "content"}}
 <div class="watch-view-container" style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
-  <div style="display: flex; justify-content: space-between; align-items: center;">
-    <a href="/video/{{.Video.ID}}" class="tactile-switch-btn" style="text-decoration: none; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;">
-      ← Back to {{.Video.Title}}
-    </a>
-    <h1 style="font-size: 1.15rem; font-weight: 800; margin: 0;">{{.File.DisplayTitle}}</h1>
+  <div class="watch-header">
+    <div class="watch-nav-group">
+      <a href="/video/{{.Video.ID}}" class="tactile-back-btn" title="Back to {{.Video.Title}}">
+        ← Back to {{.Video.Title}}
+      </a>
+      {{if .PrevFile}}
+      <a href="/watch/{{.PrevFile.ID}}" class="tactile-back-btn" title="Previous: {{.PrevFile.DisplayTitle}}">
+        ⏮ Prev
+      </a>
+      {{end}}
+      {{if .NextFile}}
+      <a href="/watch/{{.NextFile.ID}}" class="tactile-back-btn" title="Next: {{.NextFile.DisplayTitle}}">
+        Next ⏭
+      </a>
+      {{end}}
+    </div>
+    <h1 class="watch-header-title">{{.File.DisplayTitle}}</h1>
   </div>
 
   <!-- RESUME PROMPT CARD -->
@@ -29,8 +41,8 @@
   </div>
 
   <!-- PLYR VIDEO CANVAS -->
-  <div class="player-wrapper" style="border: 3px solid #000; border-radius: 12px; overflow: hidden; background: #000; box-shadow: 4px 4px 0 #000;">
-    <video id="player" playsinline controls data-file-id="{{.File.ID}}" data-initial-pos="{{.PositionSeconds}}" style="width: 100%; height: auto; max-height: 75vh;">
+  <div class="player-wrapper">
+    <video id="player" playsinline controls data-file-id="{{.File.ID}}" data-initial-pos="{{.PositionSeconds}}" {{if .NextFile}}data-next-id="{{.NextFile.ID}}"{{end}}>
       <source src="/stream/video/{{.File.ID}}" type="{{if eq .File.Format "mkv"}}video/mp4{{else}}video/{{.File.Format}}{{end}}">
       {{range $idx, $sub := .Subtitles}}
       <track kind="captions" label="{{$sub.Label}}" srclang="{{$sub.Lang}}" src="/stream/subtitles/{{$.File.ID}}/{{$idx}}" default>
@@ -45,9 +57,9 @@
       <span style="font-size: 1.4rem;">💡</span>
       <span>Audio silent or container unsupported? Browser cannot decode multi-channel AC3/DTS or MKV?</span>
     </div>
-    <a href="{{.SignedDownloadURL}}" class="tactile-action-btn" style="text-decoration: none; background: var(--btn-vlc-bg); color: var(--btn-vlc-text); padding: 8px 14px; font-size: 0.85rem; font-weight: 800; white-space: nowrap;">
+    <button type="button" class="tactile-action-btn btn-open-vlc-modal" data-file-id="{{.File.ID}}" data-title="{{.File.DisplayTitle}}" data-signed-url="{{.SignedDownloadURL}}" style="background: var(--btn-vlc-bg); color: var(--btn-vlc-text); padding: 8px 14px; font-size: 0.85rem; font-weight: 800; white-space: nowrap;">
       Stream in VLC / External Player ↗
-    </a>
+    </button>
   </div>
 </div>
 {{end}}
