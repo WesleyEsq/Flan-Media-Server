@@ -1,0 +1,149 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{if .PageTitle}}{{.PageTitle}} - {{end}}Flan Media Server</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  {{block "head" .}}{{end}}
+</head>
+<body>
+  <!-- Accessibility: Skip Link (WCAG 2.4.1) -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- TOP HEADER BAR -->
+  <header id="top-header" class="top-header">
+    <a href="/video" id="brand-title" class="brand-title brand-trigger" title="Go to Catalog" style="text-decoration: none; color: #fff;">
+      <span>Flan Media Server</span>
+    </a>
+
+    <div class="header-tools">
+      <a href="/manual" id="help-btn" class="tool-circle-btn help-trigger-btn" aria-label="Software Manual & About" title="Software Manual & About" style="text-decoration: none; color: #000;">
+        ?
+      </a>
+
+      {{if .CurrentUser}}
+      <button id="user-avatar" type="button" class="avatar-badge user-avatar-trigger" aria-label="My Profile & Settings" aria-haspopup="dialog" title="My Profile & Settings">
+        <img src="/avatars/{{.CurrentUser.ID}}" alt="{{.CurrentUser.Username}}" style="width: 100%; height: 100%; border-radius: 12px; object-fit: cover;" />
+      </button>
+      {{end}}
+    </div>
+  </header>
+
+  <!-- APP CONTAINER -->
+  <div id="app-container" class="app-container">
+    {{if .CurrentUser}}
+    <!-- Left Sidebar (Desktop) / Bottom Navigation Bar (Mobile) -->
+    <aside id="left-sidebar" class="left-sidebar" aria-label="Main Navigation">
+      <nav class="sidebar-nav" aria-label="Media Library">
+        <!-- Search Item -->
+        <a href="/search" id="nav-search-btn" class="sidebar-nav-item {{if eq .ActiveTab "search"}}active{{end}}" title="Search Library (/)" aria-label="Search Library" style="text-decoration: none; color: inherit;">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Search</span>
+        </a>
+
+        <!-- Video Item -->
+        <a href="/video" id="nav-video-btn" class="sidebar-nav-item {{if eq .ActiveTab "video"}}active{{end}}" {{if eq .ActiveTab "video"}}aria-current="page"{{end}} title="Videos & Movies" aria-label="Videos & Movies" style="text-decoration: none; color: inherit;">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="4" ry="4"/>
+              <polygon points="10,8 16,12 10,16" fill="currentColor" stroke="none"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Video</span>
+        </a>
+
+        <!-- Books Item -->
+        <a href="/books" id="nav-books-btn" class="sidebar-nav-item {{if eq .ActiveTab "books"}}active{{end}}" {{if eq .ActiveTab "books"}}aria-current="page"{{end}} title="Books & Publications" aria-label="Books & Publications" style="text-decoration: none; color: inherit;">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Books</span>
+        </a>
+      </nav>
+
+      {{if eq .CurrentUser.Role "admin"}}
+      <div class="sidebar-bottom">
+        <div class="sidebar-divider" aria-hidden="true"></div>
+        <a href="/manage" id="nav-manage-btn" class="sidebar-nav-item sidebar-manage-item {{if eq .ActiveTab "manage"}}active{{end}}" {{if eq .ActiveTab "manage"}}aria-current="page"{{end}} title="Manage Server" aria-label="Manage Server" style="text-decoration: none; color: inherit;">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+              <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+              <line x1="6" y1="6" x2="6.01" y2="6"/>
+              <line x1="6" y1="18" x2="6.01" y2="18"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Manage</span>
+        </a>
+      </div>
+      {{end}}
+    </aside>
+    {{end}}
+
+    <!-- Main Content Canvas -->
+    <main id="main-content" class="main-content" tabindex="-1">
+      {{template "content" .}}
+    </main>
+  </div>
+
+  {{if .CurrentUser}}
+  <!-- USER PROFILE MODAL -->
+  <dialog id="profile-modal" class="modal-dialog" aria-labelledby="profile-modal-title">
+    <div class="modal-header">
+      <h2 id="profile-modal-title" style="font-size: 1.3rem; font-weight: 800;">My Profile</h2>
+      <button type="button" class="modal-close-btn" aria-label="Close My Profile dialog">✕</button>
+    </div>
+    <form id="profile-form" style="display: flex; flex-direction: column; gap: 14px;">
+      <div>
+        <label class="form-field-label" for="profile-displayname-input">Display Name:</label>
+        <input type="text" id="profile-displayname-input" class="tactile-text-input" value="{{.CurrentUser.DisplayName}}" placeholder="{{.CurrentUser.Username}}" />
+      </div>
+
+      <div>
+        <label class="form-field-label">Avatar Companion:</label>
+        <div class="preset-avatars-grid" role="group" aria-label="Select avatar companion">
+          {{range $icon := (slice "flan" "mascot" "cat" "ghost" "robot" "star")}}
+          <label class="preset-avatar-option" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <input type="radio" name="preset_avatar" value="{{$icon}}" {{if eq $.CurrentUser.AvatarIcon $icon}}checked{{end}} />
+            <img src="/static/assets/avatars/{{$icon}}.svg" alt="{{$icon}}" style="width: 44px; height: 44px; border: 2px solid #000; border-radius: 8px;" />
+          </label>
+          {{end}}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-field-label" for="profile-pin-input">Change PIN (4-6 numeric digits):</label>
+        <input type="password" id="profile-pin-input" class="tactile-text-input" placeholder="Leave blank to keep current" maxlength="6" inputmode="numeric" />
+      </div>
+
+      <div id="profile-feedback" class="avatar-feedback" role="alert" aria-live="polite"></div>
+      <button type="submit" class="tactile-action-btn" style="width: 100%;">Save Changes</button>
+
+      <div style="border-top: 2px solid #eee; padding-top: 12px; margin-top: 4px;">
+        <button type="button" id="profile-logout-btn" class="tactile-action-btn danger" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>Log Out</span>
+        </button>
+      </div>
+    </form>
+  </dialog>
+  {{end}}
+
+  <script src="/static/js/app.js"></script>
+  {{block "scripts" .}}{{end}}
+</body>
+</html>
+{{end}}

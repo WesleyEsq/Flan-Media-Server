@@ -1,0 +1,144 @@
+{{define "content"}}
+<div class="detail-view-container" style="max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
+  <div>
+    <a href="/video" class="tactile-switch-btn" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;">
+      ← Back to Videos
+    </a>
+  </div>
+
+  <!-- CONTAINER HEADER -->
+  <section class="detail-header-card" style="display: flex; gap: 24px; background: #fff; border: 2.5px solid #000; border-radius: 12px; padding: 20px; box-shadow: 3px 3px 0 #000;">
+    <div class="detail-poster-wrap" style="width: 180px; flex-shrink: 0; aspect-ratio: 2/3; border: 2px solid #000; border-radius: 8px; overflow: hidden; background: #eae8f2;">
+      {{if .Video.CoverPath}}
+      <img src="/covers/video/{{.Video.ID}}" alt="{{.Video.Title}}" style="width: 100%; height: 100%; object-fit: cover;" />
+      {{else}}
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem;">🎬</div>
+      {{end}}
+    </div>
+
+    <div class="detail-meta-wrap" style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+        <div>
+          <h1 style="font-size: 1.8rem; font-weight: 900; margin: 0;">
+            {{.Video.Title}} {{if .Video.ReleaseYear}}<span style="font-weight: 500; font-size: 1.3rem; color: var(--text-muted);">({{.Video.ReleaseYear}})</span>{{end}}
+          </h1>
+          <span class="badge" style="background: var(--brand-purple); color: #fff; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; font-weight: 800; text-transform: uppercase;">
+            {{.Video.VideoType}}
+          </span>
+        </div>
+
+        {{if eq .CurrentUser.Role "admin"}}
+        <button type="button" id="open-media-edit-btn" class="tactile-action-btn" style="font-size: 0.85rem; padding: 6px 14px;">
+          ⚙ Edit Details
+        </button>
+        {{end}}
+      </div>
+
+      <p style="font-size: 0.95rem; line-height: 1.5; color: #333; margin: 6px 0;">
+        {{if .Video.Overview}}{{.Video.Overview}}{{else}}<em>No overview provided.</em>{{end}}
+      </p>
+
+      <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: auto;">
+        Folder: <code>{{.Video.FolderPath}}</code> • Source: <strong>{{.Video.SourceName}}</strong>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLAYABLE ITEMS LIST -->
+  <section class="detail-files-card" style="background: #fff; border: 2.5px solid #000; border-radius: 12px; padding: 20px; box-shadow: 3px 3px 0 #000;">
+    <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 16px;">Playable Items & Episodes ({{len .Files}})</h2>
+
+    <div class="playable-files-list" style="display: flex; flex-direction: column; gap: 10px;">
+      {{range .Files}}
+      <div class="file-row" style="display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 12px 14px; border: 2px solid #000; border-radius: 8px; background: #faf9fd;">
+        <div class="file-row__info" style="flex: 1;">
+          <div style="font-weight: 800; font-size: 0.95rem;">{{.DisplayTitle}}</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; display: flex; gap: 10px;">
+            <span>Format: {{.Format}}</span>
+            {{if .DurationSeconds}}<span>{{div .DurationSeconds 60}}m</span>{{end}}
+            {{if .IsFinished}}
+            <span style="color: var(--color-success); font-weight: 700;">✓ Watched</span>
+            {{else if gt .Percentage 1.0}}
+            <span style="color: var(--brand-active); font-weight: 700;">In Progress ({{printf "%.0f" .Percentage}}%)</span>
+            {{end}}
+          </div>
+        </div>
+
+        <div class="file-row__actions" style="display: flex; gap: 8px;">
+          <a href="/watch/{{.ID}}" class="tactile-action-btn" style="text-decoration: none; padding: 8px 16px; font-size: 0.85rem;">
+            ▶ Play
+          </a>
+          <a href="{{call $.SignedURLFunc .ID}}" class="tactile-action-btn" style="text-decoration: none; background: var(--btn-vlc-bg); color: var(--btn-vlc-text); padding: 8px 14px; font-size: 0.85rem;" title="Stream directly in external player (VLC, MPV) without transcoding">
+            VLC / Download
+          </a>
+        </div>
+      </div>
+      {{else}}
+      <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+        No playable media files found in this container.
+      </div>
+      {{end}}
+    </div>
+  </section>
+</div>
+
+{{if eq .CurrentUser.Role "admin"}}
+<!-- VIDEO DETAIL EDIT MODAL -->
+<dialog id="media-edit-modal" class="modal-dialog" aria-labelledby="media-edit-modal-title" style="max-width: 620px; width: 94%;">
+  <div class="modal-header">
+    <h2 id="media-edit-modal-title" style="font-size: 1.3rem; font-weight: 800; margin: 0;">Edit Video Details</h2>
+    <button type="button" class="modal-close-btn" aria-label="Close dialog">✕</button>
+  </div>
+  <form id="media-edit-form" style="display: flex; flex-direction: column; gap: 14px; margin-top: 10px;">
+    <input type="hidden" id="edit-video-id" value="{{.Video.ID}}" />
+    <div>
+      <label class="form-field-label" for="edit-video-title">Title:</label>
+      <input type="text" id="edit-video-title" class="tactile-text-input" value="{{.Video.Title}}" required />
+    </div>
+
+    <div style="display: flex; gap: 12px;">
+      <div style="flex: 1;">
+        <label class="form-field-label" for="edit-video-year">Release Year:</label>
+        <input type="number" id="edit-video-year" class="tactile-text-input" value="{{.Video.ReleaseYear}}" />
+      </div>
+      <div style="flex: 1;">
+        <label class="form-field-label" for="edit-video-type">Type:</label>
+        <div class="tactile-select-wrap">
+          <select id="edit-video-type">
+            <option value="series" {{if eq .Video.VideoType "series"}}selected{{end}}>Series</option>
+            <option value="movie" {{if eq .Video.VideoType "movie"}}selected{{end}}>Movie</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <label class="form-field-label" for="edit-video-overview">Synopsis / Overview:</label>
+      <textarea id="edit-video-overview" class="tactile-textarea" rows="3">{{.Video.Overview}}</textarea>
+    </div>
+
+    <div>
+      <label class="form-field-label">Playable Episodes / Files:</label>
+      <div style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding: 4px;">
+        {{range .Files}}
+        <div class="edit-file-row" data-file-id="{{.ID}}" style="display: flex; gap: 8px; align-items: center; border: 1px solid #ddd; padding: 6px; border-radius: 6px; background: #fafafa;">
+          <input type="text" class="tactile-text-input edit-file-title" value="{{.DisplayTitle}}" style="flex: 3; padding: 4px 8px; font-size: 0.85rem;" />
+          <input type="number" class="tactile-text-input edit-file-order" value="{{.OrderIndex}}" style="width: 70px; padding: 4px 8px; font-size: 0.85rem;" title="Order Index" />
+          <label style="font-size: 0.75rem; display: flex; align-items: center; gap: 4px;">
+            <input type="checkbox" class="edit-file-hidden" {{if .IsHidden}}checked{{end}} />
+            Hide
+          </label>
+        </div>
+        {{end}}
+      </div>
+    </div>
+
+    <div id="media-edit-feedback" class="avatar-feedback" role="alert" aria-live="polite"></div>
+    <div style="display: flex; gap: 10px; margin-top: 6px;">
+      <button type="submit" class="tactile-action-btn" style="flex: 1;">Save Changes</button>
+      <button type="button" class="tactile-action-btn secondary" data-close-modal>Cancel</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+{{end}}

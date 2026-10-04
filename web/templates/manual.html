@@ -1,0 +1,101 @@
+{{define "content"}}
+<div class="manual-view-container" style="max-width: 1080px; margin: 0 auto; display: flex; gap: 32px;">
+  <!-- STICKY TABLE OF CONTENTS -->
+  <aside style="width: 220px; flex-shrink: 0; position: sticky; top: 90px; height: fit-content; background: #fff; border: 2.5px solid #000; border-radius: 12px; padding: 16px; box-shadow: 3px 3px 0 #000;">
+    <h2 style="font-size: 1rem; font-weight: 800; margin-top: 0;">User Handbook</h2>
+    <nav style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; font-weight: 700;">
+      <a href="#about" style="color: inherit; text-decoration: none;">1. About Flan</a>
+      <a href="#navigation" style="color: inherit; text-decoration: none;">2. Interface Navigation</a>
+      <a href="#watching" style="color: inherit; text-decoration: none;">3. Watching Videos</a>
+      <a href="#reading" style="color: inherit; text-decoration: none;">4. Reading Books</a>
+      <a href="#storage" style="color: inherit; text-decoration: none;">5. Storage & Folders</a>
+      <a href="#profiles" style="color: inherit; text-decoration: none;">6. Profiles & PINs</a>
+      <a href="#cli" style="color: inherit; text-decoration: none;">7. CLI Administration</a>
+    </nav>
+  </aside>
+
+  <!-- MANUAL CONTENT -->
+  <article style="flex: 1; background: #fff; border: 2.5px solid #000; border-radius: 12px; padding: 32px; box-shadow: 3px 3px 0 #000; display: flex; flex-direction: column; gap: 32px; line-height: 1.6;">
+    <section id="about">
+      <h2 style="font-size: 1.5rem; font-weight: 900; border-bottom: 2px solid #000; padding-bottom: 8px;">1. About Flan Media Server</h2>
+      <p>
+        Flan is a self-hosted personal media server designed for streaming video files and reading digital books across household devices. Flan operates <strong>100% offline</strong> with zero third-party metadata API calls.
+      </p>
+      <p>
+        Instead of CPU-intensive transcoding, Flan streams videos natively via standard HTTP 206 Range requests delegating directly to Linux kernel <code>sendfile</code>.
+      </p>
+    </section>
+
+    <section id="navigation">
+      <h2 style="font-size: 1.5rem; font-weight: 900; border-bottom: 2px solid #000; padding-bottom: 8px;">2. Interface Navigation</h2>
+      <p>
+        The interface features a persistent top header bar and a left navigation rail:
+      </p>
+      <ul>
+        <li><strong>Search:</strong> Full-canvas interactive search across videos and books. Access via rail button or keyboard shortcut <code>/</code> or <code>Ctrl+K</code>.</li>
+        <li><strong>Video:</strong> Browses movies and TV series catalog with Continue Watching shelf.</li>
+        <li><strong>Books:</strong> Browses digital publications (EPUB and PDF) with Jump Back In shelf.</li>
+        <li><strong>Manage Server:</strong> Administrator console for configuring storage folders, scanning media, and managing accounts.</li>
+      </ul>
+    </section>
+
+    <section id="watching">
+      <h2 style="font-size: 1.5rem; font-weight: 900; border-bottom: 2px solid #000; padding-bottom: 8px;">3. Watching Videos & Player Controls</h2>
+      <p>
+        Flan includes the responsive Plyr media player. Your watch progress automatically synchronizes every 15 seconds.
+      </p>
+      <h4>Keyboard Controls:</h4>
+      <ul>
+        <li><code>Space</code> / <code>K</code>: Play or Pause</li>
+        <li><code>F</code>: Toggle Fullscreen</li>
+        <li><code>M</code>: Mute / Unmute</li>
+        <li><code>Left</code> / <code>Right Arrow</code>: Seek backward/forward 10 seconds</li>
+      </ul>
+      <h4>Unsupported Audio Codecs & VLC Streaming:</h4>
+      <p>
+        If your video uses multi-channel AC3, DTS, or Matroska (MKV) containers that your browser cannot decode, click the orange <strong>[ VLC / Download ]</strong> button. This generates a 4-hour signed link to stream directly in external players like VLC or MPV without transcoding.
+      </p>
+    </section>
+
+    <section id="reading">
+      <h2 style="font-size: 1.5rem; font-weight: 900; border-bottom: 2px solid #000; padding-bottom: 8px;">4. Reading Books</h2>
+      <p>
+        Digital books support two formats:
+      </p>
+      <ul>
+        <li><strong>PDF:</strong> Opens directly inside your web browser viewport.</li>
+        <li><strong>EPUB:</strong> Direct file download to read on Apple Books, KOReader, or Calibre.</li>
+      </ul>
+    </section>
+
+    <section id="storage">
+      <h2 style="font-size: 1.5rem; font-weight: 900; border-bottom: 2px solid #000; padding-bottom: 8px;">5. Storage Layout & Mount Markers</h2>
+      <p>
+        Flan protects your catalog from unmounted external drives using <code>.flan-keep</code> marker files:
+      </p>
+      <ul>
+        <li><code>./data/.flan-keep</code>: The server halts startup immediately if missing, preventing writes to an unmounted root partition.</li>
+        <li><code>&lt;source_path&gt;/.flan-keep</code>: If an external drive disconnects, Flan safely flags its files as missing without dropping catalog entries or watch history.</li>
+      </ul>
+    </section>
+
+    <section id="profiles">
+      <h2 style="font-size: 1.5rem; font-weight: 900; border-bottom: 2px solid #000; padding-bottom: 8px;">6. Household Profiles & PINs</h2>
+      <p>
+        User accounts are protected by 4 to 6-digit numeric PINs. Failed login attempts are throttled with a dual-key rate limiter to prevent brute-force attempts without locking out other family members.
+      </p>
+    </section>
+
+    <section id="cli">
+      <h2 style="font-size: 1.5rem; font-weight: 900; border-bottom: 2px solid #000; padding-bottom: 8px;">7. Host CLI Administration</h2>
+      <p>
+        If you lose your administrator PIN, reset it directly on the host shell:
+      </p>
+      <pre style="background: #2c2e3e; color: #fff; padding: 14px; border-radius: 8px; font-family: monospace;">./flan --reset-admin</pre>
+      <p>
+        This interactively prompts for a new administrator PIN, updates SQLite, and immediately revokes all prior sessions.
+      </p>
+    </section>
+  </article>
+</div>
+{{end}}

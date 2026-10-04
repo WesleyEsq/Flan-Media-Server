@@ -1,0 +1,79 @@
+{{define "content"}}
+<div class="detail-view-container" style="max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
+  <div>
+    <a href="/books" class="tactile-switch-btn" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;">
+      ← Back to Books
+    </a>
+  </div>
+
+  <!-- CONTAINER HEADER -->
+  <section class="detail-header-card" style="display: flex; gap: 24px; background: #fff; border: 2.5px solid #000; border-radius: 12px; padding: 20px; box-shadow: 3px 3px 0 #000;">
+    <div class="detail-poster-wrap" style="width: 160px; flex-shrink: 0; aspect-ratio: 1/1.4; border: 2px solid #000; border-radius: 8px; overflow: hidden; background: #eae8f2;">
+      {{if .Book.CoverPath}}
+      <img src="/covers/book/{{.Book.ID}}" alt="{{.Book.Title}}" style="width: 100%; height: 100%; object-fit: cover;" />
+      {{else}}
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem;">📚</div>
+      {{end}}
+    </div>
+
+    <div class="detail-meta-wrap" style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+      <h1 style="font-size: 1.8rem; font-weight: 900; margin: 0;">{{.Book.Title}}</h1>
+      {{if .Book.Author}}
+      <div style="font-size: 1.05rem; font-weight: 700; color: var(--brand-purple);">by {{.Book.Author}}</div>
+      {{end}}
+
+      <p style="font-size: 0.95rem; line-height: 1.5; color: #333; margin: 6px 0;">
+        {{if .Book.Overview}}{{.Book.Overview}}{{else}}<em>Digital book publication.</em>{{end}}
+      </p>
+
+      <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: auto;">
+        Folder: <code>{{.Book.FolderPath}}</code> • Source: <strong>{{.Book.SourceName}}</strong>
+      </div>
+    </div>
+  </section>
+
+  <!-- READABLE VOLUMES / FILES -->
+  <section class="detail-files-card" style="background: #fff; border: 2.5px solid #000; border-radius: 12px; padding: 20px; box-shadow: 3px 3px 0 #000;">
+    <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 16px;">Available Files & Volumes ({{len .Files}})</h2>
+
+    <div class="playable-files-list" style="display: flex; flex-direction: column; gap: 10px;">
+      {{range .Files}}
+      <div class="file-row" style="display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 12px 14px; border: 2px solid #000; border-radius: 8px; background: #faf9fd;">
+        <div class="file-row__info" style="flex: 1;">
+          <div style="font-weight: 800; font-size: 0.95rem;">{{.DisplayTitle}}</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; display: flex; gap: 10px; align-items: center;">
+            <span class="badge" style="background: #000; color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">{{.Format}}</span>
+            {{if .FileSize}}<span>{{humanizeBytes .FileSize}}</span>{{end}}
+            {{if eq .ReadingStatus "reading"}}
+            <span style="color: var(--brand-active); font-weight: 700;">📖 Currently Reading</span>
+            {{else if eq .ReadingStatus "finished"}}
+            <span style="color: var(--color-success); font-weight: 700;">✓ Finished</span>
+            {{end}}
+          </div>
+        </div>
+
+        <div class="file-row__actions" style="display: flex; gap: 8px; align-items: center;">
+          {{if eq .Format "pdf"}}
+          <a href="/read/{{.ID}}" target="_blank" class="tactile-action-btn" style="text-decoration: none; padding: 8px 16px; font-size: 0.85rem;">
+            Open PDF ↗
+          </a>
+          {{end}}
+
+          <a href="/download/book/{{.ID}}" class="tactile-action-btn secondary" style="text-decoration: none; padding: 8px 14px; font-size: 0.85rem;">
+            Download
+          </a>
+
+          <button type="button" class="tactile-action-btn btn-book-status" data-file-id="{{.ID}}" data-status="{{.ReadingStatus}}" style="background: #fff; color: #111; padding: 8px 12px; font-size: 0.8rem;" title="Toggle Reading / Finished state">
+            {{if eq .ReadingStatus "reading"}}Mark Finished{{else}}Mark Reading{{end}}
+          </button>
+        </div>
+      </div>
+      {{else}}
+      <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+        No book files found.
+      </div>
+      {{end}}
+    </div>
+  </section>
+</div>
+{{end}}

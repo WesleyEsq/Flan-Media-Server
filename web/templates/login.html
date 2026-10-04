@@ -1,0 +1,51 @@
+{{define "content"}}
+<div class="login-pad-viewport">
+  <!-- STEP 1: Profile Selection Picker -->
+  <div id="login-picker-card" class="login-pad-card login-picker-card">
+    <div class="login-pad-header">
+      <h1 class="login-pad-title">Flan Media Server</h1>
+      <p class="login-pad-subtitle">Who is watching?</p>
+    </div>
+
+    <div class="login-profiles-grid" role="group" aria-label="Household Profiles">
+      {{range .Users}}
+      <button type="button" class="login-profile-card" data-user-id="{{.ID}}" data-username="{{.Username}}" data-role="{{.Role}}">
+        <div class="login-profile-avatar-frame">
+          <img src="/avatars/{{.ID}}" alt="{{.Username}}" style="width: 100%; height: 100%; border-radius: 12px; object-fit: cover;" />
+        </div>
+        <span class="login-profile-username">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Username}}{{end}}</span>
+        <span class="login-profile-role-pill">{{if eq .Role "admin"}}Admin{{else}}User{{end}}</span>
+      </button>
+      {{else}}
+      <div style="padding: 20px; text-align: center;">
+        <p>No user profiles configured yet.</p>
+        <a href="/setup" class="tactile-access-btn" style="text-decoration: none; display: inline-block; margin-top: 10px;">Run Initial Setup →</a>
+      </div>
+      {{end}}
+    </div>
+  </div>
+
+  <!-- STEP 2: Dedicated PIN Prompt -->
+  <div id="login-pin-card" class="login-pad-card login-pin-card" style="display: none;">
+    <div class="login-user-banner">
+      <div id="login-banner-avatar" class="login-user-avatar-badge" style="width: 54px; height: 54px;"></div>
+      <div class="login-user-info">
+        <h2 id="login-banner-username" class="login-user-name">User</h2>
+        <span id="login-banner-role" class="login-profile-role-pill">User</span>
+      </div>
+    </div>
+
+    <p class="login-pad-subtitle" style="margin-top: 14px;">Enter your 4 to 6-digit PIN</p>
+
+    <form id="login-form" class="login-pin-form">
+      <div class="form-field-group">
+        <input class="tactile-pin-input" id="pin-input" type="password" name="pin" maxlength="6" inputmode="numeric" placeholder="••••" required autocomplete="current-password" />
+      </div>
+
+      <button type="submit" class="tactile-access-btn" id="access-btn">Access Library →</button>
+      <button type="button" class="tactile-switch-btn" id="switch-profile-btn">← Switch Profile</button>
+      <div id="login-feedback" class="login-feedback" role="alert" aria-live="assertive"></div>
+    </form>
+  </div>
+</div>
+{{end}}
