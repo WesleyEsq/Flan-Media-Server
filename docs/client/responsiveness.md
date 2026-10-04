@@ -15,56 +15,56 @@ Breakpoint specifications and CSS layout strategies for mobile and small-screen 
 
 ## 2. Screen Breakpoints
 
-* **Wide / 4K Desktop (`>= 1680px`):** Persistent Top Header (56px), Streamlined Left Rail Sidebar (160px), strict 7-column max hard limit on media grid, 21 items max per page.
-* **Standard Desktop / Laptop (`1025px - 1679px`):** Persistent Top Header (56px), Streamlined Left Rail Sidebar (160px), 4–6 column fluid media grid.
-* **Tablet Landscape (`769px - 1024px`):** Persistent Top Header (56px), Streamlined Left Rail Sidebar (160px), 3–4 column fluid media grid.
-* **Tablet Portrait / Large Mobile (`481px - 768px`):** Persistent Top Header (56px), fixed bottom navigation bar (56px), 2–3 column media grid.
-* **Small Mobile (`<= 480px`):** Persistent Top Header (56px), fixed bottom navigation bar (56px), 2-column compact media grid.
+* **Ultra-Wide / 4K Desktop & 50% Zoom Boundary (`>= 2560px`):** `--catalog-max-width: 2400px` (strict hard cap preventing infinite stretch on 32:9 monitors or 50% crazy zoom). Discord x YouTube Rail (108px), Top Header (70px), 7 columns, cards $\approx 325\text{px}$ wide, 21 items max per page.
+* **Large Desktop & 67% Zoom (`2200px - 2559px`):** `--catalog-max-width: 2280px`, Discord x YouTube Rail (108px), Top Header (70px), 7 columns, cards $\approx 305\text{px}$ wide.
+* **Standard 1080p Desktop & 80% Zoom (`1920px - 2199px`):** `--catalog-max-width: 2060px`, Discord x YouTube Rail (108px), Top Header (70px), 7 columns, cards $\approx 270\text{px}$ wide.
+* **Base Wide Desktop / High Res (`1680px - 1919px`):** `--catalog-max-width: 1840px`, Discord x YouTube Rail (108px), Top Header (70px), 7 columns, cards $\approx 235\text{px}$ wide.
+* **Standard Desktop / Laptop (`1025px - 1679px`):** Persistent Top Header (70px), Discord x YouTube Hybrid Rail (108px), 4–6 column fluid media grid (`--catalog-max-width: 1680px`).
+* **Tablet Landscape (`769px - 1024px`):** Persistent Top Header (70px), Discord x YouTube Hybrid Rail (108px), 3–4 column fluid media grid.
+* **Tablet Portrait / Large Mobile (`481px - 768px`):** Top Header (64px), fixed 4-tab bottom navigation bar (64px), 2–3 column media grid.
+* **Small Mobile (`<= 480px`):** Top Header (64px), fixed 4-tab bottom navigation bar (64px), 2-column compact media grid.
 
 ---
 
 ## 3. Layout Diagrams
 
-### Desktop Viewport (`> 768px: Persistent Top Header + Streamlined Rail Sidebar`)
+### Desktop Viewport (`> 768px: Persistent 70px Header + 108px Hybrid Rail`)
 ```text
-+-------------------------------------------------------------------------------------+
-| Flan Media Server                                                   ( ? )  [Avatar] |
-+----------+--------------------------------------------------------------------------+
-|          |                                                                          |
-| [ Video] |   [ Search catalog...                          ] [Search] [ Filter [v] ] |
-| (Active) |                                                                          |
-|          |   === CONTINUE WATCHING ==============================================   |
-| [ Books] |   +--------------------------+   +--------------------------+            |
-|          |   | [Thumb] In-Progress Item |   | [Thumb] In-Progress Item |            |
-|          |   |         [== Progress ==] |   |         [== Progress ==] |            |
-|          |   |         [ Resume > ]     |   |         [ Resume > ]     |            |
-|          |   +--------------------------+   +--------------------------+            |
-|          |                                                                          |
-|          |   === MEDIA GRID (7 Columns Max Hard Limit) ==========================   |
-|          |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+  |
-|          |   | Poster| | Poster| | Poster| | Poster| | Poster| | Poster| | Poster|  |
-|          |   |-------| |-------| |-------| |-------| |-------| |-------| |-------|  |
-|          |   | Title | | Title | | Title | | Title | | Title | | Title | | Title |  |
-|          |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+  |
-|          |                                                                          |
-|          |   [ <- Prev ]   [ 1 ]   [ 2 ]   [ Next -> ]    Showing 1-21 of 23        |
-| [Manage] |                                                                          |
-+----------+--------------------------------------------------------------------------+
++-----------------------------------------------------------------------------------------------+
+| FLAN MEDIA SERVER (70px Height, Bold 1.7rem, Title Only)                 (?) [Avatar Frame]  |
++-----------+-----------------------------------------------------------------------------------+
+|           |                                                                                   |
+|  [  Q  ]  |   === CONTINUE WATCHING =======================================================   |
+|  SEARCH   |   +--------------------------+   +--------------------------+                     |
+|           |   | [Thumb] In-Progress Item |   | [Thumb] In-Progress Item |                     |
+|  [ |> ]   |   |         [ In Progress ]  |   |         [ In Progress ]  |                     |
+|   VIDEO   |   |         [ Resume > ]     |   |         [ Resume > ]     |                     |
+|  (Active) |   +--------------------------+   +--------------------------+                     |
+|           |                                                                                   |
+|  [ [] ]   |   VIDEOS & MOVIES   [ All ] [ Movies ] [ Series ] [ In Progress ]      (23 items)  |
+|   BOOKS   |   === MEDIA GRID (7 Columns Max Hard Limit) ===================================   |
+|           |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+           |
+|   -----   |   | Poster| | Poster| | Poster| | Poster| | Poster| | Poster| | Poster|           |
+|           |   |-------| |-------| |-------| |-------| |-------| |-------| |-------|           |
+|  [  #  ]  |   | Title | | Title | | Title | | Title | | Title | | Title | | Title |           |
+|  MANAGE   |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+           |
+|           |                                                                                   |
+| 108px Rail|   [ <- Prev ]   [ 1 ]   [ 2 ]   [ Next -> ]    Showing 1-21 of 23                 |
++-----------+-----------------------------------------------------------------------------------+
 ```
 
-### Mobile Viewport (`<= 768px: Top Header + Bottom Rail`)
+### Mobile Viewport (`<= 768px: 64px Top Header + 64px 4-Tab Bottom Bar`)
 ```text
 +-------------------------------------------------------------------------+
-| Flan Media Server                                           ( ? ) [Avatar]|  <-- Persistent Top Header
+| Flan Media Server                                           ( ? ) [Avatar]|  <-- 64px Top Header
 +-------------------------------------------------------------------------+
-|                                                                         |
-|   [ Search catalog...                        ] [Search] [ Filter [v] ]  |
-|   ALL VIDEOS - 23 TITLES                                                |
 |                                                                         |
 |   === CONTINUE WATCHING =============================================   |
 |   +-----------------------------------------------------------------+   |
-|   | [Thumb] In-Progress Item     [== Progress ==]      [ Resume > ] |   |
+|   | [Thumb] In-Progress Item     [ In Progress ]       [ Resume > ] |   |
 |   +-----------------------------------------------------------------+   |
+|                                                                         |
+|   ALL VIDEOS   [ All ] [ Movies ] [ Series ]                            |
 |                                                                         |
 |   +-----------------------+     +-----------------------+               |
 |   | [Poster Area]         |     | [Poster Area]         |               |
@@ -77,7 +77,7 @@ Breakpoint specifications and CSS layout strategies for mobile and small-screen 
 |   (Content scrolls freely above bottom bar)                             |
 |                                                                         |
 +-------------------------------------------------------------------------+
-|        [ Video ]              [ Books ]              [ Manage ]         |  <-- Fixed Bottom Bar
+|  [ Q ] Search   [ |> ] Video   [ [] ] Books   [ # ] Manage              |  <-- 64px Bottom Bar
 +-------------------------------------------------------------------------+
 ```
 
@@ -89,90 +89,105 @@ Breakpoint specifications and CSS layout strategies for mobile and small-screen 
 
 ```css
 @media (max-width: 768px) {
-  /* Convert left sidebar into fixed bottom bar */
+  /* Top header remains active at top */
+  .top-header {
+    height: 64px;
+    padding: 0 16px;
+  }
+
+  /* Convert left sidebar into fixed 64px 4-tab bottom bar */
   .left-sidebar {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    width: 100%;
-    height: 56px;
-    flex-direction: row;
+    width: 100% !important;
+    height: 64px !important;
+    flex-direction: row !important;
     padding: 0 !important;
     gap: 0 !important;
     align-items: stretch !important;
-    border-right: none;
-    border-top: 2px solid #000000;
+    border-right: none !important;
+    border-top: 2.5px solid #000000 !important;
     z-index: 100;
-    background: #ffffff;
+    background: #ffffff !important;
+    box-shadow: 0 -2px 0px rgba(0, 0, 0, 0.08);
   }
 
-  /* Distribute navigation buttons evenly across bottom bar */
+  /* Distribute navigation buttons (Search, Video, Books) */
   .sidebar-nav {
     display: flex !important;
     flex-direction: row !important;
-    flex: 2 !important;
+    flex: 3 !important;
     height: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     gap: 0 !important;
+    box-sizing: border-box !important;
   }
 
-  .sidebar-nav-btn {
-    flex: 1;
-    height: 100%;
-    margin: 0;
-    padding: 0 4px;
-    border: none;
-    border-radius: 0;
-    border-right: 2px solid #000000;
-    background: #ffffff;
-    color: #111111;
-    font-size: 0.95rem;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
-
-  .sidebar-nav-btn.active {
-    background: var(--brand-active) !important;
-    color: #ffffff !important;
-  }
-
+  /* Pinned Manage Server item */
   .sidebar-bottom {
-    flex: 1;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    display: flex;
+    flex: 1 !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    border-top: none !important;
+    box-sizing: border-box !important;
   }
 
-  .sidebar-manage-btn {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0 4px;
-    border: none;
-    border-radius: 0;
-    background: #ffffff;
-    color: #111111;
-    font-size: 0.95rem;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
+  .sidebar-divider {
+    display: none !important;
   }
 
-  .sidebar-manage-btn.active {
-    background: var(--brand-active) !important;
-    color: #ffffff !important;
+  .sidebar-nav-item {
+    flex: 1 !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 4px 2px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    border-right: 2px solid #000000 !important;
+    background: #ffffff !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    text-align: center !important;
   }
 
-  .desktop-manage-label { display: none !important; }
-  .mobile-manage-label { display: inline !important; }
+  .sidebar-manage-item {
+    border-right: none !important;
+  }
+
+  .sidebar-nav-item .nav-indicator-pill {
+    display: none !important;
+  }
+
+  .sidebar-nav-item .nav-squircle {
+    width: 32px !important;
+    height: 32px !important;
+    border: 2px solid #000000 !important;
+    border-radius: 9px !important;
+  }
+
+  .sidebar-nav-item .nav-squircle svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .sidebar-nav-item .nav-rail-label {
+    font-size: 0.65rem !important;
+    margin-top: 2px !important;
+  }
+
+  .sidebar-nav-item.active {
+    background: #f3ecfb !important;
+  }
 
   /* Add bottom offset so scrolling content clears the bottom bar */
   .main-content {
@@ -259,6 +274,61 @@ Breakpoint specifications and CSS layout strategies for mobile and small-screen 
   .main-content {
     padding: 10px 8px 72px 8px !important;
   }
+}
+```
+
+### Progressive Large-Screen & Low-Zoom Scaling (Approach A Toolbar + 2400px Cap)
+
+```css
+/* Tier 1: Base Wide / 1080p Standard (min-width: 1680px) */
+@media (min-width: 1680px) {
+  :root {
+    --catalog-max-width: 1840px;
+  }
+  .media-grid {
+    grid-template-columns: repeat(7, 1fr) !important;
+    gap: 20px !important;
+  }
+  .poster-play-btn svg { width: 54px; height: 54px; }
+  .card-title { font-size: 0.98rem; }
+}
+
+/* Tier 2: 1440p / 80% Zoom (min-width: 1920px) */
+@media (min-width: 1920px) {
+  :root {
+    --catalog-max-width: 2060px;
+  }
+  .media-grid {
+    gap: 22px !important;
+  }
+  .poster-play-btn svg { width: 62px; height: 62px; }
+  .card-title { font-size: 1.05rem; }
+  .search-input { height: 52px; font-size: 1.05rem; }
+  .search-btn, .filter-btn { height: 52px; font-size: 1.05rem; }
+}
+
+/* Tier 3: 4K / 67% Zoom (min-width: 2200px) */
+@media (min-width: 2200px) {
+  :root {
+    --catalog-max-width: 2280px;
+  }
+  .top-header { height: 64px; }
+  .left-sidebar { width: 96px; }
+  .nav-squircle { width: 56px; height: 56px; }
+  .media-grid { gap: 24px !important; }
+  .poster-play-btn svg { width: 68px; height: 68px; }
+  .card-title { font-size: 1.12rem; }
+}
+
+/* Tier 4: Ultra-Wide / 50% Zoom Hard Cap (min-width: 2560px) */
+@media (min-width: 2560px) {
+  :root {
+    --catalog-max-width: 2400px; /* Hard ceiling prevents runaway stretching */
+  }
+  .media-grid { gap: 26px !important; }
+  .poster-play-btn svg { width: 76px; height: 76px; }
+  .card-title { font-size: 1.2rem; }
+  .card-subtitle { font-size: 0.96rem; }
 }
 ```
 

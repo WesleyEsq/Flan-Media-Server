@@ -14,7 +14,7 @@ If you are contributing Go code or adding server capabilities:
 
 1. [Directory Structure & Architecture](directories.md): Package layout, Controller-Service-Repository-Model layers, and Java-to-Go concept mapping.
 2. [Master System Architecture](design.md): System constraints, HTTP routes, authorization matrix, and data flow.
-3. [Database Schema & Queries](database.md): 6-table relational schema, connection pooling, and migrations.
+3. [Database Schema & Queries](database.md): 7-table relational schema, connection pooling, and migrations.
 4. [Storage Architecture](storage.md): Mount validation, filesystem layout, and media conventions.
 5. [Local Metadata Engine](scraper.md): Directory traversal and database reconciliation algorithms.
 6. [Testing Strategy](testing.md): Guidelines for writing tests with in-memory SQLite and mock filesystems.
@@ -25,7 +25,7 @@ If you are deploying Flan on a home server, VPS, or single-board computer:
 
 1. [Compilation & Deployment Guide](compilation.md): Build flags, architecture targets (AMD64, ARM64, ARMv7), and systemd service setup.
 2. [Storage Architecture](storage.md): Drive layout, mount recovery, and USB disk safety.
-3. [Rate Limiting & Throttling](rate-limiting.md): Concurrency limits and brute-force safeguards.
+3. [Authentication Security & Rate Limiting](rate-limiting.md): PIN lockout safeguards and bcrypt CPU throttling.
 4. [Security Threat Model](threat-model.md): Network exposure, authentication mechanisms, and privilege boundaries.
 
 ### 3. Web Client & UI Design
@@ -46,14 +46,14 @@ If you are editing templates, CSS styles, or frontend interactions:
 
 * **[Master System Architecture](design.md):** Overall system design, hardware target expectations, HTTP route definitions, and authorization rules.
 * **[Directory Structure & Architecture](directories.md):** Detailed guide to packages in `internal/`, constructor dependency injection, and separation of concerns.
-* **[Database Schema & Queries](database.md):** Complete DDL for the 6-table SQLite database, WAL mode configuration, and migration strategies.
+* **[Database Schema & Queries](database.md):** Complete DDL for the 7-table SQLite database, WAL mode configuration, and migration strategies.
 * **[Storage Architecture & Drive Resiliency](storage.md):** Partition decoupling between flash storage and bulk media, `.flan-keep` markers, and drive-disconnect defenses.
 * **[Local-First Metadata Engine](scraper.md):** Specification for the offline crawler that discovers titles and posters without external network access.
 
 ### Operations & Security
 
 * **[Compilation & Homelab Deployment](compilation.md):** Cross-compilation instructions for x86 and ARM SBCs, performance considerations, and production systemd service files.
-* **[Rate Limiting & Throttling](rate-limiting.md):** Specifications for the 3-stream concurrent playback governor and dual-key PIN lockout mechanisms.
+* **[Authentication Security & Rate Limiting](rate-limiting.md):** Specifications for the dual-key PIN lockout, bcrypt CPU protection gate, and direct streaming.
 * **[Security Threat Model](threat-model.md):** Analysis of local network threats, token validation, CSRF defenses, and authentication boundaries.
 * **[Testing Strategy](testing.md):** Testing methodology using Go's `testing/fstest` and in-memory SQLite instances.
 

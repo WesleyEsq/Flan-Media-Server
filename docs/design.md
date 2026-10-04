@@ -13,8 +13,8 @@ Flan is designed for low-power host environments: repurposed PCs, small homelab 
 * **Navigation:** Consolidated strictly into a persistent left sidebar on desktop (`Video`, `Books`, and `Manage Server`), transforming into a fixed bottom bar on mobile screens. The top header contains brand identification and utility controls only.
 * **Media Model:** Unifies video media (movies and series) into containers and file lists. Unifies books (single titles and multi-volume series) into containers and file lists.
 * **Network Independence:** Fully offline operation with zero third-party metadata API calls. Directory names define titles; local `poster.jpg` files provide cover art.
-* **Storage Paths:** Fixed directory roots at `./media/video` and `./media/books`, avoiding dynamic multi-library tables.
-* **Stream Concurrency:** Maximum 3 active concurrent video streams, enforced by a playback lease governor to prevent I/O thrashing on attached USB drives.
+* **Storage Architecture:** Multi-drive storage roots managed via the `storage_sources` table, pre-seeded with default roots `./media/video` and `./media/books` upon initial setup.
+* **Direct Streaming:** Direct zero-copy file streaming via standard HTTP 206 Range requests delegating to kernel `sendfile` without CPU-heavy transcoding or complex proxy layers.
 * **Packaging:** Single standalone static binary compiled with `CGO_ENABLED=0` using `modernc.org/sqlite`, with web templates and assets embedded via `embed.FS`.
 
 ---
@@ -24,7 +24,7 @@ Flan is designed for low-power host environments: repurposed PCs, small homelab 
 The server implements a clean 4-tier layered architecture:
 
 ```text
-HTTP Request → [Middleware Filters: Auth, CSRF, Stream Governor]
+HTTP Request → [Middleware Filters: Auth, CSRF]
                      ↓
              Controller (RegisterRoutes) 
                      ↓
@@ -39,10 +39,10 @@ Domain Entities (internal/model): Pure data structures shared across layers.
 ```
 
 * **Model Layer (`internal/model`):** Pure domain structs (`Video`, `VideoFile`, `Book`, `BookFile`, `User`, `Progress`) and sentinel errors (`ErrNotFound`, `ErrDuplicate`). Zero database imports or SQL execution.
-* **Repository Layer (`internal/repository`):** Dedicated Data Access Objects (DAOs) executing pure SQL queries for the 6-table schema.
-* **Service Layer (`internal/service`):** Business rules and workflow orchestration (`AuthService`, `MediaService`, `ScannerService`, `GovernorService`).
+* **Repository Layer (`internal/repository`):** Dedicated Data Access Objects (DAOs) executing pure SQL queries for the 7-table schema.
+* **Service Layer (`internal/service`):** Business rules and workflow orchestration (`AuthService`, `MediaService`, `ScannerService`).
 * **Controller Layer (`internal/controller`):** HTTP transport adapters, request decoders, status code mapping, ViewModel assembly, and route registration onto `http.ServeMux`.
-* **Middleware Layer (`internal/middleware`):** Request filters: HMAC session authentication, CSRF/origin verification, and playback stream capacity enforcement.
+* **Middleware Layer (`internal/middleware`):** Request filters: HMAC session authentication and CSRF/origin verification.
 * **View Layer (`web/templates`, `web/static`):** 9 server-rendered HTML templates and vanilla CSS/JS packaged directly into the binary via `embed.FS`.
 
 ---
@@ -59,24 +59,25 @@ Domain Entities (internal/model): Pure data structures shared across layers.
 
 * **Login Screen:** Unauthenticated requests route to `/login`, presenting a focused tactile keypad: household member profile avatar buttons, numeric PIN input, and instant access button.
 * **Bootstrap Setup Token:** On initial startup with an empty user database, Flan prints a 6-character bootstrap setup token to stdout/systemd journal. Creating the initial administrator account requires this token to prevent unauthorized access across the local network.
-* **CLI Recovery:** If an administrator forgets their PIN, running `./flan --reset-admin` directly on the host generates a recovery token.
+* **CLI Recovery:** If an administrator forgets their PIN, running `./flan --reset-admin` directly on the host interactively prompts for and sets a new administrator PIN.
 
 ### Direct Streaming & External Player Integration
 
-* **Direct File Delivery:** Media files stream in their native formats. Handlers delegate to Go's `http.ServeContent` with HTTP 206 Partial Content (Range requests), transferring bytes directly from filesystem cache to socket via Linux `sendfile`.
-* **External Player Links (VLC / MPV):** Because browsers do not support certain audio codecs (such as AC3 or DTS), Flan provides short-lived HMAC-signed URLs (`/download/video/{file_id}?exp=<unix>&u=<user_id>&sig=<hmac>`) valid for 4 hours. These URLs allow external players to stream without needing the browser's session cookie.
+* **Direct File Delivery:** Media files stream in their native formats. Handlers delegate to Go's standard `http.ServeContent` with HTTP 206 Partial Content (Range requests), transferring bytes directly from filesystem cache to socket via Linux `sendfile` without userspace buffering or artificial lease limits.
+* **External Player Links (VLC / MPV):** Because browsers do not support certain containers (such as MKV) or audio codecs (such as AC3 or DTS), Flan provides short-lived HMAC-signed URLs (`/download/{type}/{file_id}?exp=<unix>&u=<user_id>&sig=<hmac>`) valid for 4 hours. The HMAC signature binds `media_type:file_id:user_id:token_version:exp`, preventing cross-entity access and revoking links if the user PIN is changed.
 * **Discrete Book Reading Progress:** PDF and EPUB reading progress is recorded as discrete states: `unread`, `reading`, and `finished`.
 
-### Concurrency and Brute-Force Safeguards
+### Authentication Safeguards & Brute-Force Protection
 
-1. **Playback Lease Governor:** Tracks active video sessions by `(session_id, file_id)` with a 30-second activity lease. Caps total concurrent streams at 3 (`HTTP 503` with `Retry-After: 30` when exceeded). Multiple range requests or seeks from the same session do not consume additional slots.
-2. **PIN Lockout:** Tracks failed login attempts by IP address and User ID. 5 consecutive failed attempts trigger a 5-minute lockout with exponential backoff on subsequent failures. Concurrent bcrypt hashing operations are serialized (maximum 1 concurrent hash) to avoid CPU exhaustion on low-power devices.
+* **PIN Lockout:** Tracks failed login attempts strictly in memory by Client IP and User ID. 5 consecutive failed attempts trigger a 5-minute lockout (`HTTP 429`) with exponential backoff (capped at 1 hour).
+* **CPU Starvation Protection:** Concurrent bcrypt hashing operations are serialized via a single-slot worker queue (`chan struct{}`) with an artificial 2-second processing delay applied on the 4th failed attempt before acquiring the bcrypt slot.
+* **Scan Deduplication:** Library scans are guarded by `singleflight.Group` to prevent redundant concurrent filesystem walks.
 
 ---
 
 ## 4. Server Endpoints
 
-### HTML Views (9 Server-Rendered Templates)
+### HTML Views (10 Server-Rendered Templates)
 
 * `GET /login`: Tactile profile keypad & login screen.
 * `GET /setup`: Initial admin initialization screen (requires bootstrap token).
@@ -84,7 +85,8 @@ Domain Entities (internal/model): Pure data structures shared across layers.
 * `GET /video/{id}`: Video container detail view with file list and signed download links.
 * `GET /books`: Books catalog card grid.
 * `GET /books/{id}`: Book container detail view with volume/format list.
-* `GET /watch/{file_id}`: Video player page (Plyr) with playback resume.
+* `GET /search`: Full-canvas search page across videos and books with filter chips.
+* `GET /watch/{file_id}`: Video player page (Plyr) with playback resume and subtitles.
 * `GET /read/{file_id}`: Document viewer (PDF) or direct download prompt (EPUB).
 * `GET /manage`: Administration console (system metrics, manual scan trigger, user profiles).
 * `GET /manual`: System documentation and user manual.
@@ -93,6 +95,7 @@ Domain Entities (internal/model): Pure data structures shared across layers.
 
 * `GET /stream/video/{file_id}`: Byte-range streaming via `sendfile` (HTTP 206).
 * `GET /stream/book/{file_id}`: Serves book files with Range support.
+* `GET /stream/subtitles/{file_id}/{track_id}`: Serves sidecar subtitles dynamically converted to WebVTT.
 * `GET /download/{type}/{file_id}`: Direct download or external player playback (accepts session cookie or signed URL parameters).
 * `GET /covers/{type}/{id}`: Cached cover artwork with long-lived client cache headers.
 * `GET /avatars/{user_id}`: User profile avatar image.
@@ -105,6 +108,9 @@ Domain Entities (internal/model): Pure data structures shared across layers.
   * `POST /api/setup`: Initializes the admin account using the bootstrap token.
   * `POST /api/login`: Validates user PIN and issues HMAC session cookie.
   * `POST /api/logout`: Clears session cookie.
+* **Playback & Progress:**
+  * `GET /api/progress/{type}/{file_id}`: Retrieves saved playback position or reading status.
+  * `POST /api/progress`: Saves current playback position or reading status.
 * **User Management:**
   * `GET /api/users`: Public list of usernames and avatars for the login dropdown.
   * `POST /api/users`: Admin creates a new user profile.
@@ -117,7 +123,7 @@ Domain Entities (internal/model): Pure data structures shared across layers.
   * `POST /api/sources`: Add a new storage folder (auto-initializes `.flan-keep` if missing).
   * `PUT /api/sources/{id}`: Update storage source friendly display name.
   * `DELETE /api/sources/{id}`: Remove a storage source.
-  * `POST /api/sources/{id}/scan`: Scans source folder on-demand; returns gathered candidate items with cleaned titles.
+  * `POST /api/sources/{id}/scan`: Scans source folder on-demand; returns gathered candidate items as JSON in response.
   * `POST /api/sources/{id}/ingest`: Commits user-selected items and edited titles into the catalog (`metadata_locked = 1`).
   * `POST /api/scan`: Maintenance scan of existing catalog items to flag missing files or update mtimes.
   * `GET /api/scan/status`: Reports active maintenance scan progress and counts.
@@ -127,9 +133,6 @@ Domain Entities (internal/model): Pure data structures shared across layers.
   * `POST /api/media/{type}/{id}/cover`: Uploads or replaces custom container cover artwork.
   * `PUT /api/media/video/{id}/files`: Batch updates episode titles, sequence order indices, and hidden flags.
   * `DELETE /api/media/{type}/{id}`: Hides or removes container from catalog.
-* **Progress:**
-  * `GET /api/progress/{type}/{file_id}`: Retrieves saved playback position or reading status.
-  * `POST /api/progress`: Saves current playback position or reading status.
 
 ---
 
@@ -140,18 +143,19 @@ Domain Entities (internal/model): Pure data structures shared across layers.
   * `GET /setup`, `POST /api/setup` (first-run only when user count is 0)
   * `GET /healthz`
 * **Authenticated User:**
-  * Catalog: `GET /video`, `GET /books`, `GET /watch/*`, `GET /read/*`
+  * Catalog & Views: `GET /`, `GET /video`, `GET /video/{id}`, `GET /books`, `GET /books/{id}`, `GET /search`, `GET /watch/*`, `GET /read/*`, `GET /manual`
   * Media delivery: `GET /stream/*`, `GET /covers/*`, `GET /avatars/*`
   * Direct download: `GET /download/*` (authenticated via session cookie)
-  * Progress: `GET /api/progress/*`, `POST /api/progress`
+  * Progress & Playback: `GET /api/progress/*`, `POST /api/progress`
   * Profile updates: `PUT /api/users/{id}/*` (self only)
 * **External Players:**
   * `GET /download/*` (authenticated via signed query parameters `exp`, `u`, and `sig`)
 * **Administrator Only:**
+  * Administration Console: `GET /manage`
   * Account creation & deletion: `POST /api/users`, `DELETE /api/users/{id}`
-  * Storage sources: `GET /api/sources`, `POST /api/sources`, `DELETE /api/sources/{id}`
-  * Ingestion & uploads: `GET /api/ingestion/*`, `POST /api/ingestion/*`, `POST /api/upload`
-  * Catalog & metadata editing: `POST /api/scan`, `PUT /api/media/*`, `POST /api/media/*/cover`, `PUT /api/media/video/*/files`, `DELETE /api/media/*`
+  * Storage sources: `GET /api/sources`, `POST /api/sources`, `PUT /api/sources/{id}`, `DELETE /api/sources/{id}`
+  * Ingestion & uploads: `POST /api/sources/{id}/scan`, `POST /api/sources/{id}/ingest`, `POST /api/scan`, `GET /api/scan/status`, `POST /api/upload`
+  * Catalog & metadata editing: `PUT /api/media/*`, `POST /api/media/*/cover`, `PUT /api/media/video/*/files`, `DELETE /api/media/*`
   * User profile override: `PUT /api/users/{id}/*` (admin override)
 
 ---
@@ -161,7 +165,7 @@ Domain Entities (internal/model): Pure data structures shared across layers.
 * [Directory Structure & Architecture](directories.md)
 * [Database Schema & Queries](database.md)
 * [Storage Architecture](storage.md)
-* [Rate Limiting & Throttling](rate-limiting.md)
+* [Authentication Security & Rate Limiting](rate-limiting.md)
 * [Security Threat Model](threat-model.md)
 * [Compilation & Deployment](compilation.md)
 * [Testing Strategy](testing.md)

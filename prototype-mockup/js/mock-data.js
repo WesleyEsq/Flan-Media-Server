@@ -10,8 +10,7 @@ const FLAN_MOCK_DATA = {
     mascot: {
       name: "Anime Idol",
       svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
-        <rect x="2" y="2" width="96" height="96" rx="6" fill="#3ea6ff" stroke="#000000" stroke-width="3"/>
-        <rect x="6" y="6" width="88" height="88" rx="4" fill="#fdedd0"/>
+        <rect x="2" y="2" width="96" height="96" rx="6" fill="#fdedd0"/>
         <polygon points="18,34 32,8 44,30" fill="#f37021" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
         <polygon points="24,30 32,16 38,28" fill="#ffb4a2"/>
         <polygon points="56,30 68,8 82,34" fill="#f37021" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
@@ -456,7 +455,6 @@ const FLAN_MOCK_DATA = {
       sourceId: 3,
       status: "reading",
       lastRead: "2026-10-03T18:00:00Z",
-      readingProgress: "Page 142 of 680",
       overview: "Set on the desert planet Arrakis, Dune is the story of Paul Atreides—who would become known as Muad'Dib—and of a great family's ambition to bring to fruition humankind's most ancient and unattainable dream.",
       coverColor: "#d84315",
       badge: "EPUB",
@@ -502,7 +500,6 @@ const FLAN_MOCK_DATA = {
       sourceId: 3,
       status: "reading",
       lastRead: "2026-10-02T14:30:00Z",
-      readingProgress: "Page 88 of 440",
       overview: "In reality, Hiro Protagonist delivers pizza for Uncle Enzo's CosoNostra Pizza Inc., but in the Metaverse he's a warrior prince.",
       coverColor: "#00695c",
       badge: "EPUB",

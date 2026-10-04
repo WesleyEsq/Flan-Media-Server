@@ -17,13 +17,13 @@ flowchart LR
     end
 
     subgraph Core["Flan Media Server Process"]
-        Daemon["Flan Daemon (:4907)<br/>• net/http & HTML Engine<br/>• Stream Governor Semaphore (Max 3)<br/>• SQLite WAL (Single Conn)"]
+        Daemon["Flan Daemon (:4907)<br/>• net/http & HTML Engine<br/>• Direct Zero-Copy sendfile (HTTP 206)<br/>• SQLite WAL (Split Writer/Reader Pools)"]
     end
 
     subgraph Storage["Host Storage Tiers"]
         direction TB
         AppData["App Storage (NVMe / SD)<br/>• flan.db (WAL Mode)<br/>• data/covers/ & data/avatars/"]
-        BulkMedia["Bulk Storage (USB / SATA)<br/>• ./media/video/<br/>• ./media/books/"]
+        BulkMedia["Bulk Media Storage Sources (USB / SATA / Local)<br/>• Default: ./media/video, ./media/books<br/>• Configured: /mnt/usb-..."]
     end
 
     Browser -->|"1. HTTP Range & Progress"| Daemon
@@ -48,18 +48,17 @@ flowchart LR
 
     subgraph Core["Internal Processing Modules"]
         Router["1.0 Router & Auth / CSRF Middleware"]
-        Governor["2.0 Stream Governor (Playback Leases max 3)"]
-        PageEngine["3.0 Template Engine (html/template)"]
-        StreamEngine["4.0 Streaming & Download Engine (sendfile)"]
-        AvatarEngine["5.0 Avatar Handler (Presets & Max 2MB Upload)"]
-        Scanner["6.0 Local Library Scanner & Reconciliation"]
+        PageEngine["2.0 Template Engine (html/template)"]
+        StreamEngine["3.0 Streaming & Download Engine (sendfile)"]
+        AvatarEngine["4.0 Avatar Handler (Presets & Max 2MB Upload)"]
+        Scanner["5.0 Local Library Scanner & Reconciliation"]
     end
 
     subgraph Stores["Persistence & Hardware Stores"]
         SQLite[("SQLite Database: flan.db (WAL)")]
         Covers[("Local Cover Cache: data/covers/")]
         Avatars[("Avatar Storage: data/avatars/")]
-        HostDrives[("Media Directories: ./media/")]
+        HostDrives[("Configured Storage Sources (./media/, /mnt/...)")]
     end
 
     subgraph Output["Network Output"]
@@ -67,10 +66,8 @@ flowchart LR
     end
 
     Request --> Router
-    Router -- "GET /stream/video/{id}" --> Governor
-    Router -- "GET /download/video/{id}" --> Governor
-    Governor -- "Lease Granted (< 3)" --> StreamEngine
-    Governor -- "Capacity Reached (>= 3)" --> Response
+    Router -- "GET /stream/video/{id}" --> StreamEngine
+    Router -- "GET /download/video/{id}" --> StreamEngine
     Router -- "GET / (HTML Pages)" --> PageEngine
     Router -- "POST /api/users/{id}/avatar" --> AvatarEngine
     StreamEngine --> SQLite
@@ -92,24 +89,21 @@ flowchart LR
 
 ## 3. Zero-Copy Video Streaming (UML Sequence)
 
-Shows how byte range requests trigger Linux `sendfile`, moving data directly from kernel cache to socket buffers without touching Go heap RAM, governed by playback session leases.
+Shows how byte range requests trigger Linux `sendfile`, moving data directly from kernel cache to socket buffers without touching Go heap RAM.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Client as Browser (HTML5 Video)
-    participant Gov as Stream Governor (Lease Tracker)
     participant Handler as Stream Handler (Go)
     participant DB as SQLite (flan.db)
     participant VFS as Linux Kernel VFS
     participant Socket as Network TCP Socket
 
-    Client->>Gov: GET /stream/video/42 (Range: bytes=1048576-)
-    Gov->>Gov: Check (session_id, 42) lease; refresh last_active (active <= 3)
-    Gov->>Handler: Forward request with granted lease
+    Client->>Handler: GET /stream/video/42 (Range: bytes=1048576-)
     Handler->>DB: Query video_files for file_id = 42
-    DB-->>Handler: Relative path under ./media/video/
-    Handler->>Handler: Validate canonical path inside ./media/video/
+    DB-->>Handler: Relative path under storage source
+    Handler->>Handler: Validate canonical path inside storage source
     Handler->>VFS: os.Open("./media/video/Dune/Dune.mp4")
     VFS-->>Handler: File descriptor (fd_in)
     Handler->>Handler: Calculate Content-Range header
@@ -117,7 +111,6 @@ sequenceDiagram
     Note over VFS,Socket: Kernel transfers pages directly from<br/>filesystem cache to socket. Zero bytes in Go RAM.
     VFS-->>Socket: Stream raw bytes
     Socket-->>Client: HTTP 206 Partial Content
-    Note over Gov: Lease automatically expires 30s after<br/>last range request or on pause/exit beacon.
 ```
 
 ---
@@ -207,7 +200,7 @@ sequenceDiagram
     Note over Browser: Page holds signed URL with 4h expiry:<br/>http://flan:4907/download/video/42?exp=1700000000&u=1&sig=...
     Browser->>VLC: Opens network stream with signed URL
     VLC->>API: GET /download/video/42?exp=1700000000&u=1&sig=...
-    API->>API: Verify HMAC signature over (42, u, exp) & assert exp >= now
+    API->>API: Verify HMAC signature over (type, 42, u, token_version, exp) & assert exp >= now
     API->>DB: Query relative_path from video_files
     DB-->>API: Returns path
     API-->>VLC: HTTP 200/206 with full audio track (AC3/DTS decoded natively by VLC)
@@ -219,5 +212,5 @@ sequenceDiagram
 
 * [User Flows](user-flows.md)
 * [Master System Architecture](../design.md)
-* [Two-Safeguard Rate Limiting](../rate-limiting.md)
+* [Authentication Security & Rate Limiting](../rate-limiting.md)
 * [Storage Architecture](../storage.md)

@@ -42,7 +42,7 @@ Videos are organized as containers containing files. A container represents a mo
   `Blade Runner (1982)/Final Cut.mp4`
   `Blade Runner (1982)/poster.jpg`
 * **Flat File (Single Video):**
-  `Short Film.mp4` (container title is derived from filename)
+  `Short Film.mp4` (in the database, `videos.folder_path` is set to `"Short Film.mp4"` and `video_files.relative_path = ""` to guarantee uniqueness across multiple flat files under `UNIQUE(source_id, folder_path)`)
 
 ### Book Conventions Inside a Storage Source
 
@@ -51,7 +51,7 @@ Videos are organized as containers containing files. A container represents a mo
   `Dune/Book 2.epub`
   `Dune/poster.jpg`
 * **Single Document:**
-  `Computer Architecture.pdf`
+  `Computer Architecture.pdf` (in the database, `books.folder_path` is set to `"Computer Architecture.pdf"` and `book_files.relative_path = ""`)
 
 ---
 
@@ -61,8 +61,11 @@ Flan provides two complementary ingestion workflows tailored to file size and us
 
 ### 1. Direct Web Upload (In-Browser Convenience)
 Designed for digital books (EPUB/PDF), single movies, and custom cover images without requiring SSH or network shares:
-* **Direct-to-Disk Streaming:** Web uploads stream directly from the HTTP request body (`r.Body`) straight to the destination file on the target drive using `io.Copy`. 
-* **Zero Root Flash Wear:** Uploaded video bytes **never** buffer in Go heap RAM and never write to temporary folders on the root micro-SD/eMMC (`/tmp`). This eliminates root flash wear and prevents crashes caused by filled boot drives.
+* **Direct-to-Disk Streaming via `r.MultipartReader()`:** Web uploads parse parts incrementally using `r.MultipartReader()` and stream directly to destination storage using `io.Copy()`. This explicitly bypasses standard `r.ParseMultipartForm()`, which dumps parts >10 MB to root flash `/tmp`.
+* **Zero Root Flash Wear & Atomic Staging:** Uploaded bytes stream directly to `<target_folder>/<filename>.part` on the bulk media drive. Upon successful complete transfer, `os.Rename()` atomically commits the file to its final name. If the transfer is cancelled or disconnected (`<-r.Context().Done()`), the partial `.part` file is immediately deleted via `os.Remove()`, ensuring incomplete uploads never pollute the catalog.
+* **Disk Space & Traversal Protection:**
+  * Before accepting bytes, Flan inspects free space on the destination drive using `syscall.Statfs()` (using explicit `uint64` casting to avoid 32-bit integer overflow on drives $\ge 2\text{TB}$ on ARMv7/ARMv6 SBCs). If free space is below 1 GB, the upload is rejected with `HTTP 507 Insufficient Storage`.
+  * Filenames are strictly sanitized with `filepath.Base()`, stripped of control characters, and checked against allowed media extensions (`.mp4`, `.mkv`, `.webm`, `.epub`, `.pdf`, `.jpg`, `.png`).
 * **HTML5 Progress Reporting:** The web interface provides real-time upload progress (percentage, speed, and time remaining).
 * **Automatic Metadata Extraction:**
   * Books (EPUB): Embedded title, author, and cover art are extracted in pure Go upon upload.
@@ -79,20 +82,21 @@ For large video libraries and multi-season television shows, administrators mana
 
 ## 4. Drive Disconnection & Failure Mitigations
 
-### 1. Unmounted Storage Protection (`.flan-keep`)
-* **Risk:** If an external drive fails to mount at boot, an empty mount folder could be mistaken for an empty library, leading to unintended database purges.
-* **Mitigation:** Every storage source mandates a marker file named `.flan-keep`.
-* **Zero-Terminal Setup:** When an administrator adds a new storage source in the web UI, Flan verifies `.flan-keep`. If missing, the UI offers an **[ Initialize .flan-keep ]** button, creating the file instantly without requiring terminal commands.
+### 1. Two-Tier Marker Protection (`.flan-keep`)
+* **Primary App Tier (`./data/.flan-keep`):** Verifies the critical application storage partition. If missing at startup, Flan halts immediately to prevent writing a blank SQLite database or session secret to an unmounted root mount point.
+* **Storage Sources Tier (`<source_path>/.flan-keep`):** Mandated inside each configured storage source directory to prevent an unmounted media partition from being mistaken for an emptied library.
+* **Device Boundary Safety on Initialization:** When initializing `.flan-keep` via the web console for a newly added source, Flan compares the filesystem device identifier (`syscall.Stat_t.Dev`) of the folder against the root device (`/`). If a mount directory (e.g. `/mnt/usb-movies`) shares the root device ID, Flan flags a warning confirming the external partition is truly mounted before creating the marker.
 
-### 2. Isolated Source Failures
-* If a secondary external drive unmounts or disconnects, only items linked to that specific `source_id` are temporarily flagged `is_missing = 1`. 
-* Media on other active drives remains fully accessible, and server startup proceeds normally.
+### 2. Isolated Source Failures & Startup Resiliency
+* If an external media drive fails to mount at boot or disconnects:
+  * Server startup **proceeds normally** without halting.
+  * The disconnected storage source is flagged as offline in memory and the `/manage` console.
+  * Catalog items belonging to that `source_id` are temporarily treated as `is_missing = 1` rather than deleted.
+  * Media on other active storage drives remains fully accessible.
+  * Once the drive is remounted and verified, items return to normal active status.
 
 ### 3. Drive Disconnection During Active Scan
-* Before and during crawling of any storage source, Flan checks `.flan-keep`. If the marker disappears mid-scan, crawling of that source aborts immediately without altering database records.
-
-### 4. Drive Thrashing Prevention (3-Stream Governor)
-* Mechanical USB hard drives experience severe seek penalties under concurrent random reads. The playback lease governor restricts concurrent active video streams to 3, returning `HTTP 503` with a `Retry-After: 30` header when capacity is reached.
+* Before and during crawling of any storage source, Flan checks for `.flan-keep`. If the marker disappears mid-scan, crawling of that source aborts immediately without altering database records or purging historical watch progress.
 
 ---
 
@@ -100,5 +104,5 @@ For large video libraries and multi-season television shows, administrators mana
 
 * [Master System Architecture](design.md)
 * [Database Schema & Queries](database.md)
-* [Rate Limiting & Throttling](rate-limiting.md)
+* [Authentication Security & Rate Limiting](rate-limiting.md)
 * [Security Threat Model](threat-model.md)

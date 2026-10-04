@@ -80,7 +80,7 @@ func TestLoginController_RejectsInvalidPIN(t *testing.T) {
 Core algorithms and security utilities are implemented as pure, zero-dependency functions:
 
 * **Filename Sanitization:** `CleanFilename(raw string) (title string, year int, season int, episode int)` — tested with table-driven test cases against real-world media release formats.
-* **Signed URL Verification:** `VerifySignedURL(secret []byte, fileID int64, userID int64, exp int64, sigHex string) bool` — tested against expired timestamps, modified user IDs, tampered signatures, and constant-time execution.
+* **Signed URL Verification:** `VerifySignedURL(secret []byte, mediaType string, fileID int64, userID int64, tokenVersion int, exp int64, sigHex string) bool` — tested against expired timestamps, modified user IDs, tampered media types, modified token versions, and constant-time execution.
 * **Reconciliation Diff Engine:** `DiffCatalog(disk []DiscoveredItem, db []StoredItem) ReconciliationPlan` — tested against new files, missing files, drive unmounts, and metadata lock preservation.
 
 ---

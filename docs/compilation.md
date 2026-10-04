@@ -4,7 +4,14 @@ Flan Media Server compiles with `CGO_ENABLED=0` using the pure-Go SQLite driver 
 
 ---
 
-## 1. Cross-Compilation Commands
+## 1. Prerequisites & Toolchain
+
+* **Go Version:** Go 1.24 or newer.
+* **Target Architectures:** AMD64, ARM64, ARMv7 (32-bit).
+
+---
+
+## 2. Cross-Compilation Commands
 
 Build commands use `-ldflags="-s -w"` to strip symbol and debug information, reducing binary size by 25–35% for faster loading from disk or flash storage.
 
@@ -43,7 +50,7 @@ Flan is designed for low memory and CPU overhead:
 3. **Bounded Database Cache:** SQLite runs in WAL mode with a bounded ~2 MB page cache per connection.
 4. **Embedded Assets:** Templates and static files are compiled directly into the binary via `embed.FS`.
 
-Process resource metrics (allocated heap, system memory, goroutines, active streams, and uptime) can be viewed directly on the `/manage` console.
+Process resource metrics (allocated heap, system memory, goroutines, and uptime) can be viewed directly on the `/manage` console.
 
 ### Low-Memory Tuning (512 MB SBCs)
 
@@ -120,4 +127,4 @@ sudo systemctl status flan
 
 * [Master System Architecture](design.md)
 * [Storage Architecture](storage.md)
-* [Rate Limiting & Throttling](rate-limiting.md)
+* [Authentication Security & Rate Limiting](rate-limiting.md)

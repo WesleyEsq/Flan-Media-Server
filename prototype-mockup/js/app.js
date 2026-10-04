@@ -29,6 +29,7 @@
     helpBtn: document.getElementById("help-btn"),
     appContainer: document.getElementById("app-container"),
     leftSidebar: document.getElementById("left-sidebar"),
+    sidebarSearchBtn: document.getElementById("nav-search-btn"),
     sidebarVideoBtn: document.getElementById("nav-video-btn"),
     sidebarBooksBtn: document.getElementById("nav-books-btn"),
     sidebarManageBtn: document.getElementById("nav-manage-btn"),
@@ -138,6 +139,240 @@
   function renderUserAvatarBadge(user) {
     if (!user || !el.userAvatar) return;
     el.userAvatar.innerHTML = getUserAvatarSVG(user);
+  }
+
+  // HTML escape helper
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll("\"", "&quot;")
+      .replaceAll("\'", "&#039;");
+  }
+
+  // =========================================================================
+  // DEDICATED SEARCH PAGE MANAGER (#search)
+  // =========================================================================
+  let searchPageTypeFilter = "all";
+  let searchPageStatusFilter = "all";
+
+  function renderSearchView() {
+    el.mainContent.classList.remove("manual-mode");
+    el.mainContent.style.padding = "";
+
+    // Aggregate all library items
+    let allMedia = [];
+    if (searchPageTypeFilter === "all" || searchPageTypeFilter === "video") {
+      (FLAN_MOCK_DATA.videos || []).forEach((v) => allMedia.push({ ...v, mediaCategory: "video" }));
+    }
+    if (searchPageTypeFilter === "all" || searchPageTypeFilter === "books") {
+      (FLAN_MOCK_DATA.books || []).forEach((b) => allMedia.push({ ...b, mediaCategory: "books" }));
+    }
+
+    const q = (state.searchQuery || "").trim().toLowerCase();
+
+    let contentHtml = "";
+    let statusText = "";
+
+    if (!q) {
+      statusText = "Enter search terms above";
+      contentHtml = `
+        <div class="search-prompt-card">
+          <div class="search-prompt-icon">
+            <svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+            </svg>
+          </div>
+          <div class="search-prompt-title">Search Your Library</div>
+          <p class="search-prompt-desc">
+            Start typing a title, director, author, or keyword to find videos and books.
+          </p>
+        </div>
+      `;
+    } else {
+      // Query filter
+      allMedia = allMedia.filter((item) => {
+        const titleMatch = item.title && item.title.toLowerCase().includes(q);
+        const authorMatch = item.author && item.author.toLowerCase().includes(q);
+        const descMatch = item.overview && item.overview.toLowerCase().includes(q);
+        return titleMatch || authorMatch || descMatch;
+      });
+
+      // Status filter
+      if (searchPageStatusFilter === "in-progress") {
+        allMedia = allMedia.filter((item) => {
+          return (FLAN_MOCK_DATA.userProgress || []).some(
+            (p) => p.containerId === item.id && p.status === "in_progress"
+          );
+        });
+      } else if (searchPageStatusFilter === "unwatched") {
+        allMedia = allMedia.filter((item) => {
+          return !(FLAN_MOCK_DATA.userProgress || []).some(
+            (p) => p.containerId === item.id && (p.status === "in_progress" || p.status === "completed")
+          );
+        });
+      }
+
+      const totalCount = allMedia.length;
+      statusText = `Found ${totalCount} ${totalCount === 1 ? "title" : "titles"} matching "${escapeHtml(state.searchQuery)}"`;
+
+      if (totalCount === 0) {
+        contentHtml = `
+          <div class="search-empty-card">
+            <div class="search-empty-title">No Titles Found</div>
+            <p class="search-empty-desc">
+              No media in your library matches "${escapeHtml(state.searchQuery)}". Check your spelling or try clearing active filters.
+            </p>
+            <button id="search-clear-all-btn" class="search-reset-action-btn">Clear Search &amp; Filters</button>
+          </div>
+        `;
+      } else {
+        contentHtml = `
+          <section class="media-grid" id="search-media-grid">
+            ${allMedia
+              .map((item) => {
+                const isVideo = item.mediaCategory === "video";
+                const type = isVideo ? "video" : "books";
+                return `
+              <a class="media-card" href="#detail/${type}/${item.id}" data-id="${item.id}" data-type="${type}" role="article" aria-label="${escapeHtml(item.title)}${item.badge ? ' (' + escapeHtml(item.badge) + ')' : ''}">
+                <!-- Upper Poster Area -->
+                <div class="card-poster">
+                  <span class="card-badge">${escapeHtml(item.badge || (isVideo ? "VIDEO" : "BOOK"))}</span>
+                  <div class="card-poster-placeholder">
+                    <svg viewBox="0 0 24 24">
+                      ${
+                        isVideo
+                          ? '<polygon points="5,3 19,12 5,21" fill="none" stroke="currentColor" stroke-width="2"/>'
+                          : '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/> <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill="none" stroke="currentColor" stroke-width="2"/>'
+                      }
+                    </svg>
+                    <span style="font-weight:700; font-size: 0.9rem; color: #333;">${escapeHtml(item.title)}</span>
+                  </div>
+                </div>
+
+                <!-- Lower Purple Footer Band -->
+                <div class="card-footer-band">
+                  <div class="card-title" title="${escapeHtml(item.title)}">
+                    <span class="title-text">${escapeHtml(item.title)}</span>
+                  </div>
+                  <div class="card-subtitle">${
+                    isVideo
+                      ? `${item.files ? item.files.length : 1} ${item.files && item.files.length === 1 ? "file" : "episodes"}`
+                      : `${escapeHtml(item.author || "Book")}`
+                  }</div>
+                </div>
+              </a>
+            `;
+              })
+              .join("")}
+          </section>
+        `;
+      }
+    }
+
+    el.mainContent.innerHTML = `
+      <div class="search-page-container">
+        <header class="search-page-header">
+          <div class="search-page-input-wrap">
+            <svg class="search-page-input-icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+            </svg>
+            <input
+              id="search-page-input"
+              class="search-page-input"
+              type="text"
+              placeholder="Search across videos, movies, series, books..."
+              value="${escapeHtml(state.searchQuery || "")}"
+              autocomplete="off"
+              aria-label="Search across library"
+            />
+            ${state.searchQuery ? `<button id="search-page-clear-btn" class="search-page-clear-btn" aria-label="Clear Search Input" title="Clear Search">✕</button>` : ""}
+          </div>
+
+          <div class="search-page-controls-row">
+            <div class="search-page-filter-groups">
+              <div class="search-page-filter-group" role="group" aria-label="Filter by media type">
+                <span class="search-page-filter-label">Type:</span>
+                <button type="button" class="search-page-chip ${searchPageTypeFilter === "all" ? "active" : ""}" data-filter="type" data-val="all">All</button>
+                <button type="button" class="search-page-chip ${searchPageTypeFilter === "video" ? "active" : ""}" data-filter="type" data-val="video">Videos</button>
+                <button type="button" class="search-page-chip ${searchPageTypeFilter === "books" ? "active" : ""}" data-filter="type" data-val="books">Books</button>
+              </div>
+
+              <div class="search-page-filter-group" role="group" aria-label="Filter by status">
+                <span class="search-page-filter-label">Status:</span>
+                <button type="button" class="search-page-chip ${searchPageStatusFilter === "all" ? "active" : ""}" data-filter="status" data-val="all">All</button>
+                <button type="button" class="search-page-chip ${searchPageStatusFilter === "in-progress" ? "active" : ""}" data-filter="status" data-val="in-progress">In Progress</button>
+                <button type="button" class="search-page-chip ${searchPageStatusFilter === "unwatched" ? "active" : ""}" data-filter="status" data-val="unwatched">Unwatched</button>
+              </div>
+            </div>
+
+            <div class="search-page-meta-status">${escapeHtml(statusText)}</div>
+          </div>
+        </header>
+
+        <section class="search-page-results-section" aria-label="Search Results">
+          ${contentHtml}
+        </section>
+      </div>
+    `;
+
+    // Bind Search Input listener
+    const input = document.getElementById("search-page-input");
+    if (input) {
+      input.addEventListener("input", (e) => {
+        state.searchQuery = e.target.value;
+        renderSearchView();
+        const newInput = document.getElementById("search-page-input");
+        if (newInput) {
+          newInput.focus();
+          const val = newInput.value;
+          newInput.setSelectionRange(val.length, val.length);
+        }
+      });
+    }
+
+    const clearBtn = document.getElementById("search-page-clear-btn");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", () => {
+        state.searchQuery = "";
+        renderSearchView();
+        const newInput = document.getElementById("search-page-input");
+        if (newInput) newInput.focus();
+      });
+    }
+
+    const resetAllBtn = document.getElementById("search-clear-all-btn");
+    if (resetAllBtn) {
+      resetAllBtn.addEventListener("click", () => {
+        state.searchQuery = "";
+        searchPageTypeFilter = "all";
+        searchPageStatusFilter = "all";
+        renderSearchView();
+        const newInput = document.getElementById("search-page-input");
+        if (newInput) newInput.focus();
+      });
+    }
+
+    // Bind Filter Chip listeners
+    const chips = el.mainContent.querySelectorAll(".search-page-chip");
+    chips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const filterGroup = chip.getAttribute("data-filter");
+        const val = chip.getAttribute("data-val");
+        if (filterGroup === "type") {
+          searchPageTypeFilter = val;
+        } else if (filterGroup === "status") {
+          searchPageStatusFilter = val;
+        }
+        renderSearchView();
+      });
+    });
+
+
   }
 
   // =========================================================================
@@ -835,6 +1070,10 @@
       state.activeTab = "books";
       updateSidebarActive();
       renderCatalogView("books");
+    } else if (route === "#search") {
+      state.activeTab = "search";
+      updateSidebarActive();
+      renderSearchView();
     } else if (route === "#detail") {
       const type = parts[1];
       const id = parseInt(parts[2], 10);
@@ -861,6 +1100,10 @@
   }
 
   function updateSidebarActive() {
+    if (el.sidebarSearchBtn) {
+      el.sidebarSearchBtn.classList.remove("active", "focused");
+      el.sidebarSearchBtn.removeAttribute("aria-current");
+    }
     el.sidebarVideoBtn.classList.remove("active", "focused");
     el.sidebarBooksBtn.classList.remove("active", "focused");
     el.sidebarManageBtn.classList.remove("active");
@@ -869,7 +1112,10 @@
     el.sidebarBooksBtn.removeAttribute("aria-current");
     el.sidebarManageBtn.removeAttribute("aria-current");
 
-    if (state.activeTab === "video") {
+    if (state.activeTab === "search" && el.sidebarSearchBtn) {
+      el.sidebarSearchBtn.classList.add("active");
+      el.sidebarSearchBtn.setAttribute("aria-current", "page");
+    } else if (state.activeTab === "video") {
       el.sidebarVideoBtn.classList.add("active");
       el.sidebarVideoBtn.setAttribute("aria-current", "page");
     } else if (state.activeTab === "books") {
@@ -1125,10 +1371,7 @@
         if (type === "video") {
           const activeFile = (item.files && item.files.find((f) => f.progress > 0 && !f.isFinished)) || (item.files && item.files[0]) || {};
           const isSeries = item.type === "series";
-          const progressPercent = activeFile.progress || 0;
-          const progressLabel = isSeries
-            ? `${activeFile.title || 'Next Episode'} - ${activeFile.formattedPos || activeFile.duration || ''}`
-            : `${activeFile.formattedPos || ''} / ${activeFile.duration || ''} (${progressPercent}%)`;
+          const subtitle = isSeries ? (activeFile.title || 'In Progress') : 'In Progress';
 
           return `
             <div class="continue-card" role="article" aria-label="Resume ${item.title}">
@@ -1138,12 +1381,10 @@
               <div class="continue-card-content">
                 <div>
                   <div class="continue-card-title" title="${item.title}">${item.title}</div>
-                  <div class="continue-card-subtitle" title="${progressLabel}">${progressLabel}</div>
+                  <div class="continue-card-subtitle" title="${subtitle}">${subtitle}</div>
                 </div>
-                <div>
-                  <div class="continue-progress-wrap" aria-label="${progressPercent}% watched">
-                    <div class="continue-progress-bar" style="width: ${progressPercent}%;"></div>
-                  </div>
+                <div class="continue-status-row">
+                  <span class="continue-status-tag">In Progress</span>
                   <button type="button" class="continue-resume-btn resume-video-btn" data-file-id="${activeFile.id}">
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none"><polygon points="5,3 19,12 5,21"/></svg>
                     <span>Resume</span>
@@ -1153,8 +1394,6 @@
             </div>
           `;
         } else {
-          // Discrete reading status, NO raw percentages for books!
-          const readingLabel = item.readingProgress || "Currently Reading";
           return `
             <div class="continue-card" role="article" aria-label="Continue reading ${item.title}">
               <div class="continue-card-thumb">
@@ -1165,16 +1404,12 @@
                   <div class="continue-card-title" title="${item.title}">${item.title}</div>
                   <div class="continue-card-subtitle">${item.author || ''}</div>
                 </div>
-                <div>
-                  <span style="display:inline-block; font-size:0.75rem; font-weight:800; background:#e2d9f3; color:#4a148c; padding:2px 8px; border-radius:3px; border:1px solid #000; margin-top:2px;">
-                    ${readingLabel}
-                  </span>
-                  <div>
-                    <button type="button" class="continue-resume-btn resume-book-btn" data-book-id="${item.id}" style="margin-top:6px;">
-                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                      <span>Continue</span>
-                    </button>
-                  </div>
+                <div class="continue-status-row">
+                  <span class="continue-status-tag">Reading</span>
+                  <button type="button" class="continue-resume-btn resume-book-btn" data-book-id="${item.id}">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    <span>Continue</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1205,7 +1440,7 @@
     const pageStartIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
     const pageItems = sorted.slice(pageStartIndex, pageStartIndex + ITEMS_PER_PAGE);
 
-    // 5. STATUS STRIP
+    // 5. STATUS STRIP (Only shown when active filters or search queries are applied)
     const isSearching = state.searchQuery.trim().length > 0;
     const hasActiveFilters = state.selectedFormat !== "all" || state.selectedStatus !== "all" || state.selectedSource !== "all" || state.sortOrder !== "random";
     let statusStripHtml = "";
@@ -1218,15 +1453,6 @@
           <button id="clear-filters-btn" class="tactile-clear-btn" title="Reset Filters & Search">
             [x] Reset All
           </button>
-        </div>
-      `;
-    } else {
-      const typeLabel = type === "video" ? "ALL VIDEOS & SERIES" : "BOOKS & PUBLICATIONS";
-      statusStripHtml = `
-        <div class="catalog-status-strip">
-          <span class="status-section-name">${typeLabel}</span>
-          <span class="status-divider">-</span>
-          <span class="status-total-count">${totalItems} TITLES</span>
         </div>
       `;
     }
@@ -1323,40 +1549,34 @@
     }
 
     // 8. RENDER INTO MAIN CONTENT
+    // 8. RENDER INTO MAIN CONTENT
     el.mainContent.innerHTML = `
-      <section class="search-section">
-        <div class="search-bar-row">
-          <div class="search-input-wrap">
-            <input
-              id="catalog-search"
-              class="search-input"
-              type="text"
-              placeholder="${type === 'video' ? 'Search videos & movies...' : 'Search books & documents...'}"
-              value="${state.searchQuery}"
-              autocomplete="off"
-            />
-          </div>
-          <button id="catalog-search-btn" class="search-btn" aria-label="Search ${type === 'video' ? 'videos' : 'books'}" title="Search">
-            <svg viewBox="0 0 24 24">
-              <circle cx="11" cy="11" r="7" />
-              <line x1="16.5" y1="16.5" x2="22" y2="22" />
-            </svg>
-          </button>
-          <button id="filter-toggle-btn" class="filter-toggle-btn ${state.filterExpanded ? 'active' : ''}" aria-expanded="${state.filterExpanded}" aria-controls="filter-drawer" title="Toggle Filters">
-            <span>Filter</span>
-            <span style="font-size: 0.8rem;">${state.filterExpanded ? '[^]' : '[v]'}</span>
-          </button>
+      <!-- Continue Watching / Jump Back In Shelf (Immediate Top Position) -->
+      ${continueShelfHtml}
+
+      <!-- Catalog Header Bar with Quick Inline Category Chips -->
+      <div class="catalog-header-bar">
+        <div class="catalog-title-wrap">
+          <h2 class="catalog-title">${type === 'video' ? 'Videos & Movies' : 'Books & Publications'}</h2>
+          <span class="catalog-count-badge">${totalItems} ${totalItems === 1 ? 'item' : 'items'}</span>
         </div>
 
-        <!-- Collapsible Filter Drawer -->
-        ${filterDrawerHtml}
-
-        <!-- Compact Tactile Status Strip -->
-        ${statusStripHtml}
-      </section>
-
-      <!-- Continue Watching / Jump Back In Shelf -->
-      ${continueShelfHtml}
+        <div class="catalog-category-chips" role="group" aria-label="Quick category and status filter">
+          <button type="button" class="cat-chip ${state.selectedFormat === 'all' && state.selectedStatus === 'all' && !isSearching ? 'active' : ''}" data-cat-filter="all">All</button>
+          ${type === 'video' ? `
+            <button type="button" class="cat-chip ${state.selectedFormat === 'movies' ? 'active' : ''}" data-cat-filter="format" data-val="movies">Movies</button>
+            <button type="button" class="cat-chip ${state.selectedFormat === 'series' ? 'active' : ''}" data-cat-filter="format" data-val="series">Series</button>
+            <button type="button" class="cat-chip ${state.selectedStatus === 'in-progress' ? 'active' : ''}" data-cat-filter="status" data-val="in-progress">In Progress</button>
+          ` : `
+            <button type="button" class="cat-chip ${state.selectedFormat === 'epub' ? 'active' : ''}" data-cat-filter="format" data-val="epub">EPUB</button>
+            <button type="button" class="cat-chip ${state.selectedFormat === 'pdf' ? 'active' : ''}" data-cat-filter="format" data-val="pdf">PDF</button>
+            <button type="button" class="cat-chip ${state.selectedStatus === 'in-progress' ? 'active' : ''}" data-cat-filter="status" data-val="in-progress">Reading</button>
+          `}
+          ${hasActiveFilters || isSearching ? `
+            <button type="button" id="catalog-reset-btn" class="cat-chip reset" title="Clear active filters">Reset Filters [x]</button>
+          ` : ''}
+        </div>
+      </div>
 
       <!-- Catalog Media Grid (7 Columns Max Hard Limit) -->
       <section class="media-grid">
@@ -1404,61 +1624,31 @@
       ${paginationHtml}
     `;
 
-    // 9. EVENT BINDINGS
-    const searchInput = document.getElementById("catalog-search");
-    if (searchInput) {
-      searchInput.addEventListener("input", (e) => {
-        state.searchQuery = e.target.value;
-        state.currentPage = 1;
-        renderCatalogView(type);
-      });
-    }
+    // 9. EVENT BINDINGS FOR CATEGORY CHIPS
+    const catChips = el.mainContent.querySelectorAll(".cat-chip");
+    catChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const filterType = chip.getAttribute("data-cat-filter");
+        const val = chip.getAttribute("data-val");
 
-    const filterToggleBtn = document.getElementById("filter-toggle-btn");
-    if (filterToggleBtn) {
-      filterToggleBtn.addEventListener("click", () => {
-        state.filterExpanded = !state.filterExpanded;
-        renderCatalogView(type);
-      });
-    }
-
-    // Filter pills in drawer
-    const filterPills = el.mainContent.querySelectorAll(".filter-pill");
-    filterPills.forEach((pill) => {
-      pill.addEventListener("click", () => {
-        const filterType = pill.getAttribute("data-filter-type");
-        const val = pill.getAttribute("data-val");
-
-        if (filterType === "format") {
-          state.selectedFormat = val;
+        if (filterType === "all") {
+          state.selectedFormat = "all";
+          state.selectedStatus = "all";
+          state.searchQuery = "";
+        } else if (filterType === "format") {
+          state.selectedFormat = state.selectedFormat === val ? "all" : val;
         } else if (filterType === "status") {
-          state.selectedStatus = val;
-        } else if (filterType === "source") {
-          state.selectedSource = val;
-        } else if (filterType === "sort") {
-          state.sortOrder = val;
+          state.selectedStatus = state.selectedStatus === val ? "all" : val;
         }
         state.currentPage = 1;
         renderCatalogView(type);
       });
     });
 
-    const resetFiltersBtn = document.getElementById("clear-filters-btn") || document.getElementById("drawer-reset-btn");
-    if (resetFiltersBtn) {
-      resetFiltersBtn.addEventListener("click", () => {
+    const catalogResetBtn = document.getElementById("catalog-reset-btn");
+    if (catalogResetBtn) {
+      catalogResetBtn.addEventListener("click", () => {
         state.searchQuery = "";
-        state.selectedFormat = "all";
-        state.selectedStatus = "all";
-        state.selectedSource = "all";
-        state.sortOrder = "random";
-        state.currentPage = 1;
-        renderCatalogView(type);
-      });
-    }
-
-    const drawerResetBtn = document.getElementById("drawer-reset-btn");
-    if (drawerResetBtn && drawerResetBtn !== resetFiltersBtn) {
-      drawerResetBtn.addEventListener("click", () => {
         state.selectedFormat = "all";
         state.selectedStatus = "all";
         state.selectedSource = "all";
@@ -1730,9 +1920,9 @@
           </div>
         </div>
 
-        <!-- Audio Codec Fallback Bar -->
+        <!-- Audio Codec & Format Fallback Bar -->
         <div class="player-codec-fallback-bar">
-          <span>Audio silent or video stuttering? (Browser lacks AC3 / DTS / HEVC support)</span>
+          <span>Format unplayable or audio silent? (Browsers lack MKV / AC3 / DTS support)</span>
           <button id="player-vlc-btn">Open in External VLC Player / Download ↗</button>
         </div>
       </div>
@@ -1838,8 +2028,8 @@
               .map((u) => {
                 const avatarPreview =
                   u.avatarType === "custom" && u.customAvatarData
-                    ? `<img src="${u.customAvatarData}" style="width:36px; height:36px; border-radius:4px; border:2px solid #3ea6ff; object-fit:cover;" />`
-                    : `<div style="width:36px; height:36px; border-radius:4px; border:2px solid #3ea6ff; overflow:hidden;">${
+                    ? `<img src="${u.customAvatarData}" style="width:36px; height:36px; border-radius:4px; border:2px solid #000000; object-fit:cover;" />`
+                    : `<div style="width:36px; height:36px; border-radius:4px; border:2px solid #000000; overflow:hidden;">${
                         (FLAN_MOCK_DATA.presetAvatars[u.avatarKey] || FLAN_MOCK_DATA.presetAvatars.mascot).svg
                       }</div>`;
 
@@ -1959,11 +2149,11 @@
             <span class="back-text-mobile">← Back</span>
           </button>
           <div class="manual-title-cluster">
-            <span class="manual-main-title">Software Handbook</span>
+            <span class="manual-main-title">User Guide</span>
             <span class="manual-version-pill">v0.2.0</span>
           </div>
           <div class="manual-offline-tag">
-            100% Offline Reference
+            Offline Reference
           </div>
         </header>
 
@@ -1972,135 +2162,183 @@
           <!-- Left Table of Contents (Sticky on Mobile) -->
           <nav class="manual-toc-sidebar">
             <div class="toc-heading">Table of Contents</div>
-            <a class="toc-nav-link active" href="#sec-storage">1. Storage & SMB</a>
-            <a class="toc-nav-link" href="#sec-playback">2. Playback & VLC</a>
-            <a class="toc-nav-link" href="#sec-profiles">3. Accounts & PINs</a>
-            <a class="toc-nav-link" href="#sec-cli">4. CLI Admin</a>
-            <a class="toc-nav-link" href="#sec-about">5. About & Specs</a>
+            <a class="toc-nav-link active" href="#sec-about">1. About Flan</a>
+            <a class="toc-nav-link" href="#sec-navigation">2. Navigation</a>
+            <a class="toc-nav-link" href="#sec-playback">3. Watching Videos</a>
+            <a class="toc-nav-link" href="#sec-books">4. Reading Books</a>
+            <a class="toc-nav-link" href="#sec-storage">5. Adding Media</a>
+            <a class="toc-nav-link" href="#sec-profiles">6. Profiles & PINs</a>
+            <a class="toc-nav-link" href="#sec-cli">7. CLI Administration</a>
           </nav>
 
           <!-- Right Reading Content Pane -->
           <div class="manual-content-pane" id="manual-content-pane">
             <!-- Section 1 -->
-            <section id="sec-storage" class="manual-section-card">
+            <section id="sec-about" class="manual-section-card">
               <div class="manual-section-header">
                 <span class="manual-section-num">1</span>
-                <h2 class="manual-section-title">Media Storage & Placement</h2>
+                <h2 class="manual-section-title">About Flan</h2>
               </div>
               <p class="manual-body-text">
-                Flan eliminates complex in-app file uploaders in favor of standard homelab storage management. 
-                Place media files directly into the server directory using SMB shares, NFS mounts, SSH/rsync, or an external USB hard drive:
+                Flan is a self-hosted personal media server designed for streaming video files and reading digital books across devices on your local home network.
               </p>
-              <div class="manual-code-box">
-                <div class="manual-code-header">
-                  <span class="manual-code-lang">MEDIA FILE PLACEMENT</span>
-                  <button class="manual-copy-btn" data-copy="./media/video/
-./media/books/">Copy</button>
-                </div>
-                <pre class="manual-code-pre"><code>./media/video/&lt;Show or Movie Title&gt;/ep01.mp4
-./media/video/&lt;Show or Movie Title&gt;/poster.jpg
-./media/books/&lt;Book Title&gt;.epub
-./media/books/&lt;Document Title&gt;.pdf</code></pre>
-              </div>
               <p class="manual-body-text">
-                <strong>Fast Directory Rescanning:</strong> Whenever you add or organize files, go to <strong>Manage Server</strong> and click 
-                <code>[ ⟳ Rescan All Media ]</code>. Flan performs a fast directory walk with batch SQLite transactions and in-memory reconciliation.
+                The server runs on your local computer or home server and delivers content directly to web browsers on your phones, tablets, laptops, and televisions. It operates entirely on your local network without external account requirements or third-party cloud services.
               </p>
             </section>
 
             <!-- Section 2 -->
-            <section id="sec-playback" class="manual-section-card">
+            <section id="sec-navigation" class="manual-section-card">
               <div class="manual-section-header">
                 <span class="manual-section-num">2</span>
-                <h2 class="manual-section-title">Direct Video Playback & VLC Fallback</h2>
+                <h2 class="manual-section-title">Navigating the Interface</h2>
               </div>
               <p class="manual-body-text">
-                Flan is built for low-power devices, repurposed PCs, and single-board computers (Orange Pi, Raspberry Pi). 
-                To ensure maximum responsiveness and zero CPU strain, <strong>Flan never performs server-side video transcoding</strong>.
+                The application interface consists of a top header and a main navigation bar:
               </p>
               <ul class="manual-body-text" style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
-                <li><strong>Native Browser Play:</strong> Videos formatted with H.264 / AAC or WebM play instantly in any web browser using native zero-copy HTTP 206 range requests.</li>
-                <li><strong>Codec Fallback (AC3, EAC3, DTS, 10-bit HEVC):</strong> If a video lacks audio in your browser due to proprietary codec licensing, simply click the purple <strong><code>[ ⬇ VLC / Download ]</code></strong> button. This streams the raw container directly into external media players (VLC, MPV, IINA) or downloads it locally.</li>
-                <li><strong>E-Books:</strong> PDFs open directly in a clean browser viewing tab, while EPUBs download with one click to your favorite e-reader application.</li>
+                <li><strong>Top Header:</strong>
+                  <ul style="padding-left: 18px; margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+                    <li><strong>Brand Title:</strong> Clicking <em>Flan Media Server</em> on the left returns you to the main video catalog.</li>
+                    <li><strong>Help Button (<kbd class="tactile-kbd">?</kbd>):</strong> Opens this offline user guide.</li>
+                    <li><strong>Profile Avatar:</strong> Opens your account menu to switch profiles, select an avatar, update your PIN, or log out.</li>
+                  </ul>
+                </li>
+                <li><strong>Navigation Rail:</strong> (Located on the left of desktop screens and at the bottom of mobile screens)
+                  <ul style="padding-left: 18px; margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+                    <li><strong>Search:</strong> Opens a search window to search across all video and book titles. You can also press <kbd class="tactile-kbd">/</kbd> or <kbd class="tactile-kbd">Ctrl+K</kbd> anywhere in the application.</li>
+                    <li><strong>Video:</strong> Displays your video collection. Use the top filter buttons to quickly view Movies, Series, or items currently in progress.</li>
+                    <li><strong>Books:</strong> Displays your digital reading library. Use the filter buttons to switch between EPUB books, PDF documents, or items currently being read.</li>
+                    <li><strong>Manage:</strong> Server administration page for scanning files, viewing server status, and managing household accounts (available to administrator accounts).</li>
+                  </ul>
+                </li>
               </ul>
             </section>
 
             <!-- Section 3 -->
-            <section id="sec-profiles" class="manual-section-card">
+            <section id="sec-playback" class="manual-section-card">
               <div class="manual-section-header">
                 <span class="manual-section-num">3</span>
-                <h2 class="manual-section-title">Household Profiles & Whimsical Avatars</h2>
+                <h2 class="manual-section-title">Watching Videos & Player Controls</h2>
               </div>
               <p class="manual-body-text">
-                Flan supports independent household profiles so family members maintain separate watch histories and progress bars:
+                Click any video card in the catalog to open its detail view and begin playback. Videos that you have started watching appear automatically at the top of the video catalog under <strong>Continue Watching</strong> with a <strong>Resume</strong> button.
               </p>
-              <ul class="manual-body-text" style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
-                <li><strong>Fast Switching:</strong> Click your avatar in the top-right header to change your display name, switch companion avatars, or log out.</li>
-                <li><strong>Tactile Avatars:</strong> Choose from 6 bundled high-contrast SVG companion presets (Mascot, Flan, Cat, Ghost, Robot, Star) or upload a custom image (JPEG, PNG, WebP up to 2MB).</li>
-                <li><strong>PIN Security:</strong> Accounts are safeguarded by 4-to-6 digit numeric PINs salted and hashed via bcrypt.</li>
-              </ul>
+              <p class="manual-body-text">
+                <strong>Browser Playback:</strong> Videos encoded with standard web codecs (such as H.264 video with AAC audio, or WebM) play directly inside your web browser.
+              </p>
+              <p class="manual-body-text">
+                <strong>When to use VLC / Download:</strong> Some video files use audio or video formats that web browsers cannot play natively (for example, multi-channel AC3, EAC3, or DTS audio). If a video plays without sound or will not start in your browser, click the <strong>[ VLC / Download ]</strong> button on the video page. This opens the stream directly in an external video player such as VLC Media Player, or lets you download the file to your device.
+              </p>
+              <div style="background: #faf7fd; border: 1.5px solid #000; border-radius: 6px; padding: 14px 16px;">
+                <div style="font-weight: 800; font-size: 0.95rem; margin-bottom: 8px;">Video Player Keyboard Shortcuts</div>
+                <ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; line-height: 1.5;">
+                  <li><kbd class="tactile-kbd">Space</kbd> or <kbd class="tactile-kbd">K</kbd> : Play / Pause</li>
+                  <li><kbd class="tactile-kbd">Left Arrow</kbd> / <kbd class="tactile-kbd">Right Arrow</kbd> : Jump backward / forward 10 seconds</li>
+                  <li><kbd class="tactile-kbd">Up Arrow</kbd> / <kbd class="tactile-kbd">Down Arrow</kbd> : Raise / lower volume</li>
+                  <li><kbd class="tactile-kbd">F</kbd> : Enter or exit full screen</li>
+                  <li><kbd class="tactile-kbd">M</kbd> : Mute or unmute audio</li>
+                </ul>
+              </div>
             </section>
 
             <!-- Section 4 -->
-            <section id="sec-cli" class="manual-section-card">
+            <section id="sec-books" class="manual-section-card">
               <div class="manual-section-header">
                 <span class="manual-section-num">4</span>
-                <h2 class="manual-section-title">Server CLI Administration & Failsafe Reset</h2>
+                <h2 class="manual-section-title">Reading & Accessing Books</h2>
               </div>
               <p class="manual-body-text">
-                Because Flan runs strictly offline with zero external cloud dependencies, administrative recovery is performed directly on the host machine:
+                The Books section contains digital publications organized into two formats:
               </p>
-              <div class="manual-code-box">
-                <div class="manual-code-header">
-                  <span class="manual-code-lang">CLI ADMIN COMMANDS</span>
-                  <button class="manual-copy-btn" data-copy="./flan --reset-admin">Copy</button>
-                </div>
-                <pre class="manual-code-pre"><code># Reset administrator PIN to default '0000'
-./flan --reset-admin
-
-# Run on custom port
-PORT=8080 ./flan</code></pre>
-              </div>
+              <ul class="manual-body-text" style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+                <li><strong>PDF Documents:</strong> Selecting a PDF opens it in a browser viewing tab, allowing you to read, zoom, and navigate pages using your browser's built-in PDF viewer.</li>
+                <li><strong>EPUB Books:</strong> Selecting an EPUB downloads the book file directly to your device so you can open it in your preferred e-reader application (such as Apple Books, Moon+ Reader, or Calibre).</li>
+              </ul>
               <p class="manual-body-text">
-                <strong>Storage Portability:</strong> All database state is preserved in <code>./data/flan.db</code> with SQLite WAL mode enabled. To migrate or back up your server, simply copy the <code>data/</code> folder.
+                Books that you have opened recently are listed at the top of the books catalog under <strong>Jump Back In</strong> for quick access.
               </p>
             </section>
 
             <!-- Section 5 -->
-            <section id="sec-about" class="manual-section-card">
+            <section id="sec-storage" class="manual-section-card">
               <div class="manual-section-header">
                 <span class="manual-section-num">5</span>
-                <h2 class="manual-section-title">About Flan & System Architecture</h2>
+                <h2 class="manual-section-title">Managing Files & Adding Media</h2>
               </div>
-              <table class="manual-specs-table">
-                <tr>
-                  <td class="spec-label">Project</td>
-                  <td class="spec-val"><strong>Flan Media Server</strong></td>
-                </tr>
-                <tr>
-                  <td class="spec-label">Version</td>
-                  <td class="spec-val"><strong>v0.2.0-prototype</strong></td>
-                </tr>
-                <tr>
-                  <td class="spec-label">Author</td>
-                  <td class="spec-val">Wesley Esquivel (<a href="https://github.com/WesleyEsq" target="_blank" style="color: #6d52a8; font-weight: 800;">MechanicalSpeak</a>)</td>
-                </tr>
-                <tr>
-                  <td class="spec-label">Resource Overhead</td>
-                  <td class="spec-val">Lean &amp; Unconstrained (live stats via <code>runtime.ReadMemStats</code>)</td>
-                </tr>
-                <tr>
-                  <td class="spec-label">Database</td>
-                  <td class="spec-val">Pure-Go SQLite WAL & Wear Leveling</td>
-                </tr>
-                <tr>
-                  <td class="spec-label">License</td>
-                  <td class="spec-val">Apache 2.0 Open Source</td>
-                </tr>
-              </table>
-              <div style="margin-top: 12px; padding: 12px 14px; background: #faf7fd; border: 1.5px solid #000; border-radius: 4px; font-size: 0.88rem; font-style: italic; color: #444;">
-                "A simple server for people that think they want a media server, but in reality just want to host movies and books for themselves and their kids."
+              <p class="manual-body-text">
+                Flan organizes your library by reading media files stored in its configured media directory on the host computer or attached storage:
+              </p>
+              <div class="manual-code-box">
+                <div class="manual-code-header">
+                  <span class="manual-code-lang">DIRECTORY LAYOUT</span>
+                  <button class="manual-copy-btn" data-copy="./media/video/
+./media/books/">Copy</button>
+                </div>
+                <pre class="manual-code-pre"><code>./media/video/&lt;Movie Title&gt;/movie.mp4
+./media/video/&lt;Movie Title&gt;/poster.jpg
+./media/video/&lt;Series Title&gt;/S01E01.mp4
+./media/video/&lt;Series Title&gt;/poster.jpg
+./media/books/&lt;Book Title&gt;.epub
+./media/books/&lt;Document Title&gt;.pdf</code></pre>
               </div>
+              <ul class="manual-body-text" style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+                <li><strong>Video Folders:</strong> Create a folder for each movie or show inside <code>./media/video/</code>. To set custom cover art, place an image file named <code>poster.jpg</code> inside that folder.</li>
+                <li><strong>Books:</strong> Place <code>.epub</code> and <code>.pdf</code> files directly into <code>./media/books/</code>.</li>
+              </ul>
+              <p class="manual-body-text">
+                <strong>Updating the Library:</strong> After copying, moving, or renaming media files on disk, go to <strong>Manage Server</strong> and click <strong>[ Rescan All Media ]</strong>. Flan will inspect the directories and update your catalog with new and modified items.
+              </p>
+            </section>
+
+            <!-- Section 6 -->
+            <section id="sec-profiles" class="manual-section-card">
+              <div class="manual-section-header">
+                <span class="manual-section-num">6</span>
+                <h2 class="manual-section-title">Household Profiles & PINs</h2>
+              </div>
+              <p class="manual-body-text">
+                Flan supports multiple user profiles on a single server, allowing each family member to maintain their own watch progress, continue watching shelf, and reading records.
+              </p>
+              <ul class="manual-body-text" style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+                <li><strong>Switching Profiles:</strong> Click your avatar in the top-right header, select your account from the user grid, and enter your numeric PIN.</li>
+                <li><strong>Updating Your Profile:</strong> Open the profile menu to change your display name, choose a new companion avatar preset, or upload a custom avatar photo.</li>
+                <li><strong>Changing Your PIN:</strong> Enter your current PIN and choose a new 4-to-6 digit numeric PIN in your profile settings.</li>
+                <li><strong>Managing Accounts:</strong> Server administrators can add new household members, update names, or reset forgotten PINs from the <strong>Manage Server</strong> page.</li>
+              </ul>
+            </section>
+
+            <!-- Section 7 -->
+            <section id="sec-cli" class="manual-section-card">
+              <div class="manual-section-header">
+                <span class="manual-section-num">7</span>
+                <h2 class="manual-section-title">Command-Line Administration (CLI)</h2>
+              </div>
+              <p class="manual-body-text">
+                Flan includes terminal commands on the host system for administrative tasks and server configuration:
+              </p>
+              <div class="manual-code-box">
+                <div class="manual-code-header">
+                  <span class="manual-code-lang">ADMINISTRATOR PIN RESET</span>
+                  <button class="manual-copy-btn" data-copy="./flan --reset-admin">Copy</button>
+                </div>
+                <pre class="manual-code-pre"><code># Reset administrator PIN from the host terminal
+./flan --reset-admin</code></pre>
+              </div>
+              <p class="manual-body-text">
+                If the administrator PIN is lost, run this command in a terminal on the server host machine. The program will prompt you to enter a new administrator PIN.
+              </p>
+              <div class="manual-code-box">
+                <div class="manual-code-header">
+                  <span class="manual-code-lang">CUSTOM PORT CONFIGURATION</span>
+                  <button class="manual-copy-btn" data-copy="PORT=8080 ./flan">Copy</button>
+                </div>
+                <pre class="manual-code-pre"><code># Start server on a specific network port (default: 4907)
+PORT=8080 ./flan</code></pre>
+              </div>
+              <p class="manual-body-text">
+                By default, Flan listens on port <code>4907</code>. Setting the <code>PORT</code> environment variable lets you configure the network port to match your homelab setup.
+              </p>
             </section>
           </div>
         </div>
@@ -2198,6 +2436,13 @@ PORT=8080 ./flan</code></pre>
       }
     });
 
+    // Sidebar search button -> Navigates to #search
+    if (el.sidebarSearchBtn) {
+      el.sidebarSearchBtn.addEventListener("click", () => {
+        window.location.hash = "#search";
+      });
+    }
+
     // Sidebar navigation clicks
     el.sidebarVideoBtn.addEventListener("click", () => {
       state.searchQuery = "";
@@ -2211,6 +2456,44 @@ PORT=8080 ./flan</code></pre>
 
     el.sidebarManageBtn.addEventListener("click", () => {
       window.location.hash = "#manage";
+    });
+
+    // Global Keyboard Shortcuts: '/' or 'Ctrl+K' to navigate to #search
+    document.addEventListener("keydown", (e) => {
+      const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+      const isInput = activeTag === "input" || activeTag === "textarea" || activeTag === "select";
+
+      // '/' trigger when not in an input
+      if (e.key === "/" && !isInput) {
+        e.preventDefault();
+        if (window.location.hash !== "#search") {
+          window.location.hash = "#search";
+        }
+        setTimeout(() => {
+          const input = document.getElementById("search-page-input");
+          if (input) {
+            input.focus();
+            input.select();
+          }
+        }, 50);
+        return;
+      }
+
+      // 'Ctrl+K' or 'Cmd+K' trigger anywhere
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (window.location.hash !== "#search") {
+          window.location.hash = "#search";
+        }
+        setTimeout(() => {
+          const input = document.getElementById("search-page-input");
+          if (input) {
+            input.focus();
+            input.select();
+          }
+        }, 50);
+        return;
+      }
     });
 
     // Brand title click (top header) -> Go to #video

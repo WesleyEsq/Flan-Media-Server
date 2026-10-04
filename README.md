@@ -6,12 +6,11 @@ Flan is a self-hosted personal media server written in Go for streaming video fi
 
 ## Key Characteristics
 
-* **Direct Streaming (No Transcoding):** Video delivery uses HTTP 206 Range requests delegating to the Linux `sendfile` system call for zero-copy file transfers. Transcoding is omitted to avoid heavy CPU and disk load on low-power devices.
+* **Direct Streaming (No Transcoding):** Video delivery uses standard HTTP 206 Range requests delegating to the Linux `sendfile` system call for zero-copy file transfers. Transcoding is omitted to avoid heavy CPU and disk load on low-power devices.
 * **Local-First Metadata:** Operates completely offline with zero external metadata APIs (no TMDB or third-party service dependencies). Directory names define container titles, and local `poster.jpg` files provide cover art.
 * **Embedded Storage:** Uses an embedded SQLite database (`modernc.org/sqlite`, CGO-free) operating in WAL mode with a bounded memory cache (~2 MB).
 * **Single Static Binary:** The server compiles into a standalone binary with all web templates, stylesheets, scripts, and default avatars embedded via Go's `embed.FS`.
 * **Layered Architecture:** Organized into a clean Controller-Service-Repository-Model structure with constructor dependency injection.
-* **Playback Capacity Governor:** Limits active concurrent video streams to 3 via an in-memory lease tracker to prevent I/O thrashing on attached USB mechanical drives.
 * **Authentication & Recovery:** User accounts are protected by 4 to 6-digit numeric PINs with brute-force lockout safeguards. Forgotten administrator credentials can be reset from the host terminal via a CLI flag.
 
 ---
@@ -20,7 +19,7 @@ Flan is a self-hosted personal media server written in Go for streaming video fi
 
 ### Prerequisites
 
-* Go 1.22 or newer (for building from source)
+* Go 1.24 or newer (for building from source)
 * Linux host (x86_64, ARM64, or ARMv7)
 
 ### Build and Run
@@ -42,15 +41,15 @@ By default, the server listens on `http://localhost:4907`. Configuration can be 
 ### Initial Setup and Account Recovery
 
 * **First Boot:** On initial startup with an empty database, the server generates a one-time 6-character bootstrap setup token and prints it to the terminal/journal. Visit `http://localhost:4907/setup` and enter the token to configure the initial administrator account.
-* **Admin PIN Reset:** If the administrator PIN is lost, run `./flan --reset-admin` directly on the host to generate a temporary recovery token.
+* **Admin PIN Reset:** If the administrator PIN is lost, run `./flan --reset-admin` directly on the host to interactively set a new administrator PIN.
 
 For cross-compiling to ARM targets or setting up a systemd service, see [docs/compilation.md](docs/compilation.md).
 
 ---
 
-## Media Directory Layout
+## Media Storage & Directory Layout
 
-Flan relies on fixed, deterministic storage directories under `./media` (configurable via `MEDIA_DIR`):
+Flan supports configurable storage sources across multiple drives, initialized with default folders under `./media` (configurable via `MEDIA_DIR`):
 
 ```text
 media/
@@ -69,7 +68,9 @@ media/
     └── Operating Systems.pdf
 ```
 
-To prevent data corruption if an external drive unmounts, Flan requires a marker file named `.flan-keep` inside `./data/` and `./media/`. The server halts startup if these markers are missing.
+To protect against unmounted drives or silent filesystem disconnections, Flan relies on `.flan-keep` marker files:
+* **Primary App Tier (`./data/.flan-keep`):** The server halts startup immediately if missing, preventing writes to an unmounted root flash partition.
+* **Storage Sources Tier (`<source_path>/.flan-keep`):** If an external drive disconnects, Flan safely flags that source's files as missing and keeps the server running without dropping catalog entries.
 
 ---
 
@@ -80,11 +81,11 @@ Comprehensive technical documentation is maintained in the `docs/` directory. Se
 * **Architecture & Backend:**
   * [Master System Architecture](docs/design.md): System constraints, MVC layered design, and HTTP routes.
   * [Directory Structure & Architecture](docs/directories.md): Package layout, responsibilities, and Java-to-Go concept mapping.
-  * [Database Schema](docs/database.md): 6-table SQLite schema, WAL mode pragmas, and migrations.
+  * [Database Schema](docs/database.md): 7-table SQLite schema, WAL mode pragmas, and migrations.
   * [Storage Architecture](docs/storage.md): Drive decoupling, mount safety, and media directory conventions.
   * [Local Metadata Engine](docs/scraper.md): Filesystem scanner and database reconciliation logic.
 * **Security & Traffic:**
-  * [Rate Limiting & Throttling](docs/rate-limiting.md): 3-stream playback governor and PIN lockout rules.
+  * [Authentication Security & Rate Limiting](docs/rate-limiting.md): PIN lockout safeguards, bcrypt throttling, and brute-force defenses.
   * [Threat Model & Mitigations](docs/threat-model.md): Security analysis, cookie authentication, and CSRF protection.
 * **Operations:**
   * [Compilation & Deployment](docs/compilation.md): Cross-compilation commands and systemd unit configuration.

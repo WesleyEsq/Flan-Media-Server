@@ -52,55 +52,62 @@ Styles are declared as CSS variables in `web/static/css/style.css`:
 
 ---
 
-## 3. Dedicated Top Header & Streamlined Rail Sidebar Layout
+## 3. Dedicated Top Header & Discord x YouTube Hybrid Rail Layout
 
-A dedicated top header bar (`header.top-header`, 56px height) sits at the top of the interface across both desktop and mobile viewports, providing persistent brand identity and utility controls (`?` manual button and user avatar). Platform navigation is streamlined into a clean left rail sidebar on desktop (shifting to a fixed bottom rail on mobile). Scoped search remains within the catalog canvas.
+A dedicated top header bar (`header.top-header`, 70px height) sits at the top of the interface across both desktop and mobile viewports, providing persistent brand identity (text-only) and utility controls (`?` manual button and user avatar). Platform navigation is housed in a chunky 108px Discord x YouTube hybrid rail on desktop (shifting to a 4-tab 64px bottom bar on mobile). Search is accessed as a dedicated full-canvas page from the rail, allowing the "Continue Watching" shelf to sit directly at the top of the video catalog.
 
 ```text
-+-------------------------------------------------------------------------------------+
-| Flan Media Server                                                   ( ? )  [Avatar] |
-+----------+--------------------------------------------------------------------------+
-|          |                                                                          |
-| [ Video] |   +---------------------------------------+  [Search]  [ Filter [v] ]    |
-| (Active) |   | Search input...                       |                              |
-|          |   +---------------------------------------+                              |
-| [ Books] |                                                                          |
-|          |   === CONTINUE WATCHING ==============================================   |
-|          |   +--------------------------+   +--------------------------+            |
-|          |   | [Thumb] In-Progress Item |   | [Thumb] In-Progress Item |            |
-|          |   |         [== Progress ==] |   |         [== Progress ==] |            |
-|          |   |         [ Resume > ]     |   |         [ Resume > ]     |            |
-|          |   +--------------------------+   +--------------------------+            |
-|          |                                                                          |
-|          |   === MEDIA GRID (7 Columns Max Hard Limit) ==========================   |
-|          |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+  |
-|          |   | Poster| | Poster| | Poster| | Poster| | Poster| | Poster| | Poster|  |
-|          |   |-------| |-------| |-------| |-------| |-------| |-------| |-------|  |
-|          |   | Title | | Title | | Title | | Title | | Title | | Title | | Title |  |
-|          |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+  |
-|          |                                                                          |
-|          |   [ <- Prev ]   [ 1 ]   [ 2 ]   [ Next -> ]    Showing 1-21 of 23        |
-| [Manage] |                                                                          |
-+----------+--------------------------------------------------------------------------+
++-----------------------------------------------------------------------------------------------+
+| FLAN MEDIA SERVER (70px Height, Bold 1.7rem, Title Only)                 (?) [Avatar Frame]  |
++-----------+-----------------------------------------------------------------------------------+
+|           |                                                                                   |
+|  [  Q  ]  |   === CONTINUE WATCHING =======================================================   |
+|  SEARCH   |   +--------------------------+   +--------------------------+                     |
+|           |   | [Thumb] In-Progress Item |   | [Thumb] In-Progress Item |                     |
+|  [ |> ]   |   |         [ In Progress ]  |   |         [ In Progress ]  |                     |
+|   VIDEO   |   |         [ Resume > ]     |   |         [ Resume > ]     |                     |
+|  (Active) |   +--------------------------+   +--------------------------+                     |
+|           |                                                                                   |
+|  [ [] ]   |   VIDEOS & MOVIES   [ All ] [ Movies ] [ Series ] [ In Progress ]      (23 items)  |
+|   BOOKS   |   === MEDIA GRID (7 Columns Max Hard Limit) ===================================   |
+|           |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+           |
+|   -----   |   | Poster| | Poster| | Poster| | Poster| | Poster| | Poster| | Poster|           |
+|           |   |-------| |-------| |-------| |-------| |-------| |-------| |-------|           |
+|  [  #  ]  |   | Title | | Title | | Title | | Title | | Title | | Title | | Title |           |
+|  MANAGE   |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+           |
+|           |                                                                                   |
+| 108px Rail|   [ <- Prev ]   [ 1 ]   [ 2 ]   [ Next -> ]    Showing 1-21 of 23                 |
++-----------+-----------------------------------------------------------------------------------+
 ```
 
 ### 1. Top Header Bar (`header.top-header`)
-* **Height:** 56px (sticky top across desktop and mobile).
-* **Background:** Deep purple (`var(--header-purple): #6d4ca6`) with `2.5px solid #000000` bottom border.
-* **Left:** Interactive brand title `Flan Media Server` linking back to the `#video` catalog on click/Enter.
-* **Right:** Utility tools group containing circular `(?)` software manual button (38px) and user avatar profile badge (40px).
+* **Height:** 70px (`var(--header-height: 70px)`, sticky top across desktop, 64px on mobile).
+* **Background:** Deep purple (`var(--header-purple): #724799`) with `3px solid #000000` bottom border.
+* **Left:** Interactive brand title `Flan Media Server` (1.7rem, weight 800) linking back to the `#video` catalog on click/Enter. Text-only (no logo icon).
+* **Right:** Utility tools group containing squircle `(?)` software manual button (52px) and user avatar profile badge (52px, zero blue borders, tactile shadow).
 
-### 2. Streamlined Left Rail Sidebar (`aside.left-sidebar`)
-* **Width:** 160px (height `calc(100vh - 56px)` on desktop).
-* **Background:** Soft lilac surface (`var(--sidebar-lilac): #e2d9f3`) with `2.5px solid #000000` right border.
-* **Navigation Rail:** Minimalist industrial buttons for `Video` and `Books` at the top, and pinned `Manage Server` at the bottom.
-* **Zero Distractions:** Zero decorative arrows (`.sidebar-arrow`) and zero counter badges.
+### 2. Discord x YouTube Hybrid Rail (`aside.left-sidebar`)
+* **Width:** 108px (`var(--sidebar-width: 108px)`, height `calc(100vh - 70px)` on desktop).
+* **Background:** Soft lilac surface (`var(--sidebar-lilac): #d1b8ee`) with `3px solid #000000` right border.
+* **Nav Items:** `[ Q ] Search` $\rightarrow$ `[ |> ] Video` $\rightarrow$ `[ [] ] Books` $\rightarrow$ `[Divider]` $\rightarrow$ `[ # ] Manage`.
+* **Discord Squircle Tiles:** 60px by 60px tactile containers with `2.5px solid #000000` borders and 16px border radius. Active tile fills with `--active-purple` and white icon.
+* **Icons:** 30px by 30px SVGs with 2.4–2.5px bold stroke weight.
+* **Discord Left Indicator Pill:** 6px wide bar on the rail's left edge. Expands to 46px on active items and 18px on hover.
+* **YouTube Stacked Labels:** Crisp 12px uppercase bold labels centered directly below each squircle tile (`SEARCH`, `VIDEO`, `BOOKS`, `MANAGE`).
+* **Tactile Divider:** 50px wide by 2.5px tall divider line separating media libraries from pinned `Manage Server`.
 
 ### 3. Main Content Canvas & Media Grid
-* **Background:** Pale lavender canvas (`var(--canvas-lavender): #f4f0fa`).
-* **Search & Filter Drawer:** In-canvas search bar paired with tactile `[ Filter [v] ]` toggle button revealing format, status, source drive, and sort order options.
-* **Continue Watching Top Shelf:** Surfaces in-progress items sorted by interaction date (`last_watched_at DESC`). Collapses cleanly if 0 items are in progress.
-* **7-Column Max Hard Limit:** `.media-grid` is capped at a strict maximum of 7 columns (`max-width: 1680px; @media (min-width: 1680px) { grid-template-columns: repeat(7, 1fr); }`) to ensure cards remain comfortably readable on 4K and ultra-wide displays.
+* **Background:** Pale lavender canvas (`var(--canvas-lavender): #f4effa`).
+* **Instant Media Immersion:** No in-canvas search bar canyon. The **Continue Watching top shelf sits right at the top of the canvas**, offering immediate access to active sessions.
+* **Catalog Header & Category Chips:** Clean `.catalog-header-bar` featuring the section title, item count badge, and tactile 1-click filter chips (`[ All ] [ Movies ] [ Series ]` for videos, `[ All ] [ EPUB ] [ PDF ]` for books).
+* **Dedicated Search Page:** Search is accessed via the `[ Search ]` rail button or keyboard shortcuts (`/` or `Ctrl+K`), navigating to a full-canvas, responsive search page (`#search`). Results appear once the user types a query, reusing the standard catalog `.media-card` components (with zero Drive badges) to maintain 100% visual consistency and prevent title truncation. An initial prompt card is displayed when no query is typed.
+* **Fluid Tiered Scaling (7-Column Max Hard Limit):** `.media-grid` maintains a hard cap of 7 columns on desktop viewports. To prevent cavernous empty lavender space on large monitors and low zoom settings (80%, 67%, 50%), `--catalog-max-width` progressively scales:
+  * Baseline: `1680px`
+  * Displays $\ge 1680\text{px}$: `1840px` (cards $\approx 235\text{px}$ wide)
+  * Displays $\ge 1920\text{px}$: `2060px` (cards $\approx 270\text{px}$ wide)
+  * Displays $\ge 2200\text{px}$: `2280px` (cards $\approx 305\text{px}$ wide)
+  * Displays $\ge 2560\text{px}$: `2400px` (cards $\approx 325\text{px}$ wide, hard boundary cap)
+  Card heights scale naturally via `aspect-ratio: 3 / 4.4`, and inner SVGs / typography scale up proportionally.
 * **21 Items Max / Page Pagination:** Strict chunking to 21 items max per page ($7 \times 3 = 21$) with tactile numbered pagination controls.
 
 ---
@@ -122,19 +129,19 @@ Both states render inside a centered console card (`.login-pad-card`) with solid
 
 ---
 
-## 5. Software Manual & Keyboard Shortcuts (`/manual`)
+## 5. Software Manual & User Guide (`/manual`)
 
-The manual view provides direct guidance for video playback and file formats:
+The offline user guide provides direct, practical guidance organized into 7 sections: About Flan, Interface Navigation, Watching Videos & Player Controls, Reading Books, Adding Media & Storage Layout, Household Profiles & PINs, and Host CLI Administration.
 
 ### Video Player Shortcuts
 * `Space` / `K`: Play or Pause
 * `F`: Toggle fullscreen
 * `M`: Mute or unmute audio
 * `Left` / `Right Arrow`: Skip backward or forward 10 seconds
-* `Up` / `Down Arrow`: Adjust volume in 5% increments
+* `Up` / `Down Arrow`: Adjust volume
 
 ### Supported Media Formats
-* **Video:** Direct-play MP4 (H.264/AAC), WebM (VP9/Opus, AV1), and web-safe MKV. A signed `[ VLC / Download ]` link is available for external playback of multi-channel AC3 or DTS audio.
+* **Video:** Direct-play MP4 (H.264/AAC) and WebM (VP9/Opus, AV1) in browser HTML5 `<video>`. Matroska (MKV) containers and multi-channel audio tracks (AC3, E-AC3, DTS) stream directly via short-lived signed URLs in external players (VLC, MPV) or direct download.
 * **Books:** PDF (browser-native viewer tab) and EPUB (direct file download).
 
 ---

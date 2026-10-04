@@ -19,17 +19,16 @@ flowchart TD
 
     Submit --> VerifyToken{"Token matches server bootstrap secret?"}
     VerifyToken -- "No" --> Reject["Return 401 Unauthorized (Invalid setup token)"]
-    VerifyToken -- "Yes" --> CreateAdmin["1. Hash PIN with bcrypt<br/>2. Create Admin user in SQLite<br/>3. Verify .flan-keep in ./data and ./media"]
-    CreateAdmin --> StartScan["Trigger initial scan of ./media/"]
-    StartScan --> IssueSession["Issue HMAC-signed session cookie"]
-    IssueSession --> Catalog["Redirect to Video Catalog /video"]
+    VerifyToken -- "Yes" --> CreateAdmin["1. Hash PIN with bcrypt<br/>2. Create Admin user in SQLite<br/>3. Verify ./data/.flan-keep<br/>4. Seed default storage sources (./media/video, ./media/books)"]
+    CreateAdmin --> IssueSession["Issue HMAC-signed session cookie"]
+    IssueSession --> Catalog["Redirect to Video Catalog /video with Welcome Onboarding"]
 ```
 
 ---
 
 ## 2. 2-Step Sequential Login & PIN Authentication
  
-Returning users first select their profile avatar (Step 1), then enter their numeric PIN (Step 2), protected by PIN lockout (Safeguard 2).
+Returning users first select their profile avatar (Step 1), then enter their numeric PIN (Step 2), protected by in-memory dual-key PIN lockout.
  
 ```mermaid
 sequenceDiagram
@@ -48,18 +47,18 @@ sequenceDiagram
     Browser->>Browser: Transition to Step 2: Dedicated PIN Prompt
     User->>Browser: Enters 4-digit PIN, clicks [ Access Library → ]
     Browser->>Server: POST /api/login (user_id, pin)
-    Server->>Server: Check PIN lockout (IP & User ID)
-    alt Locked out (5+ failed attempts from IP)
+    Server->>Server: Check in-memory PIN lockout (Client IP & User ID)
+    alt Locked out (5+ failed attempts for IP + User ID)
         Server-->>Browser: HTTP 429 Too Many Requests (Lockout active)
     else Attempt allowed
         Server->>DB: Fetch user pin_hash
         DB-->>Server: Return bcrypt hash
         Server->>Server: Verify bcrypt hash (throttled concurrency)
         alt PIN is incorrect
-            Server->>Server: Increment failed attempts counter
+            Server->>Server: Increment in-memory failed attempts counter
             Server-->>Browser: HTTP 401 Unauthorized
         else PIN is correct
-            Server->>Server: Reset failed attempts counter
+            Server->>Server: Clear in-memory failed attempts counter
             Server->>Server: Issue HMAC session cookie (userID:role:tokenVersion:issuedAt:signature)
             Server-->>Browser: Set HttpOnly session cookie & redirect to /video
         end
@@ -106,13 +105,13 @@ Media files are populated directly onto host storage via network shares (SMB/NFS
 
 ```mermaid
 flowchart TD
-    A1["Place media into ./media/video/<Container>/ or ./media/books/<Container>/<br/>(via Samba, NFS, SCP, rsync, or USB drive)"] --> A2["Admin clicks 'Rescan All Media' in Manage Server"]
-    A2 --> A3["Scanner verifies mount marker (.flan-keep exists and directory not empty)"]
-    A3 --> A4["Singleflight crawler begins background walk; returns HTTP 202 Accepted"]
-    A4 --> A5["Discover files, poster.jpg/cover.jpg, and check mtime/size"]
-    A5 --> A6["Reconcile against SQLite:<br/>• Insert new files<br/>• Update modified files<br/>• Mark missing files without purging watch history<br/>• Preserve custom titles if metadata_locked == 1"]
+    A1["Place media into storage sources (e.g. ./media/video/, /mnt/usb-movies/)<br/>(via Samba, NFS, SCP, rsync, USB drive, or web upload)"] --> A2["Admin triggers Rescan or Scan on Storage Source"]
+    A2 --> A3["Scanner verifies source marker (.flan-keep exists and directory not empty)"]
+    A3 --> A4["Crawler traverses source directories"]
+    A4 --> A5["Discover containers, episode files, poster.jpg/cover.jpg, and check mtime/size"]
+    A5 --> A6["Reconcile against SQLite:<br/>• Insert newly discovered files into existing containers<br/>• Update modified file mtimes<br/>• Mark missing files without purging watch history<br/>• Preserve custom titles and container metadata_locked == 1"]
     A6 --> A7["Batch commit on dedicated writer DB connection"]
-    A7 --> A8["Manage console polls GET /api/scan/status and displays completion toast"]
+    A7 --> A8["Manage console displays completion notification"]
 ```
 
 ---

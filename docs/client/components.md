@@ -14,8 +14,13 @@ The primary catalog unit representing a video or book container.
 * **Footer Band:** Solid purple strip (`--brand-active: #6d4ca6`) across the bottom of the card with white title text (`#ffffff`).
 * **Interactions:** Depresses immediately into active state on click (`transform: translateY(2px)`).
 * **Aspect Ratios:**
-  * Video Poster (`.card--video`): 2:3 aspect ratio.
+  * Video Poster (`.card--video`): 2:3 aspect ratio (rendered as `aspect-ratio: 3 / 4.4` in catalog grids).
   * Book Cover (`.card--book`): 1:1.4 aspect ratio.
+* **Fluid Tiered Scaling (Low Zoom / Large Displays):** Rather than remaining static 200px tiles on high-res displays, card dimensions scale up dynamically across progressive breakpoints as `--catalog-max-width` expands from 1680px to 2400px:
+  * Cards scale from ~200px wide up to ~325px wide and ~475px tall.
+  * Poster play SVGs scale from 48px up to 76px.
+  * Title typography scales from 0.92rem up to 1.2rem.
+  * Preserves bold, prominent readability similar to modern YouTube layouts until capping strictly at 2400px.
 
 ### HTML Structure
 ```html
@@ -33,51 +38,132 @@ The primary catalog unit representing a video or book container.
 
 ---
 
-## 2. Sidebar Navigation Buttons (`.sidebar-btn`)
+## 2. Discord x YouTube Hybrid Rail (`.sidebar-nav-item`)
 
-Used in the left navigation sidebar for `Video`, `Books`, and `Manage Server`.
+Used in the 108px chunky industrial rail sidebar for `Search`, `Video`, `Books`, and `Manage Server`. Blends Discord's tactile squircle containers and left indicator pill with YouTube's icon-above-label hierarchy.
 
 ### HTML Structure
 ```html
-<nav class="sidebar-nav" aria-label="Main Navigation">
-    <a href="/video" class="sidebar-btn sidebar-btn--active" aria-current="page">Video</a>
-    <a href="/books" class="sidebar-btn">Books</a>
-    <a href="/manage" class="sidebar-btn sidebar-btn--bottom">Manage Server</a>
+<nav class="sidebar-nav" aria-label="Media Library">
+    <!-- Search Item (Triggers Spotlight Modal) -->
+    <button id="nav-search-btn" class="sidebar-nav-item" title="Search Library (/)" aria-label="Search Library" aria-haspopup="dialog">
+        <div class="nav-indicator-pill" aria-hidden="true"></div>
+        <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+        </div>
+        <span class="nav-rail-label">Search</span>
+    </button>
+
+    <!-- Video Item -->
+    <button id="nav-video-btn" class="sidebar-nav-item active" aria-current="page" title="Videos & Movies">
+        <div class="nav-indicator-pill" aria-hidden="true"></div>
+        <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="2" y="4" width="20" height="16" rx="4"/><polygon points="10,8 16,12 10,16"/></svg>
+        </div>
+        <span class="nav-rail-label">Video</span>
+    </button>
+
+    <!-- Books Item -->
+    <button id="nav-books-btn" class="sidebar-nav-item" title="Books & Publications">
+        <div class="nav-indicator-pill" aria-hidden="true"></div>
+        <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <span class="nav-rail-label">Books</span>
+    </button>
 </nav>
+
+<div class="sidebar-bottom">
+    <div class="sidebar-divider" aria-hidden="true"></div>
+    <button id="nav-manage-btn" class="sidebar-nav-item sidebar-manage-item" title="Manage Server">
+        <div class="nav-indicator-pill" aria-hidden="true"></div>
+        <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        </div>
+        <span class="nav-rail-label">Manage</span>
+    </button>
+</div>
 ```
 
 ### Styling Rules
-* **Border:** `2px solid #000000`, `8px` rounded corners.
-* **Active State (`.sidebar-btn--active`):** Solid darker purple (`--brand-active: #6d4ca6`) background with white bold text.
-* **Inactive State:** Light gray surface (`#eae8f2`) with dark bold text (`#12131a`).
-* **Active Click:** Depresses on click (`:active { transform: translateY(2px); }`).
-* **Focus Outline:** Visible 3px black outline (`:focus-visible { outline: 3px solid #000; outline-offset: 2px; }`).
+* **Rail Width:** 108px chunky industrial rail (`var(--sidebar-width: 108px)`).
+* **Discord Indicator Pill (`.nav-indicator-pill`):** 6px wide bar on left rail edge. Expands to 46px height on active item (`--header-purple`), 18px preview on hover, and 0 height when inactive.
+* **Squircle Tile (`.nav-squircle`):** 60px by 60px container, `2.5px solid #000000` border, `16px` border radius, `2.5px 2.5px 0px #000000` shadow. Turns solid purple (`#6d4ca6`) with white icon when active.
+* **SVG Icons:** 30px by 30px with 2.4–2.5px stroke weight; punchy visibility from across the room.
+* **Stacked Label (`.nav-rail-label`):** 12px (0.75rem) uppercase bold text directly below the squircle with 0.6px letter spacing.
+* **Divider Line (`.sidebar-divider`):** 50px wide by 2.5px tall separator before the pinned Manage Server button.
+* **Active State Click:** Smooth depression (`:active { transform: translateY(2px); }`).
 
 ---
 
-## 3. Search Bar Component (`.search-bar`)
+## 3. Dedicated Search Page & Inline Category Chips
 
-Positioned at the top of the main content area.
+Search is implemented as a first-class responsive page (`/search`) rather than a modal dialog to eliminate text truncation, nested scrollbars, and mobile clipping. Full search is triggered via the rail `[ Search ]` button or keyboard shortcuts (`/` or `Ctrl+K`), while quick category switching on catalog pages is supported via inline chips.
 
-### HTML Structure
+### Dedicated Search Page HTML Structure
 ```html
-<form class="search-bar" action="/video" method="GET">
-    <input type="text" name="q" class="search-bar__input" placeholder="Search..." autocomplete="off">
-    <button type="submit" class="search-bar__btn" aria-label="Search">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M...magnifying-glass"/></svg>
-    </button>
-</form>
+<div class="search-page-container">
+    <header class="search-page-header">
+        <div class="search-page-input-wrap">
+            <svg class="search-page-input-icon" viewBox="0 0 24 24" width="26" height="26"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+            <input id="search-page-input" class="search-page-input" type="text" placeholder="Search across videos, movies, series, books..." autocomplete="off">
+            <button id="search-page-clear-btn" class="search-page-clear-btn" title="Clear Search">✕</button>
+        </div>
+
+        <div class="search-page-controls-row">
+            <div class="search-page-filter-groups">
+                <div class="search-page-filter-group">
+                    <span class="search-page-filter-label">Type:</span>
+                    <button class="search-page-chip active" data-filter="type" data-val="all">All</button>
+                    <button class="search-page-chip" data-filter="type" data-val="video">Videos</button>
+                    <button class="search-page-chip" data-filter="type" data-val="books">Books</button>
+                </div>
+                <div class="search-page-filter-group">
+                    <span class="search-page-filter-label">Status:</span>
+                    <button class="search-page-chip active" data-filter="status" data-val="all">All</button>
+                    <button class="search-page-chip" data-filter="status" data-val="in-progress">In Progress</button>
+                    <button class="search-page-chip" data-filter="status" data-val="unwatched">Unwatched</button>
+                </div>
+            </div>
+            <div class="search-page-meta-status">Enter search terms above</div>
+        </div>
+    </header>
+
+    <section class="search-page-results-section">
+        <!-- Initial prompt state shown before typing -->
+        <div class="search-prompt-card">
+            <div class="search-prompt-icon">...</div>
+            <div class="search-prompt-title">Search Your Library</div>
+            <p class="search-prompt-desc">Start typing a title, director, author, or keyword to find videos and books.</p>
+        </div>
+
+        <!-- Or media-grid once user types, reusing standard catalog media-card markup -->
+        <!-- <section class="media-grid" id="search-media-grid"> ... </section> -->
+    </section>
+</div>
 ```
 
-### Styling Rules
-* Input field has a white background with a `2px solid #000000` border and `8px` rounded corners.
-* Search button is a high-contrast square with `2px solid #000000` border containing an inline SVG icon.
+### Inline Category Chips HTML Structure (`.catalog-header-bar`)
+```html
+<div class="catalog-header-bar">
+    <div class="catalog-title-wrap">
+        <h2 class="catalog-title">Videos & Movies</h2>
+        <span class="catalog-count-badge">23 items</span>
+    </div>
+    <div class="catalog-category-chips">
+        <button class="cat-chip active">All</button>
+        <button class="cat-chip">Movies</button>
+        <button class="cat-chip">Series</button>
+        <button class="cat-chip">In Progress</button>
+    </div>
+</div>
+```
 
 ---
 
 ## 4. Top Header & Utility Controls (`.top-header`)
 
-The persistent top header bar (`.top-header`, 56px height) sits at the top of the interface across both desktop and mobile viewports. It carries the brand title on the left and utility controls (`?` manual button and user avatar badge) on the right. Scoped search remains within the catalog canvas.
+The persistent top header bar (`.top-header`, 70px height) anchors the application with generous architectural proportions across desktop and mobile viewports. It carries the brand title on the left (text only, no logo or emblems) and utility controls on the right.
 
 ### HTML Structure
 ```html
@@ -99,10 +185,10 @@ The persistent top header bar (`.top-header`, 56px height) sits at the top of th
 ```
 
 ### Styling Rules
-* **Header Bar:** 56px height, solid purple background (`var(--header-purple): #6d4ca6`), `2.5px solid #000000` bottom border, sticky at top.
-* **Brand Title:** Bold white text (`font-size: 1.35rem; font-weight: 700`), interactive cursor, navigates to `#video` on click/Enter.
-* **Manual Button (`#help-btn`):** Circular white button, 38px diameter, `2.5px solid #000000` border, centered `?` symbol, navigates to `#manual`.
-* **Avatar Badge (`#user-avatar`):** 40px rounded rectangle button with `3px solid #3ea6ff` border and black ring shadow (`box-shadow: 0 0 0 2px #000`), opens Unified My Profile modal on click.
+* **Header Bar:** 70px height (`var(--header-height: 70px)`), solid purple background (`var(--header-purple): #724799`), `3px solid #000000` bottom border, sticky at top.
+* **Brand Title:** Bold white text (`font-size: 1.7rem; font-weight: 800; letter-spacing: -0.4px`), interactive cursor, navigates to `#video` on click/Enter. Text-only (no logo icon).
+* **Manual Button (`#help-btn`):** 52px squircle white button (`border-radius: 14px`), `2.5px solid #000000` border, `2px 2px 0px #000000` tactile shadow, bold centered `?` symbol (`font-size: 1.55rem; font-weight: 900`), navigates to `#manual`.
+* **Avatar Badge (`#user-avatar`):** 52px squircle button (`border-radius: 14px`), `2.5px solid #000000` border (zero blue borders), `2px 2px 0px #000000` tactile shadow, clean `#fdedd0` cream background, opens Unified My Profile modal on click.
 
 ---
 
@@ -111,10 +197,11 @@ The persistent top header bar (`.top-header`, 56px height) sits at the top of th
 Surfaces active in-progress media sessions at the top of the catalog:
 
 ### Visual & Functional Rules
-* **Video Resume Cards:** Shows item title, current episode / cut, formatted progress (`24:12 / 48m`), a tactile purple progress bar, and a 1-tap `[ Resume ]` button that deep-links directly into `/watch/{file_id}`.
-* **Book Reading Cards:** Shows title, author, and discrete status badges (e.g. `READING - Page 142 of 680`). No arbitrary percentage numbers are calculated for books.
+* **Video Resume Cards:** Shows item title, episode name or subtitle, high-contrast `[ In Progress ]` status tag, and a 1-tap `[ Resume ]` button linking to `/watch/{file_id}`. No progress bars, time percentages, or duration math.
+* **Book Reading Cards:** Shows book title, author, `[ Reading ]` status tag, and a 1-tap `[ Continue ]` button. No page count strings or percentages.
 * **Activity Sorting:** Sorted by last interaction timestamp descending (`last_watched_at` / `last_read_at DESC`).
 * **Zero-Waste Collapse:** If 0 items are in progress or if the user filters by `Unwatched`, the shelf collapses completely from the DOM.
+* **Zero-Overhead Queries:** Eliminates complex database timecode or EPUB page parsing queries.
 
 ---
 

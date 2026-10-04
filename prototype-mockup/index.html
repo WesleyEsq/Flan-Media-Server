@@ -36,25 +36,60 @@
        ========================================================================= -->
   <div id="app-container" class="app-container">
     <!-- Left Sidebar (Desktop) / Bottom Navigation Bar (Mobile) -->
-    <aside id="left-sidebar" class="left-sidebar">
-      <!-- Semantic Navigation Wrapper (WCAG 1.3.1) - No arrows, pure rail buttons -->
-      <nav class="sidebar-nav" aria-label="Main Navigation">
-        <!-- Tactile Video Button -->
-        <button id="nav-video-btn" class="sidebar-nav-btn active" aria-current="page">
-          Video
+    <aside id="left-sidebar" class="left-sidebar" aria-label="Main Navigation">
+      <!-- Semantic Navigation Wrapper (WCAG 1.3.1) - Discord x YouTube Hybrid Rail -->
+      <nav class="sidebar-nav" aria-label="Media Library">
+        <!-- Search Item (Navigates to #search) -->
+        <button id="nav-search-btn" class="sidebar-nav-item" title="Search Library (/)" aria-label="Search Library">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Search</span>
         </button>
 
-        <!-- Tactile Books Button -->
-        <button id="nav-books-btn" class="sidebar-nav-btn">
-          Books
+        <!-- Video Item -->
+        <button id="nav-video-btn" class="sidebar-nav-item active" aria-current="page" title="Videos & Movies" aria-label="Videos & Movies">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="4" ry="4"/>
+              <polygon points="10,8 16,12 10,16" fill="currentColor" stroke="none"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Video</span>
+        </button>
+
+        <!-- Books Item -->
+        <button id="nav-books-btn" class="sidebar-nav-item" title="Books & Publications" aria-label="Books & Publications">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Books</span>
         </button>
       </nav>
 
       <!-- Pinned Bottom Section: Manage Server -->
       <div class="sidebar-bottom">
-        <button id="nav-manage-btn" class="sidebar-manage-btn" aria-label="Manage Server">
-          <span class="desktop-manage-label">Manage Server</span>
-          <span class="mobile-manage-label">Manage</span>
+        <div class="sidebar-divider" aria-hidden="true"></div>
+        <button id="nav-manage-btn" class="sidebar-nav-item sidebar-manage-item" title="Manage Server" aria-label="Manage Server">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+              <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+              <line x1="6" y1="6" x2="6.01" y2="6"/>
+              <line x1="6" y1="18" x2="6.01" y2="18"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Manage</span>
         </button>
       </div>
     </aside>
@@ -365,6 +400,8 @@
       </div>
     </form>
   </dialog>
+
+
 
   <!-- Scripts -->
   <script src="js/mock-data.js"></script>

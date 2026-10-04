@@ -21,20 +21,21 @@ Flan-Media-Server/
 │   │   └── migrations.go
 │   ├── model/                    # Domain entities / records (zero DB or SQL dependencies)
 │   │   ├── user.go
+│   │   ├── source.go
 │   │   ├── video.go
 │   │   ├── book.go
 │   │   ├── progress.go
 │   │   └── errors.go
 │   ├── repository/               # Data Access Layer / DAOs (owns all raw SQL queries)
 │   │   ├── user_repo.go
+│   │   ├── source_repo.go
 │   │   ├── video_repo.go
 │   │   ├── book_repo.go
 │   │   └── progress_repo.go
 │   ├── service/                  # Business Logic Layer (auth, catalog queries, scanner, rate limits)
 │   │   ├── auth_service.go       # PIN validation, lockout tracking, session HMAC, signed VLC URLs
 │   │   ├── media_service.go      # Media container retrieval, detail view assembly, cover art resolution
-│   │   ├── scanner_service.go    # Offline filesystem crawler & database reconciliation engine
-│   │   └── governor_service.go   # 3-stream concurrent playback lease governor
+│   │   └── scanner_service.go    # Offline filesystem crawler & database reconciliation engine
 │   ├── controller/               # HTTP Presentation Layer (request decoding, status codes, view rendering)
 │   │   ├── auth_controller.go
 │   │   ├── media_controller.go
@@ -43,14 +44,13 @@ Flan-Media-Server/
 │   │   └── page_controller.go    # Server-rendered HTML page endpoints
 │   └── middleware/               # HTTP Request Pipeline / Filters
 │       ├── auth_filter.go        # Session cookie verification & role checks
-│       ├── csrf_filter.go        # Cross-origin protection & origin validation
-│       └── governor_filter.go    # Playback lease validation for /stream/ and /download/
+│       └── csrf_filter.go        # Cross-origin protection & origin validation
 ├── web/                          # Embedded presentation assets (templates and static files)
 │   ├── embed.go                  # Package web: exports embedded filesystem (embed.FS)
-│   ├── templates/                # 9 Server-rendered Go HTML templates (login, video, books, manage, etc.)
+│   ├── templates/                # 10 Server-rendered Go HTML templates (login, video, search, books, manage, etc.)
 │   └── static/                   # CSS, modular JS, bundled SVG avatars, Plyr video player
 ├── data/                         # Persistent runtime directory (flan.db, data/covers/, data/avatars/)
-├── media/                        # Fixed media storage directories (./media/video, ./media/books)
+├── media/                        # Default media storage directories (./media/video, ./media/books)
 ├── docs/                         # Architecture, database schema, security, and operations documentation
 ├── tests/                        # Unit and integration tests (fstest, mocks)
 ├── .env                          # Default environment configuration
@@ -78,7 +78,7 @@ Flan-Media-Server/
   * Applies schema migrations using SQLite's `PRAGMA user_version`.
 
 * **`internal/model` (Domain Entities):**
-  * Defines pure state structs (`Video`, `VideoFile`, `Book`, `BookFile`, `User`, `Progress`).
+  * Defines pure state structs (`StorageSource`, `Video`, `VideoFile`, `Book`, `BookFile`, `User`, `Progress`).
   * Declares sentinel domain errors (`ErrNotFound`, `ErrDuplicate`).
   * Strictly forbidden from importing `database/sql` or performing I/O.
 
@@ -88,7 +88,7 @@ Flan-Media-Server/
   * Isolates database-specific logic from the rest of the application.
 
 * **`internal/service` (Business Logic & Workflows):**
-  * Implements domain rules: password hashing and verification, lockout backoff, 3-stream lease management, and filesystem crawler reconciliation.
+  * Implements domain rules: password hashing and verification, lockout backoff, and filesystem crawler reconciliation.
   * Coordinates multiple repositories when executing business transactions.
 
 * **`internal/controller` (HTTP Presentation Layer):**
@@ -98,7 +98,7 @@ Flan-Media-Server/
   * Manages zero-copy byte-range video delivery via `http.ServeContent`.
 
 * **`internal/middleware` (HTTP Request Interceptors):**
-  * Chained filters wrapping `http.Handler`: session authentication, CSRF origin verification, and stream capacity checks.
+  * Chained filters wrapping `http.Handler`: session authentication and CSRF origin verification.
 
 * **`web` (Static Asset Bundle):**
   * Uses Go's `embed.FS` to bundle `templates/` and `static/` directly into the binary.

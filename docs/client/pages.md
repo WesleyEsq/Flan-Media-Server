@@ -9,7 +9,8 @@ Layouts, wireframes, and interaction behaviors for the 9 server-rendered HTML te
 A dedicated top header bar (`.top-header`, 56px) provides persistent brand identity and utility controls (`?` manual button and user profile avatar) across all authenticated views. Platform navigation is cleanly consolidated into the left sidebar rail on desktop (bottom rail on mobile).
 
 * **`login.html` (`GET /login`):** Focused tactile keypad with 1-tap household profile avatar buttons, numeric PIN input, and instant access button.
-* **`video.html` (`GET /` or `GET /video`):** Video catalog grid with search bar and cards displaying solid purple title footers.
+* **`video.html` (`GET /` or `GET /video`):** Video catalog grid with Continue Watching top shelf, quick category chips, and media cards.
+* **`search.html` (`GET /search`):** Full-canvas interactive search page with real-time query matching across videos and books, category/status filter chips, and rich media cards.
 * **`video_detail.html` (`GET /video/{id}`):** Video detail view with poster, synopsis, playable episode/cut rows, and signed VLC download links.
 * **`books.html` (`GET /books`):** Book catalog grid displaying single volumes and multi-volume series.
 * **`book_detail.html` (`GET /books/{id}`):** Book detail view with cover, author, overview, and download/PDF reading buttons.
@@ -80,106 +81,137 @@ A dedicated top header bar (`.top-header`, 56px) provides persistent brand ident
 
 ### Page 2: Video Catalog (`video.html` - `GET /video`)
 ```text
-+-------------------------------------------------------------------------------------+
-| Flan Media Server                                                   ( ? )  [Avatar] |
-+----------+--------------------------------------------------------------------------+
-|          |                                                                          |
-| [ Video] |   +---------------------------------------+  [Search]  [ Filter [v] ]    |
-| (Active) |   | Search videos...                      |                              |
-|          |   +---------------------------------------+                              |
-| [ Books] |                                                                          |
-|          |   === CONTINUE WATCHING ==============================================   |
-|          |   +--------------------------+   +--------------------------+            |
-|          |   | [Thumb] Breaking Bad     |   | [Thumb] Spirited Away    |            |
-|          |   |         S01E02 (24:12)   |   |         1:33:45 (75%)    |            |
-|          |   |         [== Prog ==]     |   |         [==== Prog ==]   |            |
-|          |   |         [ Resume > ]     |   |         [ Resume > ]     |            |
-|          |   +--------------------------+   +--------------------------+            |
-|          |                                                                          |
-|          |   === ALL VIDEOS (7 Columns Max Hard Limit) ==========================   |
-|          |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+  |
-|          |   | Poster| | Poster| | Poster| | Poster| | Poster| | Poster| | Poster|  |
-|          |   |-------| |-------| |-------| |-------| |-------| |-------| |-------|  |
-|          |   | Title | | Title | | Title | | Title | | Title | | Title | | Title |  |
-|          |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+  |
-|          |                                                                          |
-|          |   [ <- Prev ]   [ 1 ]   [ 2 ]   [ Next -> ]    Showing 1-21 of 23        |
-| [Manage] |                                                                          |
-+----------+--------------------------------------------------------------------------+
++-----------------------------------------------------------------------------------------------+
+| FLAN MEDIA SERVER (70px Height, Bold 1.7rem, Title Only)                 (?) [Avatar Frame]  |
++-----------+-----------------------------------------------------------------------------------+
+|           |                                                                                   |
+|  [  Q  ]  |   === CONTINUE WATCHING =======================================================   |
+|  SEARCH   |   +--------------------------+   +--------------------------+                     |
+|           |   | [Thumb] Breaking Bad     |   | [Thumb] Spirited Away    |                     |
+|  [ |> ]   |   |         S01E02           |   |         Movie            |                     |
+|   VIDEO   |   |         [ In Progress ]  |   |         [ In Progress ]  |                     |
+|  (Active) |   |         [ Resume > ]     |   |         [ Resume > ]     |                     |
+|           |   +--------------------------+   +--------------------------+                     |
+|  [ [] ]   |                                                                                   |
+|   BOOKS   |   VIDEOS & MOVIES   [ All ] [ Movies ] [ Series ] [ In Progress ]      (23 items)  |
+|           |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+           |
+|   -----   |   | Poster| | Poster| | Poster| | Poster| | Poster| | Poster| | Poster|           |
+|           |   |-------| |-------| |-------| |-------| |-------| |-------| |-------|           |
+|  [  #  ]  |   | Title | | Title | | Title | | Title | | Title | | Title | | Title |           |
+|  MANAGE   |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+           |
+|           |                                                                                   |
+| 108px Rail|   [ <- Prev ]   [ 1 ]   [ 2 ]   [ Next -> ]    Showing 1-21 of 23                 |
++-----------+-----------------------------------------------------------------------------------+
 ```
-* **Persistent Top Header:** Restored 56px top header displays brand title on the left and quick utility controls (`(?)` manual and user avatar badge) on the right. Search remains scoped in the catalog canvas.
-* **Rail Navigation:** Pure industrial buttons for `Video`, `Books`, and pinned `Manage Server` with zero decorative arrows and no distracting count badges.
-* **Continue Watching Top Shelf:** Surfaces active resume sessions sorted by activity date descending (`last_watched_at DESC`). Complete with episode indicators, tactile progress bars, and instant 1-tap `[ Resume ]` triggers. Completely collapses when 0 items are in progress.
-* **Collapsible Filter & Sort Drawer:** Toggled via `[ Filter [v] ]` beside the search bar. Provides format pills (`All`, `Movies`, `Series`), status pills (`All`, `In Progress`, `Unwatched`), storage drive filters, and sort options (including `Shuffle / Random` by default).
-* **7-Column Max Hard Limit:** `.media-grid` is capped at a strict maximum of 7 columns on wide displays (`max-width: 1680px`), guaranteeing optimal readability.
+* **Persistent Top Header:** 70px top header displays brand title on the left (text only, no emblem or logo icon) and quick utility controls (`(?)` manual and user avatar badge) on the right.
+* **Discord x YouTube Hybrid Rail:** 108px chunky industrial rail featuring 60px squircle tiles, 30px SVG icons, 6px left-edge indicator pills (`|`), and 12px stacked text labels (`SEARCH`, `VIDEO`, `BOOKS`, `MANAGE`).
+* **Continue Watching Top Shelf:** Surfaces active resume sessions sorted by activity date descending (`last_watched_at DESC`). Features lightweight `[ In Progress ]` status tags and instant 1-tap `[ Resume ]` triggers without heavy progress bars or duration calculations.
+* **Canvas Immediate Gratification:** No search bar canyon consuming vertical space. The shelf sits immediately at the top of the canvas upon loading.
+* **Inline Category Chips:** Clean `.catalog-header-bar` with section title, item counter badge, and 1-click filter chips (`[ All ] [ Movies ] [ Series ] [ In Progress ]`).
+* **Dedicated Search Route:** Full search is triggered via the rail `[ Search ]` button or keyboard shortcuts (`/`, `Ctrl+K`), navigating directly to the dedicated Search page (`/search`).
+* **Fluid 7-Column Scaling (Low Zoom / Large Displays):** Rather than leaving empty lavender void on 4K, 1440p, or low zoom levels (80%, 67%, 50%), `--catalog-max-width` progressively expands:
+  * `1680px`: `1840px` max width (cards scale to ~235px wide)
+  * `1920px`: `2060px` max width (cards scale to ~270px wide)
+  * `2200px`: `2280px` max width (cards scale to ~305px wide)
+  * `2560px`+: `2400px` max width (cards scale to ~325px wide)
+  Content caps strictly at `2400px` to prevent infinite stretching or UI distortion at 50% zoom while keeping cards bold, prominent, and readable.
 * **21 Items Max / Page Pagination:** Strict chunking to 21 items max per page ($7 \times 3 = 21$) with tactile numbered controls.
 
 ---
 
-### Page 3: Video Detail View (`video_detail.html` - `GET /video/{id}`)
+### Page 3: Search Page (`search.html` - `GET /search`)
+```text
++-----------------------------------------------------------------------------------------------+
+| FLAN MEDIA SERVER (70px Height, Bold 1.7rem, Title Only)                 (?) [Avatar Frame]  |
++-----------+-----------------------------------------------------------------------------------+
+|           |                                                                                   |
+| | [  Q  ] |   +---------------------------------------------------------------------------+   |
+|   SEARCH  |   | [Q] Search across videos, movies, series, books...                    [X] |   |
+|  (Active) |   +---------------------------------------------------------------------------+   |
+|           |                                                                                   |
+|   [ |> ]  |   TYPE: [ All ] [ Videos ] [ Books ]    STATUS: [ All ] [ In Progress ]           |
+|   VIDEO   |   Found 18 titles matching "dune"                                                 |
+|           |                                                                                   |
+|   [ [] ]  |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+           |
+|   BOOKS   |   | Poster| | Poster| | Cover | | Poster| | Cover | | Poster| | Poster|           |
+|           |   |-------| |-------| |-------| |-------| |-------| |-------| |-------|           |
+|   -----   |   | Title | | Title | | Title | | Title | | Title | | Title | | Title |           |
+|           |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+           |
+|   [  #  ] |                                                                                   |
+|   MANAGE  |                                                                                   |
++-----------+-----------------------------------------------------------------------------------+
+```
+* **First-Class Responsive Page:** Replaces cramped modal dialogs with a full-canvas, responsive search experience without text truncation or nested scrollbars.
+* **Unified Navigation:** Rail button `[ Q ] Search` and mobile bottom bar tab navigate to `/search`, highlighting the search tab with the active indicator pill and squircle latch.
+* **Full-Width Search Bar:** 56px neo-brutalist search input with instant clear button `[ X ]` and auto-focus on page load.
+* **Query-Driven Results:** Results appear once the user types a query. When the query is empty, displays an inviting initial prompt card (`Search Your Library`) with zero card clutter.
+* **Standard Media Card Reuse:** Results reuse the exact catalog `.media-card` component (upper `.card-poster` with format badge and placeholder/artwork, lower purple `.card-footer-band` with title and episode/author subtitle; zero Drive badges).
+* **Filter Chips:** 1-click toggles for media type (`All`, `Videos`, `Books`) and status (`All`, `In Progress`, `Unwatched`).
+* **Zero-Match State:** Clean empty-state card with a 1-tap `[ Clear Search & Filters ]` recovery button.
+
+---
+
+### Page 4: Video Detail View (`video_detail.html` - `GET /video/{id}`)
 ```text
 +-------------------------------------------------------------------------------------+
 | Flan Media Server                                                   ( ? )  [Avatar] |
-+----------+--------------------------------------------------------------------------+
-|          |  <- Back to Videos                                                       |
-| [ Video] |                                                                          |
-| (Active) |  +-------------+   BREAKING BAD (2008)   [ Edit Details ]                |
-|          |  | [Poster]    |   A high school chemistry teacher diagnosed             |
-| [ Books] |  |             |   with lung cancer turns to manufacturing...            |
-|          |  +-------------+                                                         |
-|          |                                                                          |
-|          |  PLAYABLE ITEMS / EPISODES                                               |
-|          |  +---------------------------------------------------------------------+ |
-|          |  | 1. S01E01 - Pilot (48m)   [== Watched ==] [Play] [VLC]              | |
-|          |  +---------------------------------------------------------------------+ |
-|          |  | 2. S01E02 - Cat's (48m)   [== 18m left =] [Play] [VLC]              | |
-| [Manage] |  +---------------------------------------------------------------------+ |
-+----------+--------------------------------------------------------------------------+
++---------+---------------------------------------------------------------------------+
+|         |  <- Back to Videos                                                        |
+| | [ |> ]|                                                                           |
+|   VIDEO |  +-------------+   BREAKING BAD (2008)   [ Edit Details ]                 |
+|         |  | [Poster]    |   A high school chemistry teacher diagnosed              |
+|   [ [] ]|  |             |   with lung cancer turns to manufacturing...             |
+|   BOOKS |  +-------------+                                                          |
+|         |                                                                           |
+|   ---   |  PLAYABLE ITEMS / EPISODES                                                |
+|         |  +----------------------------------------------------------------------+ |
+|   [ # ] |  | 1. S01E01 - Pilot (48m)   [== Watched ==] [Play] [VLC]               | |
+|  MANAGE |  +----------------------------------------------------------------------+ |
+|         |  | 2. S01E02 - Cat's (48m)   [== 18m left =] [Play] [VLC]               | |
+|         |  +----------------------------------------------------------------------+ |
++---------+---------------------------------------------------------------------------+
 ```
 * **Admin Edit Details Button:** For administrators, displays `[ Edit Details ]` next to the container title. Opens the Video Editor modal to adjust Title, Release Year, Overview, upload/replace cover art, and rename or reorder individual episodes without touching files on disk.
 * **Playable List:** Displays container files, duration, watch progress, `[ Play ]`, and `[ VLC / Download ]`.
 * **Direct Streaming:** Clicking Play opens `/watch/{file_id}`.
-* **VLC Signed Link:** Clicking `[ VLC / Download ]` provides a 4-hour signed download URL (`/download/video/{id}?exp=...&u=...&sig=...`) to stream in external players without needing browser session cookies.
+* **VLC Signed Link & Format Awareness:** Clicking `[ VLC / Download ]` provides a 4-hour signed download URL (`/download/video/{id}?exp=...&u=...&sig=...`) to stream in external players without needing browser session cookies. For MKV container files (which lack native browser support in Chrome, Safari, and iOS), the row highlights `[ VLC / Download ]` with an informative format badge to guide users to seamless playback.
 
 ---
 
-### Page 4: Books Catalog (`books.html` - `GET /books`)
+### Page 5: Books Catalog (`books.html` - `GET /books`)
 ```text
 +-------------------------------------------------------------------------------------+
 | Flan Media Server                                                   ( ? )  [Avatar] |
-+----------+--------------------------------------------------------------------------+
-|          |                                                                          |
-| [ Video] |   +---------------------------------------+  [Search]  [ Filter [v] ]    |
-|          |   | Search books...                       |                              |
-|          |   +---------------------------------------+                              |
-| [ Books] |                                                                          |
-| (Active) |   === JUMP BACK IN ==================================================    |
-|          |   +--------------------------+   +--------------------------+            |
-|          |   | [Cover] Dune             |   | [Cover] Snow Crash       |            |
-|          |   |         Frank Herbert    |   |         Neal Stephenson  |            |
-|          |   |         [ READING - p.142]   |         [ READING - p.88 ]|           |
-|          |   |         [ Continue > ]   |   |         [ Continue > ]   |            |
-|          |   +--------------------------+   +--------------------------+            |
-|          |                                                                          |
-|          |   === ALL BOOKS & PUBLICATIONS ======================================    |
-|          |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+  |
-|          |   | Cover | | Cover | | Cover | | Cover | | Cover | | Cover | | Cover |  |
-|          |   |-------| |-------| |-------| |-------| |-------| |-------| |-------|  |
-|          |   | Title | | Title | | Title | | Title | | Title | | Title | | Title |  |
-|          |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+  |
-|          |                                                                          |
-|          |   [ <- Prev ]   [ 1 ]   [ Next -> ]    Showing 1-13 of 13                |
-| [Manage] |                                                                          |
-+----------+--------------------------------------------------------------------------+
++---------+---------------------------------------------------------------------------+
+|         |                                                                           |
+|   [ Q ] |   === JUMP BACK IN ===================================================    |
+|  SEARCH |   +--------------------------+   +--------------------------+             |
+|         |   | [Cover] Dune             |   | [Cover] Snow Crash       |             |
+|   [ |> ]|   |         Frank Herbert    |   |         Neal Stephenson  |             |
+|   VIDEO |   |         [ Reading ]      |   |         [ Reading ]      |             |
+|         |   |         [ Continue > ]   |   |         [ Continue > ]   |             |
+| | [ [] ]|   +--------------------------+   +--------------------------+             |
+|   BOOKS |                                                                           |
+|  (Active)   BOOKS & PUBLICATIONS  [ All ] [ EPUB ] [ PDF ] [ Reading ]   (13 items) |
+|   ---   |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+   |
+|         |   | Cover | | Cover | | Cover | | Cover | | Cover | | Cover | | Cover |   |
+|   [ # ] |   |-------| |-------| |-------| |-------| |-------| |-------| |-------|   |
+|  MANAGE |   | Title | | Title | | Title | | Title | | Title | | Title | | Title |   |
+|         |   +-------+ +-------+ +-------+ +-------+ +-------+ +-------+ +-------+   |
+|         |                                                                           |
+|         |   [ <- Prev ]   [ 1 ]   [ Next -> ]    Showing 1-13 of 13                 |
++---------+---------------------------------------------------------------------------+
 ```
-* **Persistent Top Header & Rail Navigation:** `Books` button is active in the left rail sidebar. Top header provides instant access to help manual and user profile modal.
-* **Jump Back In Shelf:** Shows currently reading books with discrete status tags (e.g., `READING - Page 142 of 680`). No arbitrary percentages.
-* **Format Filters:** Allows toggling between `EPUB` and `PDF` files.
+* **Persistent Top Header & Hybrid Rail Navigation:** 70px top header and 108px left rail sidebar with `Books` active.
+* **Jump Back In Shelf:** Shows currently reading books directly at the top of the canvas with clean `[ Reading ]` status tags and 1-tap `[ Continue > ]` triggers.
+* **Inline Category Chips:** Quick format switches (`[ All ] [ EPUB ] [ PDF ] [ Reading ]`) directly on the `.catalog-header-bar`.
+* **Dedicated Search Route:** Full book search triggered via the `[ Search ]` rail button or `/` / `Ctrl+K`.
+* **Fluid Scaled Grid:** 7-column layout scaling progressively on large screens / low zoom levels up to the 2400px boundary.
 * Clicking any book card navigates to `/books/{id}`.
 
 ---
 
-### Page 5: Book Detail View (`book_detail.html` - `GET /books/{id}`)
+### Page 6: Book Detail View (`book_detail.html` - `GET /books/{id}`)
 * Displays book cover, title, author, and description.
 * Lists readable volume files:
   * For **PDFs**: `[ Open PDF ]` (opens browser viewer tab), `[ Download ]`, and status toggle (`Reading` / `Finished`).
@@ -188,7 +220,7 @@ A dedicated top header bar (`.top-header`, 56px) provides persistent brand ident
 
 ---
 
-### Page 6: Video Player View (`watch.html` - `GET /watch/{file_id}`)
+### Page 7: Video Player View (`watch.html` - `GET /watch/{file_id}`)
 ```text
 +-------------------------------------------------------------------------+
 | [← Back]  Breaking Bad - S01E02                                         |
@@ -206,18 +238,17 @@ A dedicated top header bar (`.top-header`, 56px) provides persistent brand ident
 ```
 * **Clean Player Canvas:** Top bar auto-hides after 3 seconds of mouse inactivity.
 * **Auto-Resume:** Displays resume prompt if previous position exceeds 10 seconds.
-* **Periodic Sync:** Client script posts current position to `/api/progress` every 15 seconds (and upon pause or navigating away).
-* **Audio Fallback Bar:** Provides a 4-hour signed VLC stream link if the browser lacks support for the file's audio track.
+* **Audio & Container Fallback:** Provides a 4-hour signed VLC stream link below the canvas. If the browser throws `MEDIA_ERR_SRC_NOT_SUPPORTED` (common for MKV containers or unsupported AC3/DTS audio codecs), the player renders a clear fallback overlay: *"Your browser cannot decode this video container/codec directly without transcoding. [ Launch in VLC / Stream Externally ]"* alongside a 1-tap *"Copy Stream Link"* button.
 
 ---
 
-### Page 7: Document Reader View (`read.html` - `GET /read/{file_id}`)
+### Page 8: Document Reader View (`read.html` - `GET /read/{file_id}`)
 * **PDF Mode:** Serves file with `Content-Type: application/pdf`, opening in the user's browser viewport.
 * **EPUB Mode:** Direct file download with `Content-Disposition: attachment`.
 
 ---
 
-### Page 8: Management Console (`manage.html` - `GET /manage`)
+### Page 9: Management Console (`manage.html` - `GET /manage`)
 ```text
 +-------------------------------------------------------------------------+
 | Flan Media Server                                           ( ? )   [Avatar]|
@@ -292,28 +323,29 @@ A dedicated top header bar (`.top-header`, 56px) provides persistent brand ident
 
 ---
 
-### Page 9: Software Manual (`manual.html` - `GET /manual`)
+### Page 10: Software Manual (`manual.html` - `GET /manual`)
 ```text
 +-------------------------------------------------------------------------+
-| [ ← Back to Library ]       Flan Software Handbook             Offline  |
+| [ ← Back to Library ]           User Guide                     Offline  |
 +---------------------+---------------------------------------------------+
-| Table of Contents   | 1. MEDIA STORAGE & PLACEMENT                      |
-|                     | Drop video folders in ./media/video and books in  |
-| 1. Media Storage    | ./media/books via SMB, USB drive, or SCP.         |
-| 2. VLC Fallback     | Click [ Rescan All Media ] to index new items.    |
-| 3. Profiles & PINs  |                                                   |
-| 4. CLI Admin Reset  | 2. DIRECT VIDEO PLAYBACK & VLC FALLBACK           |
-| 5. System Specs     | Direct play via HTTP 206 range requests.          |
-|                     | If browser audio fails on AC3/DTS, click the      |
-|                     | [ VLC / Download ] button to stream raw.          |
+| Table of Contents   | 1. ABOUT FLAN                                     |
+|                     | Self-hosted personal media server for streaming   |
+| 1. About Flan       | videos and reading books across home devices.     |
+| 2. Navigation       |                                                   |
+| 3. Watching Videos  | 2. NAVIGATING THE INTERFACE                       |
+| 4. Reading Books    | Top header tools and left rail / mobile tabs.     |
+| 5. Adding Media     |                                                   |
+| 6. Profiles & PINs  | 3. WATCHING VIDEOS & PLAYER CONTROLS              |
+| 7. CLI Admin        | Direct play, VLC fallback, and keyboard keys.     |
 |                     |                                                   |
-|                     | 4. SERVER CLI ADMINISTRATION & FAILSAFE RESET     |
+|                     | 7. COMMAND-LINE ADMINISTRATION (CLI)              |
 |                     | ./flan --reset-admin   [ Copy ]                   |
 +---------------------+---------------------------------------------------+
 ```
 * **Full-Width Canvas:** Sidebar is hidden to prioritize reading width.
-* **Sticky Navigation:** Table of contents links directly to numbered sections.
+* **Sticky Navigation:** Table of contents links directly to 7 numbered user-guide sections.
 * **Terminal Snippets:** Commands include copy buttons.
+* **User-Focused Guidance:** Practical, straightforward explanations for browsing, playback, reading, file storage, profiles, and CLI recovery without internal developer specs or buzzwords.
 
 ---
 
