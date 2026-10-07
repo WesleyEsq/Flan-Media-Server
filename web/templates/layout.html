@@ -1,0 +1,204 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{if .PageTitle}}{{.PageTitle}} - {{end}}Flan Media Server</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  {{block "head" .}}{{end}}
+</head>
+<body>
+  <!-- Accessibility: Skip Link (WCAG 2.4.1) -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- TOP HEADER BAR -->
+  <header id="top-header" class="top-header">
+    <a href="/video" id="brand-title" class="brand-title brand-trigger" title="Go to Catalog" style="text-decoration: none; color: #fff;">
+      <span>Flan Media Server</span>
+    </a>
+
+    <div class="header-tools">
+      <a href="/manual" id="help-btn" class="tool-circle-btn help-trigger-btn" aria-label="Software Manual & About" title="Software Manual & About" style="text-decoration: none; color: #000;">
+        ?
+      </a>
+
+      {{if .CurrentUser}}
+      <button id="user-avatar" type="button" class="avatar-badge user-avatar-trigger" aria-label="My Profile & Settings" aria-haspopup="dialog" title="My Profile & Settings">
+        <img src="/avatars/{{.CurrentUser.ID}}" alt="{{.CurrentUser.Username}}" style="width: 100%; height: 100%; border-radius: 12px; object-fit: cover;" />
+      </button>
+      {{end}}
+    </div>
+  </header>
+
+  <!-- APP CONTAINER -->
+  <div id="app-container" class="app-container">
+    {{if .CurrentUser}}
+    <!-- Left Sidebar (Desktop) / Bottom Navigation Bar (Mobile) -->
+    <aside id="left-sidebar" class="left-sidebar" aria-label="Main Navigation">
+      <nav class="sidebar-nav" aria-label="Media Library">
+        <!-- Search Item -->
+        <a href="/search" id="nav-search-btn" class="sidebar-nav-item {{if eq .ActiveTab "search"}}active{{end}}" title="Search Library (/)" aria-label="Search Library" style="text-decoration: none; color: inherit;">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Search</span>
+        </a>
+
+        <!-- Video Item -->
+        <a href="/video" id="nav-video-btn" class="sidebar-nav-item {{if eq .ActiveTab "video"}}active{{end}}" {{if eq .ActiveTab "video"}}aria-current="page"{{end}} title="Videos & Movies" aria-label="Videos & Movies" style="text-decoration: none; color: inherit;">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="4" ry="4"/>
+              <polygon points="10,8 16,12 10,16" fill="currentColor" stroke="none"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Video</span>
+        </a>
+
+        <!-- Books Item -->
+        <a href="/books" id="nav-books-btn" class="sidebar-nav-item {{if eq .ActiveTab "books"}}active{{end}}" {{if eq .ActiveTab "books"}}aria-current="page"{{end}} title="Books & Publications" aria-label="Books & Publications" style="text-decoration: none; color: inherit;">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Books</span>
+        </a>
+      </nav>
+
+      {{if eq .CurrentUser.Role "admin"}}
+      <div class="sidebar-bottom">
+        <div class="sidebar-divider" aria-hidden="true"></div>
+        <a href="/manage" id="nav-manage-btn" class="sidebar-nav-item sidebar-manage-item {{if eq .ActiveTab "manage"}}active{{end}}" {{if eq .ActiveTab "manage"}}aria-current="page"{{end}} title="Manage Server" aria-label="Manage Server" style="text-decoration: none; color: inherit;">
+          <div class="nav-indicator-pill" aria-hidden="true"></div>
+          <div class="nav-squircle">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+              <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+              <line x1="6" y1="6" x2="6.01" y2="6"/>
+              <line x1="6" y1="18" x2="6.01" y2="18"/>
+            </svg>
+          </div>
+          <span class="nav-rail-label">Manage</span>
+        </a>
+      </div>
+      {{end}}
+    </aside>
+    {{end}}
+
+    <!-- Main Content Canvas -->
+    <main id="main-content" class="main-content {{if eq .ActiveTab "manual"}}manual-mode{{end}}" tabindex="-1">
+      {{template "content" .}}
+    </main>
+  </div>
+
+  {{if .CurrentUser}}
+  <!-- USER PROFILE MODAL -->
+  <dialog id="profile-modal" class="modal-dialog" aria-labelledby="profile-modal-title">
+    <div class="modal-header">
+      <h2 id="profile-modal-title" style="font-size: 1.3rem; font-weight: 800;">My Profile</h2>
+      <button type="button" class="modal-close-btn" aria-label="Close My Profile dialog">✕</button>
+    </div>
+    <form id="profile-form" style="display: flex; flex-direction: column; gap: 14px;">
+      <div>
+        <label class="form-field-label" for="profile-displayname-input">Display Name:</label>
+        <input type="text" id="profile-displayname-input" class="tactile-text-input" value="{{.CurrentUser.DisplayName}}" placeholder="{{.CurrentUser.Username}}" />
+      </div>
+
+      <div>
+        <label class="form-field-label">Avatar Companion:</label>
+        <div class="preset-avatars-grid" role="group" aria-label="Select avatar companion">
+          {{range $icon := (slice "flan" "mascot" "cat" "ghost" "robot" "star")}}
+          <label class="preset-avatar-option" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <input type="radio" name="preset_avatar" value="{{$icon}}" {{if eq $.CurrentUser.AvatarIcon $icon}}checked{{end}} />
+            <img src="/static/assets/avatars/{{$icon}}.svg" alt="{{$icon}}" style="width: 44px; height: 44px; border: 2px solid #000; border-radius: 8px;" />
+          </label>
+          {{end}}
+        </div>
+      </div>
+
+      <div>
+        <label class="form-field-label" for="profile-pin-input">Change PIN (4-6 numeric digits):</label>
+        <input type="password" id="profile-pin-input" class="tactile-text-input" placeholder="Leave blank to keep current" maxlength="6" inputmode="numeric" />
+      </div>
+
+      <div id="profile-feedback" class="avatar-feedback" role="alert" aria-live="polite"></div>
+      <button type="submit" class="tactile-action-btn" style="width: 100%;">Save Changes</button>
+
+      <div style="border-top: 2px solid #eee; padding-top: 12px; margin-top: 4px;">
+        <button type="button" id="profile-logout-btn" class="tactile-action-btn danger" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>Log Out</span>
+        </button>
+      </div>
+    </form>
+  </dialog>
+  {{end}}
+
+  <!-- VLC & EXTERNAL PLAYER STREAMING MODAL -->
+  <dialog id="vlc-stream-modal" class="modal-dialog" aria-labelledby="vlc-modal-title" style="max-width: 520px; width: 92%;">
+    <div class="modal-header" style="background: #e65100; color: #fff;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 1.25rem;">🎬</span>
+        <h3 id="vlc-modal-title" style="margin: 0; font-size: 1.15rem; font-weight: 800;">External Player & VLC Streaming</h3>
+      </div>
+      <button type="button" class="modal-close-btn" style="color: #fff;" aria-label="Close dialog">✕</button>
+    </div>
+    <div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+      <div>
+        <div style="font-size: 0.8rem; color: #666; font-weight: 700; text-transform: uppercase;">Media File</div>
+        <div id="vlc-modal-file-title" style="font-weight: 800; font-size: 1.05rem; margin-top: 2px;"></div>
+      </div>
+
+      <div style="background: #fff8e1; border: 1.5px solid #ffa000; border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; line-height: 1.45; color: #5d4037;">
+        <strong>Browser codec limit?</strong> Some videos contain audio (AC3, 5.1, DTS) browsers cannot play. Streaming in VLC bypasses browser limits with 100% audio compatibility.
+      </div>
+
+      <!-- ACTION 1: LAUNCH VLC APP DIRECTLY -->
+      <a id="vlc-btn-app-launch" href="#" class="tactile-action-btn" style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: #ff6d00; color: #fff; font-size: 0.95rem; font-weight: 800;">
+        <span>🚀</span>
+        <span>Launch in VLC App (vlc://)</span>
+      </a>
+
+      <!-- ACTION 2: DOWNLOAD STREAM PLAYLIST (.M3U) -->
+      <a id="vlc-btn-m3u" href="#" class="tactile-action-btn secondary" style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; font-size: 0.9rem; font-weight: 700;">
+        <span>🎵</span>
+        <span>Open via Stream Playlist (.m3u)</span>
+      </a>
+
+      <!-- ACTION 3: COPY NETWORK STREAM URL -->
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 2px;">
+        <label for="vlc-stream-url-input" style="font-size: 0.8rem; font-weight: 800; color: #444;">VLC Network Stream URL:</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="vlc-stream-url-input" class="tactile-text-input" readonly style="font-family: monospace; font-size: 0.82rem; background: #f5f5f5;" />
+          <button type="button" id="btn-copy-vlc-url" class="tactile-action-btn secondary" style="padding: 0 16px; white-space: nowrap; font-size: 0.85rem; font-weight: 700;">
+            📋 Copy
+          </button>
+        </div>
+        <div style="font-size: 0.76rem; color: #777;">
+          In VLC: Menu → <strong>Media</strong> → <strong>Open Network Stream</strong> (<kbd>Ctrl+N</kbd>) → Paste & Play.
+        </div>
+      </div>
+
+      <!-- ACTION 4: DIRECT FILE DOWNLOAD -->
+      <div style="border-top: 1.5px solid #eee; padding-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.82rem; color: #666;">Need the offline file instead?</span>
+        <a id="vlc-btn-raw-download" href="#" class="tactile-action-btn secondary" style="text-decoration: none; padding: 6px 12px; font-size: 0.8rem;">
+          📥 Download File
+        </a>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="/static/js/app.js"></script>
+  {{block "scripts" .}}{{end}}
+</body>
+</html>
+{{end}}

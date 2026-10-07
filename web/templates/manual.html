@@ -1,0 +1,211 @@
+{{define "content"}}
+<div class="manual-view-container">
+  <!-- TOP BAR -->
+  <header class="manual-top-bar">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <a href="/video" class="manual-back-btn" title="Return to media catalog" style="text-decoration: none; color: inherit;">
+        <span>←</span>
+        <span class="back-text-desktop">Exit Guide</span>
+        <span class="back-text-mobile">Exit</span>
+      </a>
+      <div class="manual-title-cluster">
+        <span class="manual-main-title">User Guide & Reference</span>
+        <span class="manual-version-pill">v0.2.0</span>
+      </div>
+    </div>
+    <div class="manual-offline-tag">
+      100% Offline Documentation
+    </div>
+  </header>
+
+  <!-- TWO-COLUMN LAYOUT -->
+  <div class="manual-layout">
+    <!-- LEFT TABLE OF CONTENTS (Horizontal Scrollable Pills on Mobile) -->
+    <nav class="manual-toc-sidebar" id="manual-toc">
+      <div class="toc-heading">Table of Contents</div>
+      <a class="toc-nav-link active" href="#sec-about">1. About Flan</a>
+      <a class="toc-nav-link" href="#sec-navigation">2. Navigation</a>
+      <a class="toc-nav-link" href="#sec-playback">3. Watching Videos</a>
+      <a class="toc-nav-link" href="#sec-books">4. Reading Books</a>
+      <a class="toc-nav-link" href="#sec-storage">5. Adding Media</a>
+      <a class="toc-nav-link" href="#sec-profiles">6. Profiles & PINs</a>
+      <a class="toc-nav-link" href="#sec-cli">7. CLI Administration</a>
+    </nav>
+
+    <!-- RIGHT READING CONTENT PANE -->
+    <div class="manual-content-pane" id="manual-content-pane">
+      <!-- Section 1 -->
+      <section id="sec-about" class="manual-section-card">
+        <div class="manual-section-header">
+          <span class="manual-section-num">1</span>
+          <h2 class="manual-section-title">About Flan</h2>
+        </div>
+        <p class="manual-body-text">
+          Flan is a self-hosted personal media server designed for streaming video files and reading digital books across devices on your local home network.
+        </p>
+        <p class="manual-body-text">
+          The server runs on your local computer, SBC, or home server (such as an Orange Pi 4 Pro) and delivers content directly to web browsers on your phones, tablets, laptops, and televisions. It operates entirely on your local network with zero external account requirements or third-party cloud services.
+        </p>
+        <p class="manual-body-text">
+          Instead of CPU-intensive transcoding, Flan streams videos natively via standard HTTP 206 Range requests delegating directly to Linux kernel zero-copy file transmission (<code>sendfile</code>).
+        </p>
+      </section>
+
+      <!-- Section 2 -->
+      <section id="sec-navigation" class="manual-section-card">
+        <div class="manual-section-header">
+          <span class="manual-section-num">2</span>
+          <h2 class="manual-section-title">Navigating the Interface</h2>
+        </div>
+        <p class="manual-body-text">
+          The application interface consists of a persistent top header and a main navigation bar:
+        </p>
+        <ul class="manual-body-text" style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+          <li><strong>Top Header:</strong>
+            <ul style="padding-left: 18px; margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+              <li><strong>Brand Title:</strong> Clicking <em>Flan Media Server</em> on the top-left returns you to the main video catalog.</li>
+              <li><strong>Help Button (<kbd class="tactile-kbd">?</kbd>):</strong> Opens this offline user handbook.</li>
+              <li><strong>Profile Avatar:</strong> Opens your account menu to switch profiles, select an avatar companion, update your PIN, or log out.</li>
+            </ul>
+          </li>
+          <li><strong>Navigation Rail:</strong> (Located on the left of desktop screens and at the bottom of mobile screens)
+            <ul style="padding-left: 18px; margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+              <li><strong>Search:</strong> Opens full-canvas search across all video and book titles. Access via rail button or keyboard shortcut <kbd class="tactile-kbd">/</kbd> or <kbd class="tactile-kbd">Ctrl+K</kbd>.</li>
+              <li><strong>Video:</strong> Displays your video collection. Use the top filter buttons to quickly view Movies, Series, or items currently in progress.</li>
+              <li><strong>Books:</strong> Displays your digital reading library. Use the filter buttons to switch between EPUB books, PDF documents, or items currently being read.</li>
+              <li><strong>Manage:</strong> Server administration page for configuring storage folders, scanning media, and managing household accounts (available to administrators).</li>
+            </ul>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Section 3 -->
+      <section id="sec-playback" class="manual-section-card">
+        <div class="manual-section-header">
+          <span class="manual-section-num">3</span>
+          <h2 class="manual-section-title">Watching Videos & Player Controls</h2>
+        </div>
+        <p class="manual-body-text">
+          Click any video card in the catalog to open its detail view and begin playback. Videos that you have started watching appear automatically at the top of the video catalog under <strong>Continue Watching</strong> with a <strong>Resume</strong> button.
+        </p>
+        <p class="manual-body-text">
+          <strong>Browser Playback:</strong> Videos encoded with standard web codecs (such as H.264 video with AAC audio, or WebM) play directly inside your web browser.
+        </p>
+        <p class="manual-body-text">
+          <strong>When to use VLC / External Player:</strong> Some video files use audio or video formats that web browsers cannot play natively (for example, multi-channel AC3, EAC3, or DTS audio). If a video plays without sound or will not start in your browser, click the <strong>[ VLC / External Player ↗ ]</strong> button. This opens the stream directly in an external video player such as VLC Media Player, downloads a <code>.m3u</code> stream playlist, or lets you copy the direct network stream URL.
+        </p>
+        <div style="background: #faf7fd; border: 1.5px solid #000; border-radius: 6px; padding: 14px 16px;">
+          <div style="font-weight: 800; font-size: 0.95rem; margin-bottom: 8px;">Video Player Keyboard Shortcuts</div>
+          <ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; line-height: 1.5;">
+            <li><kbd class="tactile-kbd">Space</kbd> or <kbd class="tactile-kbd">K</kbd> : Play / Pause</li>
+            <li><kbd class="tactile-kbd">Left Arrow</kbd> / <kbd class="tactile-kbd">Right Arrow</kbd> : Jump backward / forward 10 seconds</li>
+            <li><kbd class="tactile-kbd">Up Arrow</kbd> / <kbd class="tactile-kbd">Down Arrow</kbd> : Raise / lower volume</li>
+            <li><kbd class="tactile-kbd">F</kbd> : Enter or exit full screen</li>
+            <li><kbd class="tactile-kbd">M</kbd> : Mute or unmute audio</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Section 4 -->
+      <section id="sec-books" class="manual-section-card">
+        <div class="manual-section-header">
+          <span class="manual-section-num">4</span>
+          <h2 class="manual-section-title">Reading & Accessing Books</h2>
+        </div>
+        <p class="manual-body-text">
+          The Books section contains digital publications organized into two formats:
+        </p>
+        <ul class="manual-body-text" style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+          <li><strong>PDF Documents:</strong> Selecting a PDF opens it in a browser viewing tab, allowing you to read, zoom, and navigate pages using your browser's built-in PDF viewer.</li>
+          <li><strong>EPUB Books:</strong> Selecting an EPUB downloads the book file directly to your device so you can open it in your preferred e-reader application (such as Apple Books, Moon+ Reader, or Calibre).</li>
+        </ul>
+        <p class="manual-body-text">
+          Books that you have opened recently are listed at the top of the books catalog under <strong>Jump Back In</strong> for quick access.
+        </p>
+      </section>
+
+      <!-- Section 5 -->
+      <section id="sec-storage" class="manual-section-card">
+        <div class="manual-section-header">
+          <span class="manual-section-num">5</span>
+          <h2 class="manual-section-title">Managing Files & Adding Media</h2>
+        </div>
+        <p class="manual-body-text">
+          Flan organizes your library by reading media files stored in its configured media directories on the host computer or attached USB storage:
+        </p>
+        <div class="manual-code-box">
+          <div class="manual-code-header">
+            <span class="manual-code-lang">DIRECTORY LAYOUT</span>
+            <button class="manual-copy-btn" data-copy="./media/video/
+./media/books/">Copy</button>
+          </div>
+          <pre class="manual-code-pre"><code>./media/video/&lt;Movie Title&gt;/movie.mp4
+./media/video/&lt;Movie Title&gt;/poster.jpg
+./media/video/&lt;Series Title&gt;/S01E01.mp4
+./media/video/&lt;Series Title&gt;/poster.jpg
+./media/books/&lt;Book Title&gt;.epub
+./media/books/&lt;Document Title&gt;.pdf</code></pre>
+        </div>
+        <ul class="manual-body-text" style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+          <li><strong>Video Folders:</strong> Create a folder for each movie or show inside <code>./media/video/</code>. To set custom cover art, place an image file named <code>poster.jpg</code> inside that folder.</li>
+          <li><strong>Books:</strong> Place <code>.epub</code> and <code>.pdf</code> files directly into <code>./media/books/</code>.</li>
+          <li><strong>Storage Safety (.flan-keep):</strong> Flan verifies <code>.flan-keep</code> marker files inside each storage folder to protect your catalog from silent drive disconnections.</li>
+        </ul>
+        <p class="manual-body-text">
+          <strong>Updating the Library:</strong> After copying, moving, or renaming media files on disk, go to <strong>Manage Server</strong> and click <strong>[ Rescan All Media ]</strong>. Flan will inspect the directories and update your catalog with new and modified items.
+        </p>
+      </section>
+
+      <!-- Section 6 -->
+      <section id="sec-profiles" class="manual-section-card">
+        <div class="manual-section-header">
+          <span class="manual-section-num">6</span>
+          <h2 class="manual-section-title">Household Profiles & PINs</h2>
+        </div>
+        <p class="manual-body-text">
+          Flan supports multiple user profiles on a single server, allowing each family member to maintain their own watch progress, continue watching shelf, and reading records.
+        </p>
+        <ul class="manual-body-text" style="padding-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+          <li><strong>Switching Profiles:</strong> Click your avatar in the top-right header, select your account from the user grid, and enter your numeric PIN.</li>
+          <li><strong>Updating Your Profile:</strong> Open the profile menu to change your display name, choose a new companion avatar preset, or upload a custom avatar photo.</li>
+          <li><strong>Changing Your PIN:</strong> Enter your current PIN and choose a new 4-to-6 digit numeric PIN in your profile settings.</li>
+          <li><strong>Managing Accounts:</strong> Server administrators can add new household members, update names, or reset forgotten PINs from the <strong>Manage Server</strong> page.</li>
+        </ul>
+      </section>
+
+      <!-- Section 7 -->
+      <section id="sec-cli" class="manual-section-card">
+        <div class="manual-section-header">
+          <span class="manual-section-num">7</span>
+          <h2 class="manual-section-title">Command-Line Administration (CLI)</h2>
+        </div>
+        <p class="manual-body-text">
+          Flan includes terminal commands on the host system for administrative tasks and server configuration:
+        </p>
+        <div class="manual-code-box">
+          <div class="manual-code-header">
+            <span class="manual-code-lang">ADMINISTRATOR PIN RESET</span>
+            <button class="manual-copy-btn" data-copy="./flan --reset-admin">Copy</button>
+          </div>
+          <pre class="manual-code-pre"><code># Reset administrator PIN from the host terminal
+./flan --reset-admin</code></pre>
+        </div>
+        <p class="manual-body-text">
+          If the administrator PIN is lost, run this command in a terminal on the server host machine. The program will prompt you to enter a new administrator PIN.
+        </p>
+        <div class="manual-code-box">
+          <div class="manual-code-header">
+            <span class="manual-code-lang">CUSTOM PORT CONFIGURATION</span>
+            <button class="manual-copy-btn" data-copy="PORT=8080 ./flan">Copy</button>
+          </div>
+          <pre class="manual-code-pre"><code># Start server on a specific network port (default: 4907)
+PORT=8080 ./flan</code></pre>
+        </div>
+        <p class="manual-body-text">
+          By default, Flan listens on port <code>4907</code>. Setting the <code>PORT</code> environment variable lets you configure the network port to match your homelab setup.
+        </p>
+      </section>
+    </div>
+  </div>
+</div>
+{{end}}

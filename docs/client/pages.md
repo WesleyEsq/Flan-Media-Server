@@ -1,13 +1,14 @@
 # Web Client Pages & Template Specifications
 
-Layouts, wireframes, and interaction behaviors for the 9 server-rendered HTML templates in Flan Media Server.
+Layouts, wireframes, and interaction behaviors for the 11 server-rendered HTML templates in Flan Media Server.
 
 ---
 
 ## 1. Template Inventory
 
-A dedicated top header bar (`.top-header`, 56px) provides persistent brand identity and utility controls (`?` manual button and user profile avatar) across all authenticated views. Platform navigation is cleanly consolidated into the left sidebar rail on desktop (bottom rail on mobile).
+A dedicated top header bar (`.top-header`, 70px) provides persistent brand identity and utility controls (`?` manual button and user profile avatar) across all authenticated views. Platform navigation is cleanly consolidated into the left sidebar rail on desktop (64px bottom rail on mobile).
 
+* **`setup.html` (`GET /setup`):** First-boot administrator initialization screen requiring the 6-character terminal bootstrap setup token.
 * **`login.html` (`GET /login`):** Focused tactile keypad with 1-tap household profile avatar buttons, numeric PIN input, and instant access button.
 * **`video.html` (`GET /` or `GET /video`):** Video catalog grid with Continue Watching top shelf, quick category chips, and media cards.
 * **`search.html` (`GET /search`):** Full-canvas interactive search page with real-time query matching across videos and books, category/status filter chips, and rich media cards.

@@ -40,6 +40,10 @@ The following pragmas are executed on every connection initialization:
   Instructs queries to wait up to 5 seconds for write locks to clear before failing.
 * `PRAGMA foreign_keys = ON;`
   Enforces relational foreign key constraints and cascading deletes.
+* `PRAGMA data_version;`
+  Queried dynamically for instant, zero-overhead change detection between writer and reader pools or external CLI processes (`--reset-admin`). Returns an in-memory integer that increments on every committed write transaction without disk I/O.
+* `PRAGMA quick_check;`
+  Executed at server startup across database handles to verify B-tree and WAL structural integrity without full table scans.
 
 ---
 

@@ -1,0 +1,27 @@
+{{define "content"}}
+<div class="read-view-container" style="max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; height: calc(100vh - 120px);">
+  <div class="watch-header">
+    <a href="/books/{{.Book.ID}}" class="tactile-back-btn">
+      ← Back to {{.Book.Title}}
+    </a>
+    <h1 class="watch-header-title">{{.File.DisplayTitle}}</h1>
+  </div>
+
+  <div class="reader-wrapper" style="flex: 1; border: 2.5px solid #000; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 3px 3px 0 #000;">
+    {{if eq .File.Format "pdf"}}
+    <iframe src="/stream/book/{{.File.ID}}" style="width: 100%; height: 100%; border: none;"></iframe>
+    {{else}}
+    <div style="padding: 60px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+      <div style="font-size: 3rem; margin-bottom: 12px;">📖</div>
+      <h2 style="font-size: 1.3rem; font-weight: 800; margin: 0 0 8px 0;">EPUB Digital Book</h2>
+      <p style="color: var(--text-muted); max-width: 440px; margin: 0 0 16px 0;">
+        EPUB files can be read with your preferred ereader application (such as Apple Books, Calibre, or KOReader).
+      </p>
+      <a href="/download/book/{{.File.ID}}" class="tactile-access-btn" style="text-decoration: none; padding: 12px 24px; font-size: 1rem;">
+        Download EPUB File ↓
+      </a>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}

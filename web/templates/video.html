@@ -1,0 +1,76 @@
+{{define "content"}}
+<div class="catalog-view-container">
+  {{if .ContinueWatching}}
+  <!-- CONTINUE WATCHING TOP SHELF -->
+  <section class="continue-shelf" aria-labelledby="continue-shelf-title">
+    <div class="shelf-header">
+      <h2 id="continue-shelf-title" class="shelf-title">Continue Watching</h2>
+    </div>
+    <div class="shelf-cards-scroll">
+      {{range .ContinueWatching}}
+      <article class="shelf-card">
+        <a href="/watch/{{.FileID}}" class="shelf-card-link" style="text-decoration: none; color: inherit; display: flex; gap: 12px; align-items: center;">
+          <div class="shelf-card-thumb" style="width: 80px; height: 50px; background: #2c2e3e; border: 2px solid #000; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.2rem;">
+            ▶
+          </div>
+          <div class="shelf-card-info" style="flex: 1;">
+            <h3 class="shelf-card-title" style="font-size: 0.95rem; font-weight: 800; margin: 0;">{{.Title}}</h3>
+            <span class="shelf-card-subtitle" style="font-size: 0.8rem; color: var(--text-muted);">{{.Subtitle}}</span>
+            <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+              <span class="badge" style="background: var(--brand-active); color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: 700;">In Progress</span>
+              {{if .FormattedPos}}<span style="font-size: 0.75rem; font-weight: 700;">{{.FormattedPos}}</span>{{end}}
+            </div>
+          </div>
+          <span class="tactile-action-btn" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;">Resume →</span>
+        </a>
+      </article>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+
+  <!-- CATALOG HEADER BAR & CATEGORY CHIPS -->
+  <div class="catalog-header-bar">
+    <div class="catalog-title-wrap">
+      <h2 class="catalog-title">Videos & Movies</h2>
+      <span class="catalog-count-badge">{{len .Videos}} items</span>
+    </div>
+    <div class="catalog-category-chips">
+      <a href="/video?type=all" class="cat-chip {{if or (eq .SelectedType "all") (eq .SelectedType "")}}active{{end}}">All</a>
+      <a href="/video?type=movie" class="cat-chip {{if eq .SelectedType "movie"}}active{{end}}">Movies</a>
+      <a href="/video?type=series" class="cat-chip {{if eq .SelectedType "series"}}active{{end}}">Series</a>
+    </div>
+  </div>
+
+  <!-- MEDIA GRID (7 Columns Max Hard Limit) -->
+  <section class="media-grid" aria-label="Video Catalog">
+    {{range .Videos}}
+    <article class="card card--video">
+      <a href="/video/{{.ID}}" class="card__link" title="{{.Title}}">
+        <div class="card__poster-wrap">
+          {{if .CoverPath}}
+          <img src="/covers/video/{{.ID}}" alt="{{.Title}}" class="card__poster" loading="lazy">
+          {{else}}
+          <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #eae8f2; font-size: 2.2rem; font-weight: 900;">
+            🎬
+          </div>
+          {{end}}
+          <span class="card-format-badge" style="position: absolute; top: 6px; right: 6px; background: #000; color: #fff; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; text-transform: uppercase;">
+            {{.VideoType}}
+          </span>
+        </div>
+        <div class="card__footer-band">
+          <h3 class="card__title">{{.Title}}</h3>
+          <span class="card__subtitle">{{if .ReleaseYear}}{{.ReleaseYear}}{{else}}{{.VideoType}}{{end}}</span>
+        </div>
+      </a>
+    </article>
+    {{else}}
+    <div style="grid-column: 1 / -1; padding: 40px; text-align: center; background: #fff; border: 2px solid #000; border-radius: 8px;">
+      <h3>No videos found</h3>
+      <p style="color: var(--text-muted); margin-top: 6px;">Add media storage folders and scan them in <a href="/manage" style="color: var(--brand-purple); font-weight: 700;">Manage Server</a>.</p>
+    </div>
+    {{end}}
+  </section>
+</div>
+{{end}}

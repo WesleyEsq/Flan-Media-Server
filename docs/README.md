@@ -33,7 +33,7 @@ If you are deploying Flan on a home server, VPS, or single-board computer:
 If you are editing templates, CSS styles, or frontend interactions:
 
 1. [Design System Foundations](client/design-system.md): Layout structure, color palette, typography, and CSS variables.
-2. [Page Templates & Wireframes](client/pages.md): Specifications for all 9 application views.
+2. [Page Templates & Wireframes](client/pages.md): Specifications for all 11 application views.
 3. [Component Specifications](client/components.md): Modals, cards, form inputs, and notification banners.
 4. [Accessibility Guide](client/accessibility.md): WCAG 2.1 AA compliance, keyboard navigation, and focus management.
 5. [Mobile Responsiveness](client/responsiveness.md): Screen breakpoints and mobile bottom navigation behavior.
@@ -61,7 +61,7 @@ If you are editing templates, CSS styles, or frontend interactions:
 
 * **[Design System](client/design-system.md):** Core design tokens, high-contrast palette, typography, and CSS rules.
 * **[Component Specifications](client/components.md):** Structural markup and behavioral specifications for UI components.
-* **[Page Templates](client/pages.md):** Wireframes and layout specifications for all 9 HTML views.
+* **[Page Templates](client/pages.md):** Wireframes and layout specifications for all 11 HTML views.
 * **[Accessibility Guide](client/accessibility.md):** Standards for screen readers, keyboard-only operation, and contrast compliance.
 * **[Mobile Responsiveness](client/responsiveness.md):** Viewport adaptation rules and bottom navigation transformations.
 

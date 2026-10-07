@@ -14,6 +14,8 @@
   --btn-inactive:     #ece8f4; /* Inactive buttons */
   
   /* High-Contrast Neo-Tactile Borders */
+  --border-black:     #000000;
+  --border-focus:     var(--active-purple);
   --border-thick:     2.5px solid #000000;
   --border-structural:3px solid #000000;
   --border-radius-sm: 6px;
@@ -1121,7 +1123,8 @@ body {
   margin-left: 12px;
 }
 
-/* The Tactile Card */
+/* The Tactile Card (Supporting .card and .media-card) */
+.card,
 .media-card {
   aspect-ratio: 3 / 4.4;
   border-radius: var(--border-radius-md);
@@ -1134,21 +1137,40 @@ body {
   position: relative;
   text-decoration: none;
   color: inherit;
-  transition: transform 0.05s ease;
+  transition: transform 0.05s ease, box-shadow 0.1s ease;
+  box-shadow: 2px 2px 0px #000000;
+  width: 100%;
+  max-width: 100%;
 }
 
+.card:active,
 .media-card:active {
   transform: translateY(2px);
 }
 
+.card:hover,
 .media-card:hover {
   box-shadow: 4px 4px 0px #000000;
 }
 
-/* Upper Poster Area (75% height) */
+.card__link {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+}
+
+/* Upper Poster Area (75% height, Strict Bounds & Overflow Prevention) */
+.card__poster-wrap,
 .card-poster {
   flex: 1;
-  background-color: #ffffff;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background-color: #eae8f2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1156,10 +1178,15 @@ body {
   position: relative;
 }
 
+.card__poster,
+.card__poster-wrap img,
 .card-poster img {
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .card-poster-placeholder {
@@ -1194,7 +1221,8 @@ body {
   text-transform: uppercase;
 }
 
-/* Lower Purple Footer Band (25% height, Image 3) */
+/* Lower Purple Footer Band (25% height) */
+.card__footer-band,
 .card-footer-band {
   height: 48px;
   background-color: var(--active-purple);
@@ -1205,8 +1233,10 @@ body {
   padding: 4px 10px;
   color: var(--text-white);
   flex-shrink: 0;
+  overflow: hidden;
 }
 
+.card__title,
 .card-title {
   font-size: 0.92rem;
   font-weight: 700;
@@ -1215,6 +1245,8 @@ body {
   text-overflow: ellipsis;
   position: relative;
   display: block;
+  color: var(--text-white);
+  margin: 0;
 }
 
 .card-title .title-text {
@@ -1243,6 +1275,7 @@ body {
   }
 }
 
+.card__subtitle,
 .card-subtitle {
   font-size: 0.78rem;
   font-weight: 600;
@@ -1449,6 +1482,46 @@ body {
   margin: 0;
   text-transform: capitalize;
   letter-spacing: -0.5px;
+}
+
+.tactile-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: auto;
+  max-width: max-content;
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 16px;
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: var(--border-radius-md, 6px);
+  color: #111111;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 2px 2px 0 #000000;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.1s ease;
+}
+
+.tactile-back-btn:hover {
+  background: #f4f2f8;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 #000000;
+  color: #000000;
+}
+
+.tactile-back-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 #000000;
+}
+
+.tactile-back-btn:focus-visible {
+  outline: 3px solid #000000;
+  outline-offset: 2px;
 }
 
 .tactile-switch-btn {
@@ -2137,6 +2210,49 @@ dialog.modal-dialog::backdrop {
 .tactile-text-input:focus {
   border-color: var(--active-purple);
   box-shadow: 0 0 0 2px var(--active-purple);
+}
+
+/* Tactile Select Dropdown */
+.tactile-select-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.tactile-select,
+.tactile-select-wrap select {
+  width: 100%;
+  height: 44px;
+  border: var(--border-thick);
+  border-radius: var(--border-radius-sm);
+  padding: 8px 36px 8px 12px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+  box-shadow: 1px 1px 0 #000000;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tactile-select:focus,
+.tactile-select-wrap select:focus {
+  border-color: var(--active-purple);
+  box-shadow: 0 0 0 2px var(--active-purple);
+}
+
+.tactile-select:hover,
+.tactile-select-wrap select:hover {
+  background-color: #faf8fd;
 }
 
 /* Danger Button (Log Out) */
@@ -3116,20 +3232,26 @@ dialog.modal-dialog::backdrop {
 /* Media Edit & Supervised Ingestion Styles */
 .tactile-textarea {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 12px;
   font-family: inherit;
   font-size: 0.95rem;
-  color: var(--text-primary);
+  color: var(--text-dark);
   background: #ffffff;
-  border: 2px solid var(--border-black);
-  border-radius: 6px;
+  border: var(--border-thick);
+  border-radius: var(--border-radius-sm);
   resize: vertical;
+  min-height: 85px;
   box-sizing: border-box;
+  outline: none;
+  line-height: 1.45;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.tactile-textarea:focus,
 .tactile-textarea:focus-visible {
-  outline: 3px solid var(--border-focus);
-  outline-offset: 2px;
+  border-color: var(--active-purple);
+  box-shadow: 0 0 0 2px var(--active-purple);
+  outline: none;
 }
 
 .edit-files-table-wrap {
@@ -3147,6 +3269,75 @@ dialog.modal-dialog::backdrop {
 
 .ingest-item-card:hover {
   border-color: var(--brand-active) !important;
+}
+
+/* Media Cover Art Management & Overlay */
+.detail-poster-wrap {
+  position: relative;
+}
+
+.detail-poster-wrap:hover .change-cover-overlay,
+.detail-poster-wrap:focus-within .change-cover-overlay {
+  opacity: 1;
+}
+
+.change-cover-overlay {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  padding: 6px 8px;
+  background: rgba(16, 16, 21, 0.88);
+  color: #ffffff;
+  border: 1.5px solid #000000;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  backdrop-filter: blur(4px);
+  user-select: none;
+}
+
+.change-cover-overlay:hover {
+  background: var(--active-purple);
+}
+
+.detail-poster-wrap img {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.edit-cover-preview-box {
+  width: 90px;
+  height: 130px;
+  max-width: 90px;
+  max-height: 130px;
+  flex-shrink: 0;
+  border: 2px solid #000000;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #eae8f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 2px 2px 0 #000000;
+}
+
+.edit-cover-preview-box img {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 /* Ingestion Pipeline Wizard Styles */
@@ -3394,4 +3585,342 @@ dialog.modal-dialog::backdrop {
   .card-footer-band {
     height: 60px;
   }
+}
+
+/* =========================================================================
+   TACTILE MEDIA PLAYER & FULLSCREEN SCALING
+   ========================================================================= */
+.watch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.watch-header-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-nav-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.player-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 80vh;
+  background: #000000;
+  border: 3px solid #000000;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 4px 4px 0 #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ensure plyr and html5 video element expand to fill container */
+.player-wrapper .plyr,
+.plyr--video {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  background: #000000 !important;
+}
+
+.player-wrapper .plyr__video-wrapper,
+.plyr__video-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #000000 !important;
+}
+
+.player-wrapper video,
+.plyr video,
+.plyr__video-wrapper video {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  margin: auto !important;
+}
+
+/* Fullscreen mode scaling: always scale low-resolution content to fill screen bounds */
+:fullscreen .plyr,
+:-webkit-full-screen .plyr,
+.plyr:fullscreen,
+.plyr--fullscreen-active,
+.plyr--fullscreen-fallback {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  background: #000000 !important;
+}
+
+:fullscreen video,
+:-webkit-full-screen video,
+.plyr:fullscreen video,
+.plyr--fullscreen-active video,
+.plyr--fullscreen-fallback video {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  object-fit: contain !important;
+}
+
+/* Plyr Theme Overrides */
+:root {
+  --plyr-color-main: #ff6b4a;
+  --plyr-video-control-color: #ffffff;
+  --plyr-video-control-color-hover: #ff6b4a;
+  --plyr-control-radius: 6px;
+  --plyr-range-thumb-height: 14px;
+  --plyr-range-thumb-width: 14px;
+  --plyr-range-thumb-background: #ff6b4a;
+  --plyr-range-track-height: 6px;
+  --plyr-video-controls-background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.88) 100%);
+}
+
+.plyr__controls {
+  padding: 12px 18px !important;
+  gap: 6px;
+}
+
+.plyr__control {
+  border-radius: 6px !important;
+  transition: transform 0.1s ease, background 0.1s ease;
+}
+
+.plyr__control:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.plyr__control:active {
+  transform: scale(0.92);
+}
+
+/* =========================================================================
+   EPISODE SORTING TOOLBAR
+   ========================================================================= */
+.episodes-sort-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 8px;
+  padding: 10px 16px;
+  box-shadow: 2px 2px 0 #000000;
+}
+
+.sort-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sort-select {
+  padding: 6px 12px;
+  border: 2px solid #000000;
+  border-radius: 6px;
+  font-weight: 700;
+  background: #fbfaff;
+  cursor: pointer;
+  outline: none;
+}
+
+.sort-select:focus-visible {
+  outline: 2px solid var(--brand-purple);
+}
+
+/* =========================================================================
+   SERVER FILE EXPLORER MODAL
+   ========================================================================= */
+.fs-explorer-dialog {
+  width: 92%;
+  max-width: 680px;
+  background: #ffffff;
+  border: 3px solid #000000;
+  border-radius: 12px;
+  box-shadow: 6px 6px 0 #000000;
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  overflow: hidden;
+}
+
+.fs-explorer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: var(--brand-purple);
+  color: #ffffff;
+  border-bottom: 2.5px solid #000000;
+}
+
+.fs-explorer-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.fs-mounts-section {
+  padding: 12px 18px;
+  background: #fdf8eb;
+  border-bottom: 2px solid #000000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fs-mounts-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #665000;
+}
+
+.fs-mounts-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fs-mount-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 1.5px 1.5px 0 #000000;
+  transition: transform 0.08s ease, background 0.1s ease;
+}
+
+.fs-mount-pill:hover {
+  background: #fff0c7;
+  transform: translateY(-1px);
+}
+
+.fs-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px 18px;
+  background: #f4f2f8;
+  border-bottom: 2px solid #000000;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.fs-crumb-btn {
+  background: transparent;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  color: var(--brand-purple);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.fs-crumb-btn:hover {
+  background: rgba(0,0,0,0.06);
+  text-decoration: underline;
+}
+
+.fs-entries-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 220px;
+}
+
+.fs-folder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s ease;
+}
+
+.fs-folder-item:hover {
+  background: #f0edff;
+  border-color: #d1c4e9;
+}
+
+.fs-folder-item.selected {
+  background: #e0d8ff;
+  border-color: #000000;
+  font-weight: 800;
+}
+
+.fs-folder-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.fs-explorer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-top: 2.5px solid #000000;
+  background: #fbfaff;
+  gap: 12px;
+}
+
+.fs-selected-path {
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: #ffffff;
+  padding: 6px 10px;
+  border: 1.5px solid #000000;
+  border-radius: 6px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

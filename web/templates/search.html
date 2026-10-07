@@ -1,0 +1,31 @@
+{{define "content"}}
+<div class="search-page-container" style="max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+  <header class="search-page-header">
+    <div class="search-page-input-wrap" style="display: flex; align-items: center; background: #fff; border: 2.5px solid #000; border-radius: 12px; padding: 6px 14px; gap: 10px; box-shadow: 3px 3px 0 #000;">
+      <svg class="search-page-input-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+      <input id="search-page-input" class="search-page-input" type="text" placeholder="Search across videos, movies, series, books..." autocomplete="off" autofocus style="flex: 1; border: none; outline: none; font-size: 1.15rem; font-weight: 700; background: transparent;" />
+      <button id="search-page-clear-btn" class="search-page-clear-btn" title="Clear Search" style="border: none; background: none; font-size: 1.2rem; cursor: pointer; padding: 4px 8px;">✕</button>
+    </div>
+
+    <div class="search-page-controls-row" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+      <div id="search-meta-status" style="font-size: 0.9rem; font-weight: 700; color: var(--text-muted);">
+        Enter search terms above
+      </div>
+    </div>
+  </header>
+
+  <section class="search-page-results-section">
+    <!-- Initial prompt state shown before typing -->
+    <div id="search-prompt-card" class="search-prompt-card" style="padding: 60px 20px; text-align: center; background: #fff; border: 2.5px solid #000; border-radius: 12px; box-shadow: 3px 3px 0 #000;">
+      <div style="font-size: 3rem; margin-bottom: 12px;">🔍</div>
+      <h2 style="font-size: 1.4rem; font-weight: 800; margin: 0 0 8px 0;">Search Your Library</h2>
+      <p style="color: var(--text-muted); font-size: 0.95rem; max-width: 480px; margin: 0 auto;">
+        Type any title, director, author, or keyword to find items across your video and book collections.
+      </p>
+    </div>
+
+    <!-- Results Media Grid -->
+    <section class="media-grid" id="search-media-grid" aria-label="Search Results"></section>
+  </section>
+</div>
+{{end}}

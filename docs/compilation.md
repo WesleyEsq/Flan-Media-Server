@@ -99,6 +99,8 @@ Restart=always
 RestartSec=5s
 
 # Environment configuration
+Environment="PORT=4907"
+Environment="DATA_DIR=/var/lib/flan/data"
 Environment="DB_PATH=/var/lib/flan/data/flan.db"
 Environment="MEDIA_DIR=/var/lib/flan/media"
 

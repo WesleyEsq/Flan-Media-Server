@@ -47,7 +47,7 @@ Flan-Media-Server/
 │       └── csrf_filter.go        # Cross-origin protection & origin validation
 ├── web/                          # Embedded presentation assets (templates and static files)
 │   ├── embed.go                  # Package web: exports embedded filesystem (embed.FS)
-│   ├── templates/                # 10 Server-rendered Go HTML templates (login, video, search, books, manage, etc.)
+│   ├── templates/                # 11 Server-rendered Go HTML templates (login, setup, video, books, search, etc.)
 │   └── static/                   # CSS, modular JS, bundled SVG avatars, Plyr video player
 ├── data/                         # Persistent runtime directory (flan.db, data/covers/, data/avatars/)
 ├── media/                        # Default media storage directories (./media/video, ./media/books)

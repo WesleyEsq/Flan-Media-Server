@@ -1,0 +1,34 @@
+{{define "content"}}
+<div class="login-pad-viewport">
+  <div class="login-pad-card" style="max-width: 440px;">
+    <div class="login-pad-header">
+      <h1 class="login-pad-title">Initial Server Setup</h1>
+      <p class="login-pad-subtitle">Welcome to Flan Media Server</p>
+    </div>
+
+    <div class="info-note-box" style="background: #eef2ff; border: 2px solid #000; border-radius: 6px; padding: 10px; font-size: 0.85rem; margin-bottom: 14px;">
+      <strong>Terminal Bootstrap Token:</strong> A 6-character bootstrap token was generated and printed to the server terminal / systemd journal on boot.
+    </div>
+
+    <form id="setup-form" style="display: flex; flex-direction: column; gap: 14px;">
+      <div>
+        <label class="form-field-label" for="setup-token-input">Bootstrap Setup Token:</label>
+        <input type="text" id="setup-token-input" class="tactile-text-input" placeholder="e.g. abc123" required autocomplete="off" />
+      </div>
+
+      <div>
+        <label class="form-field-label" for="setup-username-input">Administrator Username:</label>
+        <input type="text" id="setup-username-input" class="tactile-text-input" placeholder="e.g. admin" required autocomplete="username" />
+      </div>
+
+      <div>
+        <label class="form-field-label" for="setup-pin-input">Administrator PIN (4 to 6 numeric digits):</label>
+        <input type="password" id="setup-pin-input" class="tactile-text-input" placeholder="••••" maxlength="6" inputmode="numeric" required autocomplete="new-password" />
+      </div>
+
+      <div id="setup-feedback" class="avatar-feedback" role="alert" aria-live="assertive"></div>
+      <button type="submit" class="tactile-access-btn" style="margin-top: 6px;">Create Administrator & Initialize Server →</button>
+    </form>
+  </div>
+</div>
+{{end}}
